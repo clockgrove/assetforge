@@ -18,6 +18,8 @@ import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from 
 import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
 import { loadRoutes } from "./routes.ts";
+import { runMaterials } from "./material/pipeline.ts";
+import type { MaterialDerivation } from "./material/pipeline.ts";
 import { resolveStyle } from "./style.ts";
 import { describeOperations, parseRecipe, transformFiles } from "./transform/run.ts";
 import type { TransformFilesOptions } from "./transform/run.ts";
@@ -682,7 +684,64 @@ Lists every operation with its summary, parameters and engines.`,
   },
 };
 
+const materialsCommand: Command = {
+  name: "materials",
+  summary: "derive and check material maps, native renditions and target lit previews",
+  usage: `Usage: assetforge materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
+                           --derivation <derivation.json> --out <directory>
+                           [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
+                           [--provider-script <module>] [--json]
+
+Derives the channels requested by style.materials, checks alignment and temporal stability,
+writes native-resolution renditions, runs target compression and dusk-rain/night previews,
+and judges the flat and lit images with vision QA. Rejected materials exit 5 and remain
+unapproved. Model calls reserve against --cap. See docs/materials.md.`,
+  options: {
+    albedo: { type: "string" },
+    spec: { type: "string" },
+    profile: { type: "string" },
+    derivation: { type: "string" },
+    out: { type: "string" },
+    cap: { type: "string" },
+    routes: { type: "string" },
+    "provider-script": { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const files = required(values, ["albedo", "spec", "profile", "derivation", "out"]);
+    const spec = await readJson<AssetSpec>(files["spec"] as string);
+    const profile = await readJson<TargetProfile>(files["profile"] as string);
+    const derivation = await readJson<MaterialDerivation>(files["derivation"] as string);
+    const routes = await loadRoutes(values["routes"] as string | undefined);
+    routes["material-qa"] ??= routes.vision;
+    const { provider, name } = await providerFor(values);
+    const call = new Caller({
+      provider,
+      providerName: name,
+      budget: new Budget(numberOption(values, "cap", DEFAULT_CAP_USD)),
+      routes,
+    });
+    const result = await runMaterials({
+      albedoPath: resolve(files["albedo"] as string),
+      spec: spec.value,
+      profile: profile.value,
+      derivation: derivation.value,
+      baseDir: derivation.dir,
+      profileDir: profile.dir,
+      outDir: resolve(files["out"] as string),
+      call,
+    });
+    const fields = { ...result };
+    const human = `materials ${result.passed ? "passed QA" : "failed QA"}: ${result.reportPath}`;
+    if (!result.passed)
+      return refusal("qa_found_nothing", "material maps failed QA", fields, human);
+    return { exitCode: 0, fields, human };
+  },
+};
+
 const commands: Command[] = [
+  materialsCommand,
   stageCommand,
   pickCommand,
   importCommand,

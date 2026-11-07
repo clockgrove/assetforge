@@ -129,6 +129,7 @@ function subjectLine(spec: AssetSpec, bible: StyleBible): string {
 }
 
 const PRESENTATION =
+  "Paint albedo under a neutral key light, without baked directional shadows, highlights or emissive glow. " +
   "One single subject, whole and uncropped, centred on a plain flat uniform background, no text, no border, no shadow on the ground.";
 
 /** The key pose (or a still): a text-and-reference generation. */

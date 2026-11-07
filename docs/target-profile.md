@@ -95,3 +95,7 @@ This example follows the public manifest shape in Clockgrove's `packages/assets/
 - **Review.** Assetforge always sets the field at `review.path` to `review.pending` and never writes another value there.
 - **Validator.** Run in the target directory after the pick is written, with `{{manifest}}` and `{{media}}` replaced by the written paths. A non-zero exit is reported as a rejection.
 - **Media.** Each output declares its own media type and extension; `.gitattributes` in the target decides what Git LFS stores.
+
+## Relightable materials
+
+`style.materials` opts a world into normal, height/depth, emissive, roughness/wetness and wind/flow channels, native 1×/2× (optional 4×) renditions, temporal bounds, target compression and lit-preview commands. Per-asset derivation sources stay separate from the world profile. See [materials.md](materials.md) for the `assetforge materials` command, encoding, provenance and target command contracts.
