@@ -179,6 +179,36 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
 - **No private art in the public repository.** Test fixtures are synthetic. A game's style bible stays in the game's repository.
 - **Keys come from the environment only.** The cost cap applies on every path, including agent use.
 
+### 5.11 Media transformation
+
+Owner direction (2026-11-07): transformation is a core layer of its own, not a side effect of generation. Every operation works the same on generated, imported and hand-made media, so an author can fix, convert or recombine an asset without regenerating it. Generators, the sheet import (§5.2) and hand-off all use this layer.
+
+- **Images and frames.**
+  - Slice a sheet into frames, or join frames into a strip or sheet.
+  - Crop, trim to content, pad, scale (with the resampling the style profile names: smooth, or nearest-neighbour for pixel art), rotate and flip.
+  - Remove a background, clean up alpha, and convert colour space.
+  - Quantize to a palette (only when the profile declares one).
+  - Register frames on a baseline or anchor.
+  - Produce renditions (1×, 2×) and mipmaps.
+- **Audio.**
+  - Trim, split, merge and concatenate.
+  - Fade and crossfade, and find or make seamless loop points.
+  - Resample, change channels, and normalize loudness.
+  - Cut a clip into cues.
+- **Video.**
+  - Trim, split and concatenate.
+  - Extract frames (feeding the sheet import), or turn frames back into video.
+  - Change frame rate, scale, crop, and loop.
+- **3D (later).** Convert formats, decimate to a polygon budget, bake or resize textures, and render turntables.
+- **Format conversion across all of these.** The input and output formats come from the request and the target profile. The code keeps no list of allowed formats (principle 6). Images: PNG, WebP, AVIF, JPEG, KTX2. Audio: WAV, OGG/Opus, MP3. Video: MP4, WebM, image sequences. 3D: glTF/GLB.
+
+**Rules.**
+- **Deterministic.** The same input bytes and parameters give the same output bytes, so outputs can be cached by content hash and regenerated from the asset lock.
+- **Provenance travels.** Every operation appends its name, parameters, the tool version and the input hash to the output's provenance, so a chain from generated sheet to final strip is replayable.
+- **Composable and non-destructive.** Operations chain into recipes, declared as data, which a target profile or style profile can name (Raccoon World: "import sheet, then soft alpha, then baseline registration"). Sources are never overwritten.
+- **Engines behind adapters.** The image, audio and video engines (for example libvips or FFmpeg) sit behind one adapter each, like the model gateway, so an engine can be replaced without touching recipes.
+- **The same surfaces.** Every operation is available on the CLI with JSON output, in the MCP tools for agents, and inside campaigns.
+
 ## 6. Raccoon World requirements (first adopter)
 
 These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeline.md`), its Wave 4 and Wave 8 plans, and the architecture.
@@ -227,6 +257,7 @@ These are measured per campaign and recorded in the repository:
 - **Core:** the loop. Specs and profiles in, candidates and hand-off out.
 - **Gateway adapter:** models through one gateway. Vercel AI Gateway first; its key is `AI_GATEWAY_API_KEY`.
 - **Generators:** one per media kind, each with its own post-processing and QA. A new media type is a new generator.
+- **Transforms:** the media transformation layer (§5.11). Deterministic operations behind engine adapters, chained as recipes; generators, sheet import and hand-off all use it.
 - **QA:** deterministic checks, then vision-model checks, with reasons recorded on each candidate.
 - **Surfaces:**
   - the CLI, with JSON output;
