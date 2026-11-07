@@ -103,6 +103,8 @@ export interface VisionPromptInput {
   frameCount: number;
   frame: Size;
   animationFamily?: string;
+  /** The style bible's description of the expected perspective, when it gives one. */
+  perspectiveDescription?: string;
   /** Roles of the reference images, in the order attached after the candidate. */
   referenceRoles: string[];
 }
@@ -119,7 +121,9 @@ export function buildVisionPrompt(input: VisionPromptInput): string {
     "- transparency: the background is fully transparent, with no halo, fringe or solid backdrop.",
     `- frame-count: the strip shows exactly ${frameCount} distinct frames, each fully inside its ${frame.width} x ${frame.height} cell.`,
     "- identity: the candidate shows the same character or object as the references.",
-    "- perspective: the candidate matches the isometric perspective of the perspective sample.",
+    input.perspectiveDescription
+      ? `- perspective: the candidate matches the perspective of the perspective sample (${input.perspectiveDescription}).`
+      : "- perspective: the candidate matches the perspective of the perspective sample.",
     'Reply with ONLY a JSON object, no other text: {"checks":[{"check":"identity","passed":true,"reason":"..."}, ...]} with one entry for each of: ' +
       VISION_CHECKS.join(", ") +
       ". Give a short, specific reason for each.",

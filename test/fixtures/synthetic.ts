@@ -123,6 +123,8 @@ export async function syntheticWorld(): Promise<World> {
     },
     mood: ["quiet", "storybook realism"],
   };
+  // An author-approved key pose beside the spec, which shelterSpec names.
+  await writeFile(join(dir, "key-pose.png"), encodePng(drawSubject(96, 3)));
   const targetDir = join(dir, "target");
   await mkdir(targetDir);
   return {
@@ -141,6 +143,7 @@ export const shelterSpec: AssetSpec = {
   animationFamily: "shelter",
   frames: { count: 6 },
   anchor: { x: 16, y: 30 },
+  keyPose: "key-pose.png",
   fields: {
     semantic: { role: "actor", entity: "grove.stevie" },
     accessibilityLabel: "Stevie sheltering",

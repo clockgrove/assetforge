@@ -126,4 +126,16 @@ test("the prompt names the frame count, every check and the references", () => {
   assert.match(p, /Image 2 is a reference with role "character"/);
   assert.match(p, /Image 3 is a reference with role "perspective"/);
   assert.match(p, /ONLY a JSON object/);
+  assert.doesNotMatch(p, /isometric/, "no game's perspective is assumed in generic QA");
+});
+
+test("the expected perspective comes from the style bible, as data", () => {
+  const p = buildVisionPrompt({
+    subject: "raccoon",
+    frameCount: 1,
+    frame: { width: 48, height: 48 },
+    perspectiveDescription: "side-on, flat orthographic",
+    referenceRoles: ["perspective"],
+  });
+  assert.match(p, /perspective sample \(side-on, flat orthographic\)/);
 });

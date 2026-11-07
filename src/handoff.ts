@@ -34,6 +34,16 @@ function inside(root: string, path: string): string {
   return full;
 }
 
+/** Whether the manifest template embeds the whole provenance record as `"{{provenance}}"`. */
+function embedsProvenance(template: unknown): boolean {
+  if (typeof template === "string") return /^\{\{\s*provenance\s*\}\}$/.test(template);
+  if (Array.isArray(template)) return template.some(embedsProvenance);
+  if (template !== null && typeof template === "object") {
+    return Object.values(template).some(embedsProvenance);
+  }
+  return false;
+}
+
 /**
  * Writes the author's pick into the target in the profile's format: the media, the manifest
  * rendered from the profile's template with the review field set to the profile's pending value,
@@ -73,9 +83,11 @@ export async function pick(options: PickOptions): Promise<PickResult> {
   const mediaRel = renderString(profile.layout.media, context);
   const manifestRel = renderString(profile.layout.manifest, context);
   const provenanceRel =
-    profile.layout.provenance === undefined
-      ? undefined
-      : renderString(profile.layout.provenance, context);
+    profile.layout.provenance !== undefined
+      ? renderString(profile.layout.provenance, context)
+      : embedsProvenance(profile.manifest)
+        ? undefined
+        : `${mediaRel}.provenance.json`;
   (context["output"] as Record<string, unknown>)["path"] = mediaRel;
   if (provenanceRel !== undefined) context["provenancePath"] = provenanceRel;
 

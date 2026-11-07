@@ -44,6 +44,8 @@ export interface StyleBible {
   references: BibleReference[];
   /** Path (relative to the bible file) of the perspective sample. */
   perspective: string;
+  /** How the perspective sample's view is described, for example `isometric, three-quarter view`. */
+  perspectiveDescription?: string;
   subjects?: Record<string, { description: string }>;
   mood?: string[];
   notes?: string[];
@@ -65,7 +67,13 @@ export interface TargetProfile {
   /** Free values for the manifest template, for example `{ "creator": "Clockgrove" }`. */
   values?: Record<string, unknown>;
   frames: { width: number; height: number; maxEdge?: number; durationMs?: number };
-  /** Path templates relative to the target directory, with `{placeholders}`. */
+  /**
+   * Path templates relative to the target directory, with `{{a.b}}` placeholders (the same values
+   * as the manifest template, for example `{{spec.assetId}}` and `{{output.extension}}`).
+   * `provenance` writes the full provenance record as its own file; when it is unset and the
+   * manifest template does not embed `{{provenance}}`, the record goes beside the media file as
+   * `<media path>.provenance.json`, so every picked file carries its provenance.
+   */
   layout: { media: string; manifest: string; provenance?: string };
   /** JSON manifest template: `"{{path}}"` inserts any value, `"a {{path}} b"` interpolates. */
   manifest: unknown;
@@ -97,6 +105,8 @@ export interface CallRecord {
   referenceHashes: string[];
   seed?: number;
   requestId: string;
+  /** `provider` when the gateway reported the ID; `local` when Assetforge had to generate one. */
+  requestIdSource: "provider" | "local";
   startedAt: string;
   finishedAt: string;
   costUsd: number;

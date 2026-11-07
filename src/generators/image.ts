@@ -68,6 +68,9 @@ async function finish(
     frameCount: grid.count,
     frame: grid.frame,
     ...(spec.animationFamily !== undefined && { animationFamily: spec.animationFamily }),
+    ...(bible.perspectiveDescription !== undefined && {
+      perspectiveDescription: bible.perspectiveDescription,
+    }),
     referenceRoles: refs.map((r) => r.role),
   });
   const verdict = await ctx.call.vision("vision", visionPrompt, [candidate, ...refs]);
@@ -114,16 +117,27 @@ export const stillGenerator: Generator = {
 };
 
 /**
- * An animation strip. The key pose comes first: the spec's author-approved key pose when it names
- * one, otherwise a generated key pose for this candidate. Each frame is then a reference-guided
- * edit of that key pose.
+ * An animation strip. The key pose comes first and must be author-approved (owner decision,
+ * 2026-11-07): the spec names it as `keyPose`, for example a still staged and chosen through the
+ * same loop. Each frame is then a reference-guided edit of that key pose. Without a `keyPose` the
+ * generator refuses before any spend rather than edit frames from a pose nobody approved.
  */
+function requireKeyPose(spec: AssetSpec): string {
+  if (!spec.keyPose) {
+    throw new Error(
+      "a sprite-strip spec needs an author-approved keyPose: stage a still of the pose first, " +
+        "choose one, and name its file as keyPose (frames are reference-guided edits of it)",
+    );
+  }
+  return spec.keyPose;
+}
+
 export const spriteStripGenerator: Generator = {
   kind: "sprite-strip",
   estimateCandidateUsd(spec, profile, routes) {
     const grid = frameGrid(spec, profile, 1);
-    const keyPose = spec.keyPose ? 0 : routes.still.estimatedCostUsd;
-    return keyPose + grid.count * routes.edit.estimatedCostUsd + routes.vision.estimatedCostUsd;
+    requireKeyPose(spec);
+    return grid.count * routes.edit.estimatedCostUsd + routes.vision.estimatedCostUsd;
   },
   async generate(ctx) {
     const { spec, bible } = ctx;
@@ -131,20 +145,7 @@ export const spriteStripGenerator: Generator = {
     const grid = frameGrid(spec, ctx.profile, 1);
     const inputs = await loadBibleInputs(spec, bible, ctx.bibleDir);
     const prompt = buildStillPrompt(spec, bible, grid, inputs);
-    let keyPose: LoadedReference;
-    if (spec.keyPose) {
-      keyPose = await loadReference(spec.keyPose, "key pose (approved)", ctx.specDir);
-    } else {
-      const refs = [...inputs.subject, inputs.perspective, inputs.palette];
-      const image = await ctx.call.image("still", prompt, refs, ctx.seed);
-      keyPose = {
-        role: "key pose",
-        path: "(generated key pose)",
-        mediaType: image.mediaType,
-        bytes: image.bytes,
-        sha256: sha256(image.bytes),
-      };
-    }
+    const keyPose = await loadReference(requireKeyPose(spec), "key pose (approved)", ctx.specDir);
     const frames: Raster[] = [];
     for (let i = 0; i < grid.count; i++) {
       const framePrompt = buildFramePrompt(spec, bible, grid, i);

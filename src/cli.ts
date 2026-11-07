@@ -17,7 +17,9 @@ const USAGE = `Usage:
 
 stage generates candidates through the Vercel AI Gateway (AI_GATEWAY_API_KEY from the
 environment) within the cost cap in USD, and stages only the ones that pass QA.
-pick writes the chosen candidate and its manifest into the target with review pending.`;
+pick writes the chosen candidate and its manifest into the target with review pending.
+A sprite-strip spec needs an approved keyPose: stage a still of the pose first, choose one
+of its staged candidates, and name that file as keyPose in the strip spec.`;
 
 function formatRun(run: RunRecord, runDir: string): string {
   const lines = [

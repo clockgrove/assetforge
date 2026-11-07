@@ -14,7 +14,10 @@ test("real gateway: one image generation", { skip }, async () => {
   });
   assert.ok(result.images.length >= 1);
   assert.ok(result.images.every((i) => i.mediaType.startsWith("image/") && i.bytes.length > 0));
-  assert.ok(result.requestId.length > 0);
+  // The gateway's own request ID and cost reach provenance; a locally generated ID would not count.
+  assert.equal(result.requestIdSource, "provider", `request ID ${result.requestId}`);
+  assert.ok(!result.requestId.startsWith("local-"));
+  assert.equal(typeof result.costUsd, "number", "the gateway reports the call's cost");
 });
 
 test("real gateway: one vision call", { skip }, async () => {
@@ -27,5 +30,7 @@ test("real gateway: one vision call", { skip }, async () => {
     images: [{ mediaType: "image/png", bytes: encodePng(raster) }],
   });
   assert.ok(result.text.trim().length > 0);
-  assert.ok(result.requestId.length > 0);
+  assert.equal(result.requestIdSource, "provider", `request ID ${result.requestId}`);
+  assert.ok(!result.requestId.startsWith("local-"));
+  assert.equal(typeof result.costUsd, "number", "the gateway reports the call's cost");
 });

@@ -19,9 +19,17 @@ function gatewayMeta(metadata: Metadata): Record<string, unknown> {
   return metadata?.["gateway"] ?? {};
 }
 
-function requestId(...candidates: unknown[]): string {
-  for (const c of candidates) if (typeof c === "string" && c !== "") return c;
-  return `gateway-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+function requestId(...candidates: unknown[]): {
+  requestId: string;
+  requestIdSource: "provider" | "local";
+} {
+  for (const c of candidates) {
+    if (typeof c === "string" && c !== "") return { requestId: c, requestIdSource: "provider" };
+  }
+  return {
+    requestId: `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    requestIdSource: "local",
+  };
 }
 
 /**
@@ -29,7 +37,8 @@ function requestId(...candidates: unknown[]): string {
  *
  * Request ID, in order of preference: the gateway generation ID from provider metadata, the
  * `x-vercel-id` response header (images) or the response ID (vision), else a generated
- * `gateway-<timestamp>-<random>` so provenance always has one. Cost is the gateway's reported
+ * `local-<timestamp>-<random>` with `requestIdSource: "local"`, so provenance always has one and
+ * never passes it off as the provider's. Cost is the gateway's reported
  * `cost` (USD) from provider metadata, left unset when the gateway does not report one.
  */
 export class VercelGateway implements GenerationProvider {
@@ -72,7 +81,7 @@ export class VercelGateway implements GenerationProvider {
     const cost = toNumber(gw["cost"]);
     return {
       images: result.images.map((i) => ({ mediaType: i.mediaType, bytes: i.uint8Array })),
-      requestId: requestId(gw["generationId"], result.responses[0]?.headers?.["x-vercel-id"]),
+      ...requestId(gw["generationId"], result.responses[0]?.headers?.["x-vercel-id"]),
       ...(cost !== undefined && { costUsd: cost }),
       ...(seed !== undefined && { seed }),
     };
@@ -99,7 +108,7 @@ export class VercelGateway implements GenerationProvider {
     const cost = toNumber(gw["cost"]);
     return {
       text: result.text,
-      requestId: requestId(gw["generationId"], result.response.id),
+      ...requestId(gw["generationId"], result.response.id),
       ...(cost !== undefined && { costUsd: cost }),
     };
   }

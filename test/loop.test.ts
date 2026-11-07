@@ -5,22 +5,16 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { BudgetExceededError } from "../src/budget.ts";
+import type { GenerationProvider, ImageRequest } from "../src/gateway/provider.ts";
 import type { Generator } from "../src/generators/generator.ts";
 import { imageGenerators } from "../src/generators/image.ts";
 import { pick } from "../src/handoff.ts";
-import { encodePng } from "../src/image/raster.ts";
 import { stage } from "../src/loop.ts";
 import type { StageOptions } from "../src/loop.ts";
 import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import type { AssetSpec } from "../src/types.ts";
-import {
-  drawSubject,
-  PALETTE,
-  scriptedProvider,
-  shelterSpec,
-  syntheticWorld,
-} from "./fixtures/synthetic.ts";
+import { PALETTE, scriptedProvider, shelterSpec, syntheticWorld } from "./fixtures/synthetic.ts";
 import type { World } from "./fixtures/synthetic.ts";
 
 const exec = promisify(execFile);
@@ -53,38 +47,54 @@ async function exists(path: string): Promise<boolean> {
 
 test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, the pick lands pending with provenance and the target validator accepts it", async () => {
   const world = await syntheticWorld();
-  const provider = scriptedProvider({ failIdentity: [1], imageCostUsd: 0.04, visionCostUsd: 0.01 });
-  const { run, runDir } = await stage(options(world, provider));
 
-  // Bounded spend: 4 candidates by default, a $5 cap, and the estimate reserved within it.
-  assert.equal(run.requested, 4);
-  assert.equal(run.capUsd, 5);
-  assert.ok(run.estimateUsd <= 5, `estimate ${run.estimateUsd}`);
-  assert.ok(run.spentUsd <= 5);
-  // Key pose first, then each of the 6 frames an edit of it, then one vision QA call per candidate.
-  const images = provider.calls.filter((c) => c.kind === "image");
-  assert.equal(images.length, 4 * 7);
-  assert.equal(provider.calls.filter((c) => c.kind === "vision").length, 4);
-
+  // Key pose first (owner decision): the author stages a still of the pose and chooses one.
+  const poseProvider = scriptedProvider({ imageCostUsd: 0.04, visionCostUsd: 0.01 });
+  const poseSpec: AssetSpec = {
+    kind: "still",
+    assetId: "stevie",
+    animationFamily: "shelter",
+    frames: { width: 96, height: 96 },
+  };
+  const pose = await stage(options(world, poseProvider, poseSpec));
+  assert.equal(pose.run.candidates.length, 4);
   // Spec-driven request: the bible's references, perspective sample and palette go as images.
-  const keyPoseCall = images[0]!.request;
+  const keyPoseCall = poseProvider.calls.find((c) => c.kind === "image")!.request as ImageRequest;
   assert.equal(keyPoseCall.model, defaultRoutes.still.model);
   const sheet = await readFile(join(world.bibleDir, "refs/stevie-sheet.png"));
   const perspective = await readFile(join(world.bibleDir, "refs/perspective.png"));
   assert.equal(keyPoseCall.references.length, 4);
   assert.deepEqual(Buffer.from(keyPoseCall.references[0]!.bytes), sheet);
   assert.deepEqual(Buffer.from(keyPoseCall.references[2]!.bytes), perspective);
+  assert.match(keyPoseCall.prompt, /Key pose/);
   assert.match(keyPoseCall.prompt, /grey adult raccoon/);
   assert.match(keyPoseCall.prompt, /"shelter"/);
   for (const hex of PALETTE) assert.ok(keyPoseCall.prompt.includes(hex));
-  // Every frame is a reference-guided edit of that candidate's key pose.
-  const keyPoseBytes = encodePng(drawSubject(96, 0));
+  const poseCalls = pose.run.candidates[0]!.provenance.calls;
+  assert.equal(poseCalls[0]!.seed, undefined, "gpt-image takes no seed, so none is recorded");
+  const keyPosePath = join(pose.runDir, pose.run.candidates[0]!.file);
+  const keyPoseBytes = await readFile(keyPosePath);
+
+  const provider = scriptedProvider({ failIdentity: [1], imageCostUsd: 0.04, visionCostUsd: 0.01 });
+  const { run, runDir } = await stage(
+    options(world, provider, { ...shelterSpec, keyPose: keyPosePath }),
+  );
+
+  // Bounded spend: 4 candidates by default, a $5 cap, and the estimate reserved within it.
+  assert.equal(run.requested, 4);
+  assert.equal(run.capUsd, 5);
+  assert.ok(run.estimateUsd <= 5, `estimate ${run.estimateUsd}`);
+  assert.ok(run.spentUsd <= 5);
+  // Each of the 6 frames is an edit of the approved key pose, then one vision QA call per candidate.
+  const images = provider.calls.filter((c) => c.kind === "image");
+  assert.equal(images.length, 4 * 6);
+  assert.equal(provider.calls.filter((c) => c.kind === "vision").length, 4);
   for (let f = 1; f <= 6; f++) {
-    const edit = images[f]!.request;
+    const edit = images[f - 1]!.request as ImageRequest;
     assert.equal(edit.model, defaultRoutes.edit.model);
     assert.match(edit.prompt, new RegExp(`frame ${f} of 6`));
     assert.equal(edit.references.length, 1);
-    assert.deepEqual(edit.references[0]!.bytes, keyPoseBytes);
+    assert.deepEqual(Buffer.from(edit.references[0]!.bytes), keyPoseBytes);
   }
 
   // Only passing candidates are staged and shown, each with the reason it passed.
@@ -121,21 +131,18 @@ test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, 
   assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.stevie" });
   assert.equal(manifest.source.mediaType, "image/png");
   const p = manifest.provenance.generated;
-  assert.deepEqual(p.models, [
-    defaultRoutes.still.model,
-    defaultRoutes.edit.model,
-    defaultRoutes.vision.model,
-  ]);
-  assert.match(p.route, /scripted:still:openai\/gpt-image-2/);
+  assert.deepEqual(p.models, [defaultRoutes.edit.model, defaultRoutes.vision.model]);
+  assert.match(p.route, /scripted:edit:bfl\/flux-kontext-pro/);
   assert.match(p.prompt, /Key pose/);
   assert.ok(p.parameters.frameCount === 6);
   assert.equal(typeof p.seed, "number");
-  assert.equal(p.requestIds.length, 8);
+  assert.equal(p.requestIds.length, 7);
+  assert.equal(p.parameters.keyPose.sha256, sha256(keyPoseBytes));
   assert.ok(p.startedAt && p.finishedAt);
   assert.equal(p.bibleVersion, "synthetic-1");
   assert.equal(p.license, "MIT");
-  assert.ok(p.providerTerms.length === 3);
-  assert.ok(Math.abs(p.costUsd - (7 * 0.04 + 0.01)) < 1e-9);
+  assert.ok(p.providerTerms.length === 2);
+  assert.ok(Math.abs(p.costUsd - (6 * 0.04 + 0.01)) < 1e-9);
   for (const call of p.calls) {
     for (const key of [
       "model",
@@ -151,10 +158,10 @@ test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, 
       assert.ok(call[key] !== undefined, `call lacks ${key}`);
     }
     assert.equal(call.costSource, "provider");
+    assert.equal(call.requestIdSource, "provider");
   }
   const editCall = p.calls.find((c: { operation: string }) => c.operation === "edit");
   assert.equal(typeof editCall.seed, "number");
-  assert.equal(p.calls[0].seed, undefined, "gpt-image takes no seed, so none is recorded");
 });
 
 test("a run that would exceed the cap is refused before any provider call", async () => {
@@ -193,22 +200,53 @@ test("a candidate that failed QA cannot be picked, and the review field is alway
   assert.equal(manifest.review.status, "pending");
 });
 
-test("an author-approved key pose is edited into every frame, with no key-pose generation", async () => {
+test("a strip spec without an approved key pose is refused before any provider call", async () => {
   const world = await syntheticWorld();
-  const keyPose = encodePng(drawSubject(96, 3));
-  await writeFile(join(world.dir, "key-pose.png"), keyPose);
   const provider = scriptedProvider();
-  const { run } = await stage({
-    ...options(world, provider, { ...shelterSpec, keyPose: "key-pose.png" }),
-    candidates: 1,
-  });
-  const images = provider.calls.filter((c) => c.kind === "image");
-  assert.equal(images.length, 6);
-  for (const call of images) {
-    assert.equal(call.request.model, defaultRoutes.edit.model);
-    assert.deepEqual(call.request.references[0]!.bytes, keyPose);
-  }
-  assert.equal(run.candidates[0]?.provenance.parameters["keyPose"] !== undefined, true);
+  const unapproved: AssetSpec = { ...shelterSpec };
+  delete unapproved.keyPose;
+  await assert.rejects(
+    stage(options(world, provider, unapproved)),
+    /needs an author-approved keyPose/,
+  );
+  assert.equal(provider.calls.length, 0);
+  assert.equal(await exists(world.runsDir), false);
+});
+
+test("without a provenance path or an embedded record, the pick writes provenance beside the media", async () => {
+  const world = await syntheticWorld();
+  world.profile.manifest = {
+    ...(world.profile.manifest as object),
+    provenance: { prompt: "{{provenance.prompt}}", references: "{{provenance.referenceHashes}}" },
+  };
+  const { runDir } = await stage({ ...options(world, scriptedProvider()), candidates: 1 });
+  const result = await pick({ runDir, candidateId: "c1", targetDir: world.targetDir });
+  assert.equal(
+    result.provenancePath,
+    join(world.targetDir, "assets/source/stevie/shelter.png.provenance.json"),
+  );
+  const record = JSON.parse(await readFile(result.provenancePath!, "utf8"));
+  assert.equal(record.requestIds.length, 7);
+  assert.ok(record.models.length > 0 && record.costUsd > 0 && record.startedAt);
+});
+
+test("a request ID the provider did not report is marked local in provenance", async () => {
+  const world = await syntheticWorld();
+  const base = scriptedProvider();
+  const provider: GenerationProvider = {
+    generateImage: (request) => base.generateImage(request),
+    analyzeImages: async (request) => ({
+      ...(await base.analyzeImages(request)),
+      requestId: "local-1",
+      requestIdSource: "local",
+    }),
+  };
+  const { run } = await stage({ ...options(world, provider), candidates: 1 });
+  const calls = run.candidates[0]!.provenance.calls;
+  assert.equal(calls.find((c) => c.operation === "vision")?.requestIdSource, "local");
+  assert.ok(
+    calls.filter((c) => c.operation === "edit").every((c) => c.requestIdSource === "provider"),
+  );
 });
 
 test("the same loop handles a still image with no code changes", async () => {

@@ -1,5 +1,5 @@
 import type { Budget } from "./budget.ts";
-import type { GenerationProvider, ImageInput } from "./gateway/provider.ts";
+import type { GenerationProvider, ImageInput, ProviderResult } from "./gateway/provider.ts";
 import type { Route, Routes } from "./routes.ts";
 import type { CallRecord, LoadedReference } from "./types.ts";
 
@@ -36,7 +36,7 @@ export class Caller {
     return route;
   }
 
-  private async record<T extends { requestId: string; costUsd?: number; seed?: number }>(
+  private async record<T extends ProviderResult>(
     operation: string,
     prompt: string,
     references: LoadedReference[],
@@ -67,6 +67,7 @@ export class Caller {
       referenceHashes: references.map((r) => r.sha256),
       ...(usedSeed !== undefined && { seed: usedSeed }),
       requestId: result.requestId,
+      requestIdSource: result.requestIdSource ?? "provider",
       startedAt,
       finishedAt: this.now().toISOString(),
       costUsd,

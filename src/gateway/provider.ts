@@ -20,6 +20,11 @@ export interface ImageRequest {
 
 export interface ProviderResult {
   requestId: string;
+  /**
+   * `local` when the provider reported no request ID and the adapter generated one, so a
+   * fabricated ID is never mistaken for a traceable one. Absent means the provider reported it.
+   */
+  requestIdSource?: "provider" | "local";
   /** The cost the provider reported, in USD, when it reports one. */
   costUsd?: number;
   /** The seed the provider used, when it reports one. */

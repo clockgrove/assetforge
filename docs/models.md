@@ -26,6 +26,6 @@ Set in `src/routes.ts` and overridable with `--routes <file.json>` (a JSON objec
 | `edit` (each animation frame)  | `bfl/flux-kontext-pro`  | A reference-edit model: it edits the key pose it is given. Flat $0.04 per image. Accepts a seed.                      | $0.05                                            |
 | `vision` (QA)                  | `google/gemini-3-flash` | A cheap vision-capable language model.                                                                                | $0.02                                            |
 
-A 6-frame strip generates its key pose, 6 frame edits and one QA call: about $0.57 per candidate, so the default 4 candidates reserve about $2.28 of the $5 cap. With an author-approved key pose the key-pose call is skipped.
+A 6-frame strip edits its author-approved key pose 6 times and makes one QA call: about $0.32 per candidate, so the default 4 candidates reserve about $1.28 of the $5 cap. The key pose comes from an earlier `still` run (about $0.27 per candidate, $1.08 for 4).
 
 Each route records its provider terms in provenance. The values name the terms in force on 2026-11-07; check and update them when a route changes.
