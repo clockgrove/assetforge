@@ -1,0 +1,5 @@
+minimumReleaseAgeExclude:
+  - "@ai-sdk/gateway@4.0.138"
+  - "@ai-sdk/provider-utils@5.0.76"
+  - "@ai-sdk/provider@4.0.37"
+  - ai@7.0.165
