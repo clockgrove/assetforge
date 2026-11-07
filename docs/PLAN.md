@@ -27,6 +27,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 **Objectives:**
 - Sprite-sheet import and sheet generation (assetforge#10): slicing, alpha by the style profile, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Stevie's existing 57-frame sheet is the first import.
+- Media transformation core for images (PRD §5.11): slice and join sheets, crop, trim, pad and scale, background removal and alpha cleanup, baseline registration, renditions and format conversion. Deterministic, provenance-appending, chained as recipes, and usable from the CLI on any image. The sheet import is built on it.
 - Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
 - Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.
 - Clockgrove: the first set approved and in the golden scene (the rest of #27).
@@ -83,6 +84,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** the soundscape Wave 8 §10.3 of Clockgrove asks for. PRD §5.8, audio.
 
 **Objectives:**
+- Audio transforms (PRD §5.11): trim, split, merge, fades, loop points, resample, loudness normalization and format conversion.
 - An audio generator: ambient loops at several rain intensities, birds, rustling, water and cues. Seamless loop points, loudness normalization, and level groups and sensory-safe defaults from the target profile.
 
 **Exit:**
@@ -94,7 +96,8 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D.
 
 **Objectives:**
-- Video: short UI and effect loops, and video-to-frames as a second animation route, compared against key-pose editing on identity and loop scores.
+- Video transforms (PRD §5.11): trim, split, concatenate, frame extraction into the sheet import, frames to video, and format conversion.
+- Video: short UI and effect loops, and video-to-frames as a second animation route, compared against sheet generation on identity and loop scores.
 - 3D: image-to-3D props as `.glb`, with turntable renders for QA and the pick, and polygon and texture budgets from the target profile.
 
 **Exit:**
