@@ -46,10 +46,10 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 ## 4. Concepts
 
-- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid and size limits per asset role, the alpha and colour rules (Clockgrove, after #61: soft alpha and full colour, no fixed palette), naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
+- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid, and the world's **style profile**: alpha mode (binary or soft), colour rule (a fixed palette or full colour), edge rendering (crisp or antialiased) and size limits per asset role. Clockgrove's world packs each declare one (#61): Raccoon World is painterly, and flat-cartoon and pixel-art packs are equally valid. Then naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
 - **Style bible.** The world's visual (and later audio) constitution, as data in the target repository:
   - approved reference images: character sheets, turnarounds, props, a perspective sample;
-  - the colour script: key colours and value ranges per time of day, not a fixed palette;
+  - the colour rule the style profile names: a colour script (key colours and value ranges per time of day) for a full-colour world, or the palette for a fixed-palette one;
   - the lighting key;
   - line and texture notes;
   - negative examples;
@@ -69,7 +69,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 1. **Spec in.** Read the target profile, the style bible and the asset spec. Build model inputs from them: references as image inputs, constraints as structured prompt parts.
 2. **Candidates.** Generate N candidates (default 4) within the per-run cap (default $5). Stills come from a text-and-reference image model. Animation frames come from a reference-edit model.
-3. **Post-process to spec.** Background removed to a clean, soft alpha edge (fur and foliage keep their antialiasing), crop and scale to the frame grid at the role's size, colour kept within the bible's colour script (quantization only when a target profile declares a fixed palette), alignment to the anchor and pivot, and bounds computed the way the target computes them. All of it deterministic.
+3. **Post-process to spec.** Everything here follows the target's style profile: background removed to the profile's alpha mode (soft edges that keep fur and foliage antialiasing, or binary alpha with crisp pixel edges), crop and scale to the frame grid at the role's size (nearest-neighbour for pixel art), colour kept to the profile's rule (within the colour script, or quantized to the palette), alignment to the anchor and pivot, and bounds computed the way the target computes them. All of it deterministic.
 4. **Vision QA.** A vision model, plus deterministic checks, scores each candidate on four things. Failing candidates are never shown.
    - **Spec:** transparency, frame count and size, the profile's colour and alpha rules.
    - **Identity:** the same character as its references.
@@ -82,7 +82,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 - **Sheet generation first (owner decision, 2026-11-07).** The model generates a whole cycle as one contact sheet, which keeps identity consistent across frames far better than frame-by-frame requests. An import path turns a sheet into a strip:
   - slices the frames;
-  - removes the background to soft alpha;
+  - removes the background to the style profile's alpha mode;
   - strips labels;
   - registers every frame on the feet baseline;
   - groups and orders frames into families, with vision-model proposals a person confirms.
@@ -106,7 +106,7 @@ A world's look is only as good as its weakest asset, so Assetforge treats consis
 - **Identity lock.** Each character has an identity record: its approved references plus a vision-model fingerprint. Every candidate of that character is scored against it, and a candidate below the threshold is filtered out with the reason.
 - **Style distance.** Every candidate gets a style score against the bible's references. The score is recorded, so the world's spread can be seen over time.
 - **Drift report.** When the style bible changes version, the asset locks show which approved assets were made under an older bible. A campaign can regenerate them for review.
-- **Colour and lighting audit.** A set-level check finds assets that break the colour script or the lighting key (light direction, warmth, value range), even when each one passed alone.
+- **Colour and lighting audit.** A set-level check finds assets that break the style profile's colour rule or the lighting key (light direction, warmth, value range), even when each one passed alone.
 
 ### 5.4 In-context preview
 
@@ -114,7 +114,7 @@ An asset that looks right on a white background can look wrong in the yard. The 
 
 ### 5.5 Relightable sprites
 
-Raccoon World lights its yard dynamically: day, dusk and night, lantern and window glow, wet surfaces (#21). Its art is painterly, with light painted in, so a flat-lit sprite looks pasted on and a fully lit one fights the scene's light. Assetforge generates each painted asset under the bible's neutral key light. Where the target profile asks for them, Assetforge also produces companion maps for each sprite, all aligned to the sprite's frame grid, so the game can relight one asset instead of shipping one sprite per lighting state:
+Raccoon World lights its yard dynamically: day, dusk and night, lantern and window glow, wet surfaces (#21). However a world is drawn, a sprite lit for one moment fights the scene's light at another. Assetforge generates each asset under the bible's neutral key light, the way the style profile draws light (painted, flat-shaded or pixel-shaded). Where the target profile asks for them, Assetforge also produces companion maps for each sprite, all aligned to the sprite's frame grid, so the game can relight one asset instead of shipping one sprite per lighting state:
 - a normal map;
 - an emissive mask (window glow, lantern);
 - a wetness/specular mask.
@@ -177,7 +177,7 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 
 | Need | Source | Assetforge capability |
 | --- | --- | --- |
-| Sprite strips: `frames.count` frames side by side; RGBA with soft alpha; full colour; bounds equal to the visible box (rules amended for painterly art in #61) | pipeline.md, #61 | 5.1 post-processing, run against the target validator |
+| Sprite strips: `frames.count` frames side by side; RGBA; alpha, colour and size rules from the world pack's style profile (#61; Raccoon World: soft alpha, full colour); bounds equal to the visible box | pipeline.md, #61 | 5.1 post-processing, run against the target validator |
 | Size limits per role (#61), large environment pieces included; atlas packing is the game's job | pipeline.md, #61 | Target profile limits |
 | Manifest `generated` provenance; MIT license; `review.status: "pending"` | pipeline.md, #27 | 5.1 hand-off, 5.9 |
 | Stevie and the household in idle, walk, sniff, eat, play and shelter first; later run, climb, forage, drink, groom, lead/follow, sleep, converse/emote | #27, Wave 8 §10.2 | 5.2 animation, 5.6 campaigns |
