@@ -66,16 +66,16 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 ## Wave 4: the full 2D set
 
-**Outcome:** everything Wave 8 §10.2 of Clockgrove needs in 2D, lit dynamically. PRD §5.5 and the 2D generators of §5.8.
+**Outcome:** everything Wave 8 §10.2 of Clockgrove needs in 2D, as lit materials. PRD §5.5 and the 2D generators of §5.8.
 
 **Objectives:**
-- Relightable sprites: normal, emissive and wetness maps on request.
+- Material maps by default: normal and height/depth, emissive and roughness/wetness, wind/flow; 1× and 2× renditions and KTX2; temporal stability bounds; lit-preview QA against the target's light rig.
 - Generators for effects, tiles and terrain, icon families, and portraits with expressions.
 - Clockgrove: night and rain lighting use the maps (follows #21).
 
 **Exit:**
 - The Wave 8 §10.2 2D asset list is produced and approved.
-- The yard relights from the maps with no per-lighting-state sprites.
+- The yard is lit from the maps by the renderer the bake-off chose (Clockgrove #67), with no per-lighting-state sprites, and maps are stable across animation frames.
 - The icon families pass the contrast and colour-blind checks.
 
 ## Wave 5: audio

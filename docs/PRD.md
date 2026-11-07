@@ -112,12 +112,20 @@ A world's look is only as good as its weakest asset, so Assetforge treats consis
 
 An asset that looks right on a white background can look wrong in the yard. The target profile can declare a preview command, which renders a candidate in the game's own scene: for Clockgrove, its golden-scene renderer at night in the rain, next to Stevie. The pick screen shows each candidate in place. Assetforge only calls the command and never knows the game's renderer.
 
-### 5.5 Relightable sprites
+### 5.5 Material maps: lit 2.5D, 3D-ready
 
-Raccoon World lights its yard dynamically: day, dusk and night, lantern and window glow, wet surfaces (#21). However a world is drawn, a sprite lit for one moment fights the scene's light at another. Assetforge generates each asset under the bible's neutral key light, the way the style profile draws light (painted, flat-shaded or pixel-shaded). Where the target profile asks for them, Assetforge also produces companion maps for each sprite, all aligned to the sprite's frame grid, so the game can relight one asset instead of shipping one sprite per lighting state:
-- a normal map;
-- an emissive mask (window glow, lantern);
-- a wetness/specular mask.
+Owner decision (2026-11-07): the visual ceiling is lit 2.5D now and 3D-ready later. A target's renderer lights the scene with dynamic lights, shadows, colour grading, bloom, reflections, fog, wind and particles, at several quality tiers. A sprite lit for one moment fights all of that, so by default every asset ships as a material, not a picture. The colour (albedo) is generated under the style bible's neutral key light, and a standard set of maps comes with it, aligned to the same frame grid:
+- **normal** and **height/depth**: shape for dynamic light, shadows and depth sorting, and the bridge to a later 3D renderer;
+- **emissive** and **roughness/wetness**: window glow and lantern light, and how rain darkens and shines a surface;
+- **wind/flow**: how foliage, fur and water move.
+
+The target's style profile can turn any channel off, and it declares how each channel is encoded.
+
+- **Derived, then checked.** Maps are derived from the albedo and its references. Where a model produces them, they are checked against the albedo, so an edge in the normal map matches an edge in the colour.
+- **Temporal stability.** Across an animation's frames, the maps must not flicker. A bound on frame-to-frame change per channel is part of QA.
+- **Lit-preview QA.** The pick screen shows each candidate lit by the target's own light rig at several moments (noon, dusk in rain, night under lantern light), using the in-context preview (§5.4).
+- **Renditions.** Every asset is delivered at 1× and 2×, plus GPU-compressed textures (KTX2) when the target profile asks for them, so the game picks per quality tier.
+- **Lights as data.** Assetforge reads the target's light rig as data, for preview only. The renderer that lights the game is the target's choice (Clockgrove decides by a bake-off, #67).
 
 ### 5.6 Sets and campaigns
 
@@ -183,7 +191,7 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 | Stevie and the household in idle, walk, sniff, eat, play and shelter first; later run, climb, forage, drink, groom, lead/follow, sleep, converse/emote | #27, Wave 8 §10.2 | 5.2 animation, 5.6 campaigns |
 | Body, face, age and size variants; lifecycle variants; non-distressing historical treatment | Wave 8 §10.2 | 5.3 identity lock, 5.6 variant matrices |
 | Props: den, porch, tree, fence, mailbox, trash can, feeder, garden, paths, plants, water | Wave 8 §10.2 | 5.1, 5.8 tiles |
-| Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | Wave 8 §10.2, #21 | 5.5 relightable sprites, 5.8 effects |
+| Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | Wave 8 §10.2, #21, #66 | 5.5 material maps, 5.8 effects |
 | Icons: weather, material events, entity modes, actions, relationships, privacy, status | Wave 8 §10.2 | 5.8 icon families |
 | Modular layers and atlases, never one flattened illustration | Wave 8 §10.2 | Per-asset specs; layering in the target profile |
 | Look: painterly rendered storybook realism, high three-quarter isometric camera, soft fur, full colour; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1, the reference mockup | Style bible, 5.3 |
