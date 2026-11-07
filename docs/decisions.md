@@ -50,3 +50,11 @@ Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetfor
 - `--dry-run` (on `stage` and `generate-sheet`, the commands that generate) spends nothing and needs no key.
 - `--provider-script` runs a scripted provider for offline runs.
 - Every future command follows this contract.
+
+## Media transformation core (assetforge#23, 2026-11-07)
+
+- Operations are declared once, by name and parameter schema, in `src/transform/operations.ts`. Engines implement them behind the `ImageEngine` adapter. The in-house engine is `assetforge-raster` 1.0.0, and its version is bumped whenever an operation's output bytes change.
+- Recipes are JSON (`format: "assetforge-recipe/1"`). YAML was left out because it would need a parser dependency. The parameter schemas use a small JSON Schema subset kept in the repository, with no new dependency.
+- Provenance steps are chained by pixel hashes, so intermediate images are never encoded. Sources and written files also record their file SHA-256. The record holds no time, so reruns are byte-identical.
+- WebP output is lossless VP8L from an in-house encoder, which is deterministic and needs no native dependency. KTX2 waits for the material maps (#14).
+- The sheet import runs on these operations, with byte-identical output.

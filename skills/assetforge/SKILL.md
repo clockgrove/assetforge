@@ -26,6 +26,12 @@ Run it as `npx @clockgrove/assetforge@<version> <command>`, or as `assetforge` (
   Has the model draw a whole cycle as one sheet within the cap, then imports it.
 - `write-families --import <dir> --target <dir> [--grouping <file>] [--json]`
   Writes the strips of a grouping a human set to `confirmed` into the target with review pending.
+- `op <operation> <input...> --out <path> [--params <json>] [--profile <profile.json>] [--json]`
+  Runs one image operation (`assetforge ops` lists them with their parameter schemas) on any image and writes the output and a provenance record. Local, with no model call and no spend.
+- `recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--json]`
+  Runs a recipe of operations deterministically. Same input, recipe and engine versions, same bytes.
+- `ops [--json]`
+  Lists the operations, their parameter schemas and the engines.
 - `--help`, `--version`; `<command> --help` for one command's options. With `--json`, help is a JSON document whose `usage` field holds the text.
 
 ## Exit codes

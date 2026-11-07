@@ -18,6 +18,9 @@ import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from 
 import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
 import { loadRoutes } from "./routes.ts";
+import { resolveStyle } from "./style.ts";
+import { describeOperations, parseRecipe, transformFiles } from "./transform/run.ts";
+import type { TransformFilesOptions } from "./transform/run.ts";
 import { generateSheet, planSheet } from "./sheet/generate.ts";
 import {
   CONTACT_FILE,
@@ -62,7 +65,9 @@ interface Command {
   summary: string;
   usage: string;
   options: ParseArgsOptionsConfig;
-  run(values: Values): Promise<Outcome>;
+  /** Accepts positional arguments, passed to `run` as its second argument. */
+  positionals?: boolean;
+  run(values: Values, positionals?: string[]): Promise<Outcome>;
 }
 
 function refusal(
@@ -552,12 +557,140 @@ Agents never confirm a grouping.`,
   },
 };
 
+/** The style and frame size a target profile supplies to a transformation, when it has them. */
+async function profileContext(path: string | undefined) {
+  if (path === undefined) return {};
+  const profile = (await readJson<TargetProfile>(path)).value;
+  const frames = profile.frames as Partial<TargetProfile["frames"]> | undefined;
+  return {
+    ...(profile.style !== undefined && { style: resolveStyle(profile.style) }),
+    ...(frames?.width !== undefined &&
+      frames.height !== undefined && { frame: { width: frames.width, height: frames.height } }),
+  };
+}
+
+async function runTransform(
+  options: Pick<TransformFilesOptions, "recipe" | "inputs" | "out">,
+  profilePath: string | undefined,
+): Promise<Outcome> {
+  const { record, provenancePath } = await transformFiles({
+    ...options,
+    ...(await profileContext(profilePath)),
+  });
+  const lines = record.outputs.map((o) => `wrote ${o.path}`);
+  lines.push(`provenance ${provenancePath}`);
+  for (const o of record.outputs) {
+    const checks = (o.meta?.["checks"] ?? []) as {
+      check: string;
+      passed: boolean;
+      reason: string;
+    }[];
+    for (const c of checks.filter((c) => !c.passed)) {
+      lines.push(`${o.name} ${c.check}: ${c.reason}`);
+    }
+  }
+  return { exitCode: 0, fields: { provenancePath, ...record }, human: lines.join("\n") };
+}
+
+const opCommand: Command = {
+  name: "op",
+  summary: "run one media operation over images (matte, trim, scale, convert, ...)",
+  positionals: true,
+  usage: `Usage: assetforge op <operation> <input...> --out <path> [--params <json object>]
+                     [--profile <profile.json>] [--json]
+
+Runs one operation (see \`assetforge ops\`) over the input images and writes the outputs and a
+provenance record. --out is a file for a single output, otherwise a directory.
+--profile supplies the style and frame size. Example: assetforge op matte in.png --out out.png`,
+  options: {
+    out: { type: "string" },
+    params: { type: "string" },
+    profile: { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values, positionals = []) {
+    const [operation, ...inputs] = positionals;
+    if (operation === undefined) throw new InputError("missing the operation name");
+    if (inputs.length === 0) throw new InputError("missing input image(s)");
+    const o = required(values, ["out"]);
+    let params: unknown = {};
+    const raw = values["params"];
+    if (typeof raw === "string") {
+      try {
+        params = JSON.parse(raw);
+      } catch (error) {
+        throw new InputError(`--params is not valid JSON: ${(error as Error).message}`, {
+          cause: error,
+        });
+      }
+      if (typeof params !== "object" || params === null || Array.isArray(params)) {
+        throw new InputError("--params must be a JSON object");
+      }
+    }
+    const recipe = parseRecipe({ steps: [{ op: operation, params }] });
+    return runTransform(
+      { recipe, inputs, out: o["out"] as string },
+      values["profile"] as string | undefined,
+    );
+  },
+};
+
+const recipeCommand: Command = {
+  name: "recipe",
+  summary: "run a recipe file (a sequence of operations) over images",
+  positionals: true,
+  usage: `Usage: assetforge recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--json]
+
+Runs the steps of a recipe file in order over the input images and writes the outputs and a
+provenance record. --out is a file for a single output, otherwise a directory.`,
+  options: {
+    out: { type: "string" },
+    profile: { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values, positionals = []) {
+    const [recipePath, ...inputs] = positionals;
+    if (recipePath === undefined) throw new InputError("missing the recipe file");
+    if (inputs.length === 0) throw new InputError("missing input image(s)");
+    const o = required(values, ["out"]);
+    const recipe = parseRecipe((await readJson<unknown>(recipePath)).value);
+    return runTransform(
+      { recipe, inputs, out: o["out"] as string },
+      values["profile"] as string | undefined,
+    );
+  },
+};
+
+const opsCommand: Command = {
+  name: "ops",
+  summary: "list the media operations and the engines that implement them",
+  usage: `Usage: assetforge ops [--json]
+
+Lists every operation with its summary, parameters and engines.`,
+  options: {
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run() {
+    const described = describeOperations();
+    const width = Math.max(...described.operations.map((o) => o.name.length));
+    const lines = described.operations.map((o) => `${o.name.padEnd(width)}  ${o.summary}`);
+    lines.push("", ...described.engines.map((e) => `engine ${e.name} ${e.version}`));
+    return { exitCode: 0, fields: { ...described }, human: lines.join("\n") };
+  },
+};
+
 const commands: Command[] = [
   stageCommand,
   pickCommand,
   importCommand,
   generateSheetCommand,
   writeFamiliesCommand,
+  opCommand,
+  recipeCommand,
+  opsCommand,
 ];
 
 function mainUsage(): string {
@@ -637,7 +770,12 @@ async function main(argv: string[]): Promise<number> {
     if (!command) {
       throw new InputError(`unknown command "${first}"\n${mainUsage()}`);
     }
-    const { values } = parseArgs({ args: rest, options: command.options, strict: true });
+    const { values, positionals } = parseArgs({
+      args: rest,
+      options: command.options,
+      strict: true,
+      allowPositionals: command.positionals === true,
+    });
     if (values["help"]) {
       return emit(json, name, {
         exitCode: 0,
@@ -645,7 +783,7 @@ async function main(argv: string[]): Promise<number> {
         human: command.usage,
       });
     }
-    return emit(json, name, await command.run(values as Values));
+    return emit(json, name, await command.run(values as Values, positionals));
   } catch (error) {
     const failure = classify(error);
     return emit(json, name, {
