@@ -95,3 +95,13 @@ This example follows the public manifest shape in Clockgrove's `packages/assets/
 - **Review.** Assetforge always sets the field at `review.path` to `review.pending` and never writes another value there.
 - **Validator.** Run in the target directory after the pick is written, with `{{manifest}}` and `{{media}}` replaced by the written paths. A non-zero exit is reported as a rejection.
 - **Media.** Each output declares its own media type and extension; `.gitattributes` in the target decides what Git LFS stores.
+
+## Relightable materials
+
+`style.materials` opts a world into normal, height/depth, emissive, roughness/wetness and wind/flow channels, native 1×/2× (optional 4×) renditions, temporal bounds, target compression and lit-preview commands. Per-asset derivation sources stay separate from the world profile. See [materials.md](materials.md) for the `assetforge materials` command, encoding, provenance and target command contracts.
+
+### Relightable materials
+
+The optional `style.materials` data is validated against the material profile schema. The `materials` command defaults to all standard channels (`normal`, `height`, `emissive`, `roughness`, `wind`), scales `[1, 2]`, and a flicker bound of `0.03` when settings are absent. `channels` can omit any channel or be empty; `scales` may additionally include 4. This does not cause ordinary generation commands to run materials automatically.
+
+Per-channel `encoding` declares `unorm8` and an ordered normalized `range`. `compression` declares the format (`ktx2` or `basis`, delivered in KTX2), version and argv command; `preview` declares its version and argv command. `lightRig` is target-owned JSON data consumed by the preview renderer from the material report. No target light rig is available yet; tests use an explicit synthetic rig. Commands never use shell interpolation and have bounded runtimes. See [materials.md](materials.md) for derivation inputs, defaults, rendition limits and `--dry-run` cost forecasts.

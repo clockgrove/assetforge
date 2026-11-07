@@ -65,6 +65,7 @@ export function buildSheetPrompt(
     `Each frame will be scaled to a ${grid.frame.width}x${grid.frame.height} px game frame, so keep the silhouette readable.`,
     `Reference images, in order: ${roles.join(", ")}. Match the identity to the subject references and the camera angle to the perspective sample.`,
     `Palette: ${bible.palette.join(", ")}.`,
+    "Paint albedo under a neutral key light, without baked directional shadows, highlights or emissive glow.",
     ...(bible.mood?.length ? [`Mood: ${bible.mood.join(", ")}.`] : []),
     ...(bible.notes ?? []).map((note) => `Style note: ${note}`),
     "Plain flat uniform light background across the whole sheet, no grid lines, no borders, no text, no numbers, no shadow on the ground.",

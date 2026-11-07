@@ -14,6 +14,7 @@ import { resolveStyle } from "../style.ts";
 import type { ResolvedStyle } from "../style.ts";
 import type { Size } from "../types.ts";
 import { OPERATIONS, operationSpec } from "./operations.ts";
+import { materialEngine } from "../material/engine.ts";
 import { rasterEngine } from "./raster-engine.ts";
 import { validate } from "./schema.ts";
 import type {
@@ -26,7 +27,7 @@ import type {
 } from "./types.ts";
 
 /** The engines available by default, in preference order. */
-export const DEFAULT_ENGINES: ImageEngine[] = [rasterEngine];
+export const DEFAULT_ENGINES: ImageEngine[] = [rasterEngine, materialEngine];
 
 export const RECIPE_FORMAT = "assetforge-recipe/1";
 
@@ -41,11 +42,13 @@ export interface RunOptions {
   /** The target profile's frame size, which `register` defaults to. */
   frame?: Size;
   engines?: ImageEngine[];
+  materialCall?: import("../calls.ts").Caller;
 }
 
 function contextOf(options: RunOptions): OperationContext {
   return {
     style: options.style ?? resolveStyle(undefined),
+    ...(options.materialCall && { materialCall: options.materialCall }),
     ...(options.frame !== undefined && { frame: options.frame }),
   };
 }
@@ -54,10 +57,11 @@ function pickEngine(op: string, engines: ImageEngine[], name?: string): ImageEng
   if (name !== undefined) {
     const engine = engines.find((e) => e.name === name);
     if (!engine) throw new InputError(`unknown engine "${name}"`);
-    if (!engine.operations[op]) throw new InputError(`engine "${name}" does not implement ${op}`);
+    if (!engine.operations[op] && !engine.asyncOperations?.[op])
+      throw new InputError(`engine "${name}" does not implement ${op}`);
     return engine;
   }
-  const engine = engines.find((e) => e.operations[op]);
+  const engine = engines.find((e) => e.operations[op] || e.asyncOperations?.[op]);
   if (!engine) throw new InputError(`no engine implements ${op}`);
   return engine;
 }
@@ -271,7 +275,10 @@ export async function transformFiles(
   }
 
   const style = options.style ?? resolveStyle(undefined);
-  const { items: results, steps } = runRecipe(options.recipe, items, { ...options, style });
+  const { items: results, steps } = await runRecipeAsync(options.recipe, items, {
+    ...options,
+    style,
+  });
   if (results.length === 0) throw new InputError("the recipe produced no output");
 
   const out = resolve(options.out);
@@ -352,7 +359,7 @@ export function describeOperations(engines: ImageEngine[] = DEFAULT_ENGINES) {
     engines: engines.map((e) => ({
       name: e.name,
       version: e.version,
-      operations: Object.keys(e.operations),
+      operations: [...Object.keys(e.operations), ...Object.keys(e.asyncOperations ?? {})],
       encodes: Object.entries(e.encoders).map(([mediaType, enc]) => ({
         mediaType,
         extension: enc?.extension,
@@ -363,7 +370,50 @@ export function describeOperations(engines: ImageEngine[] = DEFAULT_ENGINES) {
       summary: o.summary,
       scope: o.scope,
       params: o.params,
-      engines: engines.filter((e) => e.operations[o.name]).map((e) => e.name),
+      engines: engines
+        .filter((e) => e.operations[o.name] || e.asyncOperations?.[o.name])
+        .map((e) => e.name),
     })),
   };
+}
+
+/** Runs recipes that include bounded external or model-assisted material operations. */
+export async function runRecipeAsync(
+  recipe: Recipe,
+  items: ImageItem[],
+  options: RunOptions = {},
+): Promise<{ items: ImageItem[]; steps: TransformStep[] }> {
+  let current = items;
+  const steps: TransformStep[] = [];
+  for (const step of recipe.steps) {
+    const checked = checkStep(step);
+    const spec = operationSpec(step.op)!;
+    const engine = pickEngine(step.op, options.engines ?? DEFAULT_ENGINES, step.engine);
+    const impl = engine.asyncOperations?.[step.op];
+    if (!impl) {
+      const result = runOperation(current, step, options);
+      current = result.items;
+      steps.push(result.step);
+      continue;
+    }
+    const context = contextOf(options);
+    const params = spec.defaults ? spec.defaults(checked, context) : checked;
+    const inputs = current.map((i) => pixelHash(i.raster));
+    const results = [];
+    if (spec.scope === "all") results.push(await impl(current, params, context));
+    else for (const item of current) results.push(await impl([item], params, context));
+    current = results.flatMap((r) => r.items);
+    const reports = results.flatMap((r) => (r.report ? [r.report] : []));
+    steps.push({
+      op: step.op,
+      params,
+      engine: { name: engine.name, version: engine.version },
+      inputs,
+      outputs: current.map((i) => pixelHash(i.raster)),
+      ...(reports.length
+        ? { report: reports.length === 1 ? reports[0] : { perInput: reports } }
+        : {}),
+    });
+  }
+  return { items: current, steps };
 }

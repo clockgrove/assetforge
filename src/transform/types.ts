@@ -29,6 +29,7 @@ export interface OperationContext {
   style: ResolvedStyle;
   /** The target profile's frame size, when one is known; `register` defaults to it. */
   frame?: Size;
+  materialCall?: import("../calls.ts").Caller;
 }
 
 export interface OperationResult {
@@ -71,6 +72,16 @@ export interface ImageEngine {
   /** Bumped whenever any implementation's output bytes change, so provenance can be replayed. */
   version: string;
   operations: Partial<Record<string, OperationImpl>>;
+  asyncOperations?: Partial<
+    Record<
+      string,
+      (
+        items: ImageItem[],
+        params: Record<string, unknown>,
+        context: OperationContext,
+      ) => Promise<OperationResult>
+    >
+  >;
   /** Encoders this engine has, by media type. */
   encoders: Partial<Record<string, { extension: string; encode(raster: Raster): Uint8Array }>>;
   decode(bytes: Uint8Array): Raster;
