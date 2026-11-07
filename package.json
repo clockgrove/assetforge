@@ -1,0 +1,35 @@
+{
+  "name": "assetforge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generates game assets through generation models and hands them to a game's own asset pipeline with full provenance.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "assetforge": "src/cli.ts"
+  },
+  "scripts": {
+    "assetforge": "node src/cli.ts",
+    "check": "prettier --check . && eslint . && tsc --noEmit",
+    "format": "prettier --write .",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "test:real": "node --test \"test/real/**/*.real.ts\""
+  },
+  "dependencies": {
+    "ai": "7.0.165",
+    "pngjs": "7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "@types/pngjs": "6.0.5",
+    "eslint": "10.14.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
