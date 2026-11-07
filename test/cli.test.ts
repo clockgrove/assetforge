@@ -265,3 +265,56 @@ test("write-families on a missing import is one invalid_input document", async (
   assert.equal(d.command, "write-families");
   assert.equal(d.error.code, "invalid_input");
 });
+
+test("--help with --json is one JSON document carrying the usage", async () => {
+  for (const args of [
+    ["--help", "--json"],
+    ["-h", "--json"],
+    ["stage", "--help", "--json"],
+  ]) {
+    const r = await cli(args);
+    assert.equal(r.code, 0, args.join(" "));
+    const d = doc(r);
+    assert.equal(d["ok"], true);
+    assert.equal(d["exitCode"], 0);
+    assert.equal(d["command"], args[0] === "stage" ? "stage" : null);
+    assert.match(d["usage"], /--json|stage/);
+  }
+});
+
+test("a missing or malformed routes file is invalid_input", async () => {
+  const { world, base } = await files();
+  const bad = join(world.dir, "bad-routes.json");
+  await writeFile(bad, "{ not json");
+  const list = join(world.dir, "list-routes.json");
+  await writeFile(list, "[]");
+  for (const routes of [join(world.dir, "nope.json"), bad, list]) {
+    const r = await cli(["stage", ...base, "--routes", routes, "--dry-run", "--json"], noKey());
+    assert.equal(r.code, 2, routes);
+    assert.equal(doc(r)["error"].code, "invalid_input");
+  }
+});
+
+test("import of a sheet that is not an image is invalid_input", async () => {
+  const { world } = await files();
+  const sheet = join(world.dir, "sheet.png");
+  await writeFile(sheet, "not a png");
+  const r = await cli([
+    "import",
+    "--sheet",
+    sheet,
+    "--profile",
+    join(world.dir, "profile.json"),
+    "--asset",
+    "stevie",
+    "--tool",
+    "synthetic",
+    "--no-propose",
+    "--imports",
+    join(world.dir, "imports"),
+    "--json",
+  ]);
+  assert.equal(r.code, 2, r.stderr);
+  assert.equal(doc(r)["error"].code, "invalid_input");
+  assert.match(doc(r)["error"].message, /cannot decode the sheet/);
+});

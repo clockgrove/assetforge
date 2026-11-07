@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
+import { parseJsonFile } from "./json.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
 import type { Generator, PlannedCall } from "./generators/generator.ts";
 import { sha256 } from "./request.ts";
@@ -247,8 +248,15 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
     } catch (error) {
       run.filtered++;
       const message = error instanceof Error ? error.message : String(error);
-      // Bad input fails every candidate the same way: refuse the run rather than go on.
-      if (error instanceof InputError) throw error;
+      // Bad input fails every candidate the same way: refuse the run rather than go on, but
+      // leave its record so the runs directory never holds a run without one.
+      if (error instanceof InputError) {
+        run.errors.push(`candidate ${index + 1}: ${message}`);
+        run.stopped = `refused: ${message}`;
+        run.spentUsd = budget.spentUsd;
+        await writeRun(runDir, run);
+        throw error;
+      }
       if (error instanceof BudgetExceededError) {
         run.stopped = error.message;
         log(`stopped: ${message}`);
@@ -274,26 +282,4 @@ export async function readRun(runDir: string): Promise<RunRecord> {
   return (await parseJsonFile(join(runDir, RUN_FILE), "run")) as RunRecord;
 }
 
-async function parseJsonFile(path: string, what: string): Promise<unknown> {
-  let text: string;
-  try {
-    text = await readFile(path, "utf8");
-  } catch (error) {
-    const reason =
-      (error as NodeJS.ErrnoException).code === "ENOENT" ? "no such file" : String(error);
-    throw new InputError(`cannot read ${what} ${path}: ${reason}`, { cause: error });
-  }
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new InputError(`${what} ${path} is not valid JSON: ${(error as Error).message}`, {
-      cause: error,
-    });
-  }
-}
-
-/** Reads a JSON data file and returns it with the directory its relative paths resolve against. */
-export async function readJson<T>(path: string): Promise<{ value: T; dir: string }> {
-  const full = resolve(path);
-  return { value: (await parseJsonFile(full, "file")) as T, dir: dirname(full) };
-}
+export { readJson } from "./json.ts";

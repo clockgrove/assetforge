@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { InputError } from "./errors.ts";
+import { parseJsonFile } from "./json.ts";
 
 /** A model route: which gateway model serves an operation, its per-call estimate and its terms. */
 export interface Route {
@@ -59,9 +60,12 @@ export const defaultRoutes: Routes = {
 /** Loads a JSON file of route overrides and merges it over the defaults. */
 export async function loadRoutes(path?: string): Promise<Routes> {
   if (!path) return defaultRoutes;
-  const overrides = JSON.parse(await readFile(path, "utf8")) as Record<string, Partial<Route>>;
+  const overrides = await parseJsonFile(path, "routes");
+  if (typeof overrides !== "object" || overrides === null || Array.isArray(overrides)) {
+    throw new InputError(`routes ${path} must be a JSON object of operation to route`);
+  }
   const merged: Record<string, Route> = { ...defaultRoutes };
-  for (const [operation, route] of Object.entries(overrides)) {
+  for (const [operation, route] of Object.entries(overrides as Record<string, Partial<Route>>)) {
     merged[operation] = { ...merged[operation], ...route } as Route;
   }
   return merged as Routes;

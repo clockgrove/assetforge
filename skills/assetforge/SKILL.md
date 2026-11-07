@@ -26,7 +26,7 @@ Run it as `npx @clockgrove/assetforge@<version> <command>`, or as `assetforge` (
   Has the model draw a whole cycle as one sheet within the cap, then imports it.
 - `write-families --import <dir> --target <dir> [--grouping <file>] [--json]`
   Writes the strips of a grouping a human set to `confirmed` into the target with review pending.
-- `--help`, `--version`; `<command> --help` for one command's options.
+- `--help`, `--version`; `<command> --help` for one command's options. With `--json`, help is a JSON document whose `usage` field holds the text.
 
 ## Exit codes
 

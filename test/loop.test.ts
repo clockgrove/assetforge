@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
@@ -434,4 +434,19 @@ test("a provider failure is a ProviderError recorded in the run's errors, and th
     routes: defaultRoutes,
   });
   await assert.rejects(caller.image("still", "p", []), ProviderError);
+});
+
+test("a missing bible reference refuses the run as InputError and still leaves its run record", async () => {
+  const world = await syntheticWorld();
+  await rm(join(world.bibleDir, "refs/den.png"));
+  const provider = scriptedProvider();
+  const spec: AssetSpec = { kind: "still", assetId: "den", animationFamily: "idle" };
+  await assert.rejects(stage({ ...options(world, provider, spec), candidates: 2 }), InputError);
+  const [runId, ...more] = await readdir(world.runsDir);
+  assert.ok(runId);
+  assert.deepEqual(more, []);
+  const record = JSON.parse(await readFile(join(world.runsDir, runId, "run.json"), "utf8"));
+  assert.deepEqual(record.candidates, []);
+  assert.match(record.stopped, /^refused: cannot read/);
+  assert.equal(record.errors.length, 1);
 });

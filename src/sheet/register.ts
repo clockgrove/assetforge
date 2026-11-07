@@ -5,6 +5,7 @@
  * Coordinate convention: the centre of mass of a pixel in column x is x + 0.5, so a figure centred
  * on the anchor column has centerX = anchor.x + 0.5; the baseline is a row index.
  */
+import { InputError } from "../errors.ts";
 import { flipHorizontal, resampleTo } from "../image/resample.ts";
 import type { Raster } from "../image/raster.ts";
 import { opaqueBox } from "../image/raster.ts";
@@ -62,7 +63,7 @@ export function registerFrames(figures: Raster[], options: RegisterOptions): Reg
   const [lo, hi] = options.clamp ?? [0.8, 1.25];
   const measures = figures.map((f, i) => {
     const m = measureFrame(f, threshold);
-    if (!m) throw new Error(`figure ${i + 1} has no pixel at or above alpha ${threshold}`);
+    if (!m) throw new InputError(`figure ${i + 1} has no pixel at or above alpha ${threshold}`);
     return m;
   });
 
@@ -70,7 +71,7 @@ export function registerFrames(figures: Raster[], options: RegisterOptions): Reg
   if (options.families) {
     const { families } = options;
     if (families.length !== figures.length)
-      throw new Error("families must name one family per figure");
+      throw new InputError("families must name one family per figure");
     measures.forEach((m, i) => {
       const peers = measures.filter((_, j) => families[j] === families[i]);
       const target = median(peers.map((p) => Math.sqrt(p.area)));
@@ -98,7 +99,8 @@ export function registerFrames(figures: Raster[], options: RegisterOptions): Reg
         (anchor.y + 1 - margin) / up,
       );
     });
-    if (!Number.isFinite(best) || best <= 0) throw new Error("the figures do not fit the frame");
+    if (!Number.isFinite(best) || best <= 0)
+      throw new InputError("the figures do not fit the frame");
     scale = best;
   }
 
@@ -114,7 +116,7 @@ export function registerFrames(figures: Raster[], options: RegisterOptions): Reg
     }
     const image = resampleTo(f, t, { x, y }, frame, edges);
     const measure = measureFrame(image, threshold);
-    if (!measure) throw new Error(`figure ${i + 1} vanished when scaled into the frame`);
+    if (!measure) throw new InputError(`figure ${i + 1} vanished when scaled into the frame`);
     const transforms: Transform[] = [];
     if (options.families) transforms.push({ op: "normalize-scale", factor: n });
     transforms.push({ op: "scale", factor: t, filter: edges });

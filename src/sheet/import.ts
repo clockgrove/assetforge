@@ -258,7 +258,17 @@ export async function importSheet(
   const style = resolveStyle(profile.style, options.bible?.palette);
   const frame = options.frame ?? { width: profile.frames.width, height: profile.frames.height };
   const anchor = options.anchor ?? defaultAnchor(frame);
-  const raster = decodeImage(options.sheet);
+  let raster: Raster;
+  try {
+    raster = decodeImage(options.sheet);
+  } catch (error) {
+    throw new InputError(
+      `cannot decode the sheet ${options.sheetPath}: ${(error as Error).message}`,
+      {
+        cause: error,
+      },
+    );
+  }
   const sliced = sliceSheet(raster, options.slice);
   if (sliced.figures.length === 0) throw new InputError("no figures found on the sheet");
 
@@ -525,7 +535,7 @@ export async function writeFamilies(
         ],
       });
     });
-    if (!union) throw new Error(`family ${s.family.name} has no visible pixel`);
+    if (!union) throw new InputError(`family ${s.family.name} has no visible pixel`);
     const bytes = encodePng(strip);
 
     const spec: AssetSpec = {

@@ -23,18 +23,13 @@ test(
       return dir;
     };
     try {
-      await exec(
-        process.execPath,
-        [join(root, "node_modules/typescript/bin/tsc"), "-p", "tsconfig.build.json"],
-        { cwd: root },
-      );
-
+      // Pack the way a publish does: no prebuilt dist/, so the tarball's dist/ can only come
+      // from the package's own prepack script.
+      await rm(join(root, "dist"), { recursive: true, force: true });
       const packDir = await temp();
-      const { stdout } = await exec(
-        "npm",
-        ["pack", "--ignore-scripts", "--json", "--pack-destination", packDir],
-        { cwd: root },
-      );
+      const { stdout } = await exec("npm", ["pack", "--json", "--pack-destination", packDir], {
+        cwd: root,
+      });
       const [packed] = JSON.parse(stdout) as Array<{ filename: string; files: { path: string }[] }>;
       assert.ok(packed);
       const paths = packed.files.map((f) => f.path);

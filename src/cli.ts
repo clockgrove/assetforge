@@ -625,8 +625,7 @@ async function main(argv: string[]): Promise<number> {
     return EXIT.invalid_input;
   }
   if (first === "--help" || first === "-h" || first === "help") {
-    console.log(mainUsage());
-    return 0;
+    return emit(json, null, { exitCode: 0, fields: { usage: mainUsage() }, human: mainUsage() });
   }
   if (first === "--version") {
     console.log(version());
@@ -640,8 +639,11 @@ async function main(argv: string[]): Promise<number> {
     }
     const { values } = parseArgs({ args: rest, options: command.options, strict: true });
     if (values["help"]) {
-      console.log(command.usage);
-      return 0;
+      return emit(json, name, {
+        exitCode: 0,
+        fields: { usage: command.usage },
+        human: command.usage,
+      });
     }
     return emit(json, name, await command.run(values as Values));
   } catch (error) {
