@@ -15,7 +15,9 @@ interface Manifest {
   review: { status: string };
   frames: { width: number; height: number; count: number };
   bounds: { x: number; y: number; width: number; height: number };
-  palette: string[];
+  palette?: string[];
+  /** The world's style profile, when the profile's template passes it through. */
+  style?: { alpha?: { mode: string; threshold?: number }; color?: { rule: string } };
   contentHash: string;
   provenance: { generated: Record<string, unknown> };
 }
@@ -54,6 +56,11 @@ if (ihdr.depth !== 8 || ihdr.colorType !== 6) fail("transparency", "not 8-bit RG
 if (png.width !== m.frames.width * m.frames.count || png.height !== m.frames.height) {
   fail("dimensions", `${png.width}x${png.height}`);
 }
+// Style rules follow the declared style profile; without one, binary alpha and a palette.
+const softAlpha = m.style?.alpha?.mode === "soft";
+const threshold = m.style?.alpha?.threshold ?? 1;
+const paletteRule = m.style === undefined || m.style.color?.rule === "palette";
+if (paletteRule && !Array.isArray(m.palette)) fail("palette", "missing");
 const used = new Set<string>();
 let transparent = 0;
 let minX = Infinity;
@@ -63,12 +70,13 @@ let maxY = -1;
 for (let y = 0; y < png.height; y++) {
   for (let x = 0; x < png.width; x++) {
     const i = (y * png.width + x) * 4;
-    const a = png.data[i + 3];
+    const a = png.data[i + 3] ?? 0;
     if (a === 0) {
       transparent++;
       continue;
     }
-    if (a !== 255) fail("transparency", `alpha ${a} at ${x},${y}`);
+    if (a !== 255 && !softAlpha) fail("transparency", `alpha ${a} at ${x},${y}`);
+    if (a < threshold) continue;
     const hex = `#${[0, 1, 2].map((k) => (png.data[i + k] ?? 0).toString(16).padStart(2, "0")).join("")}`;
     used.add(hex);
     const fx = x % m.frames.width;
@@ -79,8 +87,10 @@ for (let y = 0; y < png.height; y++) {
   }
 }
 if (transparent === 0) fail("transparency", "no transparent pixel");
-for (const hex of used) if (!m.palette.includes(hex)) fail("palette", `${hex} not in palette`);
-for (const hex of m.palette) if (!used.has(hex)) fail("palette", `${hex} unused`);
+if (paletteRule && m.palette) {
+  for (const hex of used) if (!m.palette.includes(hex)) fail("palette", `${hex} not in palette`);
+  for (const hex of m.palette) if (!used.has(hex)) fail("palette", `${hex} unused`);
+}
 const b = m.bounds;
 if (b.x !== minX || b.y !== minY || b.width !== maxX - minX + 1 || b.height !== maxY - minY + 1) {
   fail("bounds", JSON.stringify(b));

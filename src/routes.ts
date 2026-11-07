@@ -18,8 +18,10 @@ export interface Routes {
   still: Route;
   /** Reference-guided edits: each animation frame is an edit of the key pose. */
   edit: Route;
-  /** Vision QA. */
+  /** Vision QA, and the grouping proposal of an imported sheet. */
   vision: Route;
+  /** A whole animation cycle as one contact sheet. */
+  sheet: Route;
   [operation: string]: Route;
 }
 
@@ -38,6 +40,13 @@ export const defaultRoutes: Routes = {
     supportsSeed: true,
     providerTerms:
       "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  sheet: {
+    model: "openai/gpt-image-2",
+    estimatedCostUsd: 0.3,
+    size: "1536x1024",
+    providerTerms:
+      "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
   },
   vision: {
     model: "google/gemini-3-flash",
