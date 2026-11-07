@@ -15,6 +15,21 @@ It is a development tool. A game repository never depends on it at runtime: Asse
 
 Animation starts from an approved key pose; each frame is a reference-guided edit of it.
 
+## Usage
+
+Assetforge runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)).
+
+```sh
+pnpm install
+export AI_GATEWAY_API_KEY=...   # the Vercel AI Gateway key, from the environment only
+pnpm assetforge stage --spec stevie-shelter.json --bible bible.json --profile profile.json
+pnpm assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../clockgrove
+```
+
+`stage` reserves the run's estimated cost against the cap (default 4 candidates and $5; `--candidates`, `--cap`) and refuses a run that would exceed it, then lists only the candidates that passed QA, each with its reasons. `pick` writes the chosen file and its manifest into the target with the review status pending and full provenance, and runs the target's validator. The input formats are in [docs/target-profile.md](docs/target-profile.md); the gateway's models and the default routes are in [docs/models.md](docs/models.md).
+
+`pnpm check` and `pnpm test` run offline with a scripted provider. `pnpm test:real` runs the opt-in real-provider check, which skips without a key.
+
 ## Status
 
 Pre-1.0 and under active design. The first adopter is [Clockgrove](https://github.com/clockgrove/clockgrove)'s Raccoon World.

@@ -9,9 +9,6 @@
   "engines": {
     "node": ">=24"
   },
-  "bin": {
-    "assetforge": "src/cli.ts"
-  },
   "scripts": {
     "assetforge": "node src/cli.ts",
     "check": "prettier --check . && eslint . && tsc --noEmit",
