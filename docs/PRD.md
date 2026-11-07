@@ -46,14 +46,14 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 ## 4. Concepts
 
-- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid and limits (Clockgrove: frame edge at most 256 px, alpha strictly 0 or 255, an exact palette), naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
+- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid and size limits per asset role, the alpha and colour rules (Clockgrove, after #61: soft alpha and full colour, no fixed palette), naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
 - **Style bible.** The world's visual (and later audio) constitution, as data in the target repository:
   - approved reference images: character sheets, turnarounds, props, a perspective sample;
-  - the palette;
+  - the colour script: key colours and value ranges per time of day, not a fixed palette;
   - the lighting key;
   - line and texture notes;
   - negative examples;
-  - the mood words. For Raccoon World: "quiet, mature, storybook realism", warm lantern light against cool dusk rain.
+  - the mood words and the reference image. For Raccoon World: painterly rendered storybook realism, a high three-quarter isometric camera, soft fur, full colour, large environment pieces, warm lantern light against cool dusk rain (Clockgrove `docs/design/reference/raccoon-world-reference.png`).
 
   It has a version. Every output records the bible version it was made under.
 - **Asset spec.** One requested asset: kind (sprite strip, still, portrait, icon, tile, effect, loop, model), identity, animation family, frame count and size, anchor and footprint, variants, and any per-asset references.
@@ -69,9 +69,9 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 1. **Spec in.** Read the target profile, the style bible and the asset spec. Build model inputs from them: references as image inputs, constraints as structured prompt parts.
 2. **Candidates.** Generate N candidates (default 4) within the per-run cap (default $5). Stills come from a text-and-reference image model. Animation frames come from a reference-edit model.
-3. **Post-process to spec.** Background to true alpha, crop and scale to the frame grid, palette quantization to the bible's palette, alignment to the anchor and pivot, and bounds computed the way the target computes them. All of it deterministic.
+3. **Post-process to spec.** Background removed to a clean, soft alpha edge (fur and foliage keep their antialiasing), crop and scale to the frame grid at the role's size, colour kept within the bible's colour script (quantization only when a target profile declares a fixed palette), alignment to the anchor and pivot, and bounds computed the way the target computes them. All of it deterministic.
 4. **Vision QA.** A vision model, plus deterministic checks, scores each candidate on four things. Failing candidates are never shown.
-   - **Spec:** transparency, frame count and size, palette.
+   - **Spec:** transparency, frame count and size, the profile's colour and alpha rules.
    - **Identity:** the same character as its references.
    - **Perspective:** matches the isometric sample.
    - **Style:** close to the bible.
@@ -97,7 +97,7 @@ A world's look is only as good as its weakest asset, so Assetforge treats consis
 - **Identity lock.** Each character has an identity record: its approved references plus a vision-model fingerprint. Every candidate of that character is scored against it, and a candidate below the threshold is filtered out with the reason.
 - **Style distance.** Every candidate gets a style score against the bible's references. The score is recorded, so the world's spread can be seen over time.
 - **Drift report.** When the style bible changes version, the asset locks show which approved assets were made under an older bible. A campaign can regenerate them for review.
-- **Palette and lighting audit.** A set-level check finds assets that break the palette or the lighting key, even when each one passed alone.
+- **Colour and lighting audit.** A set-level check finds assets that break the colour script or the lighting key (light direction, warmth, value range), even when each one passed alone.
 
 ### 5.4 In-context preview
 
@@ -105,7 +105,7 @@ An asset that looks right on a white background can look wrong in the yard. The 
 
 ### 5.5 Relightable sprites
 
-Raccoon World lights its yard dynamically: day, dusk and night, lantern and window glow, wet surfaces (#21). Flat-lit sprites fight that. Where the target profile asks for them, Assetforge also produces companion maps for each sprite, all aligned to the sprite's frame grid, so the game can relight one asset instead of shipping one sprite per lighting state:
+Raccoon World lights its yard dynamically: day, dusk and night, lantern and window glow, wet surfaces (#21). Its art is painterly, with light painted in, so a flat-lit sprite looks pasted on and a fully lit one fights the scene's light. Assetforge generates each painted asset under the bible's neutral key light. Where the target profile asks for them, Assetforge also produces companion maps for each sprite, all aligned to the sprite's frame grid, so the game can relight one asset instead of shipping one sprite per lighting state:
 - a normal map;
 - an emissive mask (window glow, lantern);
 - a wetness/specular mask.
@@ -168,8 +168,8 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 
 | Need | Source | Assetforge capability |
 | --- | --- | --- |
-| Sprite strips: `frames.count` frames side by side; 8-bit RGBA; alpha 0 or 255; exact palette, all of it used; bounds equal to the opaque box | pipeline.md, validator rules | 5.1 post-processing, run against the target validator |
-| Frame edge ≤ 256 px; atlas packing is the game's job | pipeline.md, issue 813 | Target profile limits |
+| Sprite strips: `frames.count` frames side by side; RGBA with soft alpha; full colour; bounds equal to the visible box (rules amended for painterly art in #61) | pipeline.md, #61 | 5.1 post-processing, run against the target validator |
+| Size limits per role (#61), large environment pieces included; atlas packing is the game's job | pipeline.md, #61 | Target profile limits |
 | Manifest `generated` provenance; MIT license; `review.status: "pending"` | pipeline.md, #27 | 5.1 hand-off, 5.9 |
 | Stevie and the household in idle, walk, sniff, eat, play and shelter first; later run, climb, forage, drink, groom, lead/follow, sleep, converse/emote | #27, Wave 8 §10.2 | 5.2 animation, 5.6 campaigns |
 | Body, face, age and size variants; lifecycle variants; non-distressing historical treatment | Wave 8 §10.2 | 5.3 identity lock, 5.6 variant matrices |
@@ -177,7 +177,7 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 | Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | Wave 8 §10.2, #21 | 5.5 relightable sprites, 5.8 effects |
 | Icons: weather, material events, entity modes, actions, relationships, privacy, status | Wave 8 §10.2 | 5.8 icon families |
 | Modular layers and atlases, never one flattened illustration | Wave 8 §10.2 | Per-asset specs; layering in the target profile |
-| Look: quiet, mature storybook realism; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1 | Style bible, 5.3 |
+| Look: painterly rendered storybook realism, high three-quarter isometric camera, soft fur, full colour; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1, the reference mockup | Style bible, 5.3 |
 | Golden scene approval | pipeline.md | 5.4 in-context preview, using the golden renderer |
 | Audio: rain loops, ambience, birds, rustling, water, subtle cues; mute and volume groups; nothing conveyed by sound alone; sensory-safe defaults | Wave 8 §10.3 | 5.8 audio |
 | Creator-authored world packs (Wave 7), community assets (PRD v0.5 §16) | Wave 7, PRD | 5.7 agent use; the style bible as the creator's guardrail |
