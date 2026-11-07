@@ -41,7 +41,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** a world that stays consistent as it grows, with each pick made in the game's own scene. PRD §5.3 and §5.4.
 
 **Objectives:**
-- Style distance on every candidate, and a set-level palette and lighting audit.
+- Style distance on every candidate, and a set-level colour and lighting audit.
 - An asset lock per approved asset, and a drift report when the style bible changes version.
 - In-context preview through the target's preview command. Clockgrove's golden renderer is the first.
 
