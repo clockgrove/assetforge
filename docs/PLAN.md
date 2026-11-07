@@ -26,7 +26,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** character animation that holds together, and Raccoon World's first real set. PRD §5.2, plus the identity lock from §5.3.
 
 **Objectives:**
-- Sprite-sheet import and sheet generation (assetforge#10): slicing, soft alpha, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Stevie's existing 57-frame sheet is the first import.
+- Sprite-sheet import and sheet generation (assetforge#10): slicing, alpha by the style profile, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Stevie's existing 57-frame sheet is the first import.
 - Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
 - Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.
 - Clockgrove: the first set approved and in the golden scene (the rest of #27).
@@ -106,7 +106,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** proof that Assetforge is generic. PRD principle 1 and §3.
 
 **Objectives:**
-- A second target with no code change. Clockgrove's non-raccoon `mirror-room` test pack is the first candidate.
+- A second target with no code change and a different style profile (flat cartoon or pixel art). Clockgrove's non-raccoon `mirror-room` test pack is the first candidate.
 - Documentation for adopters: writing a target profile and a style bible, and running campaigns.
 
 **Exit:**
