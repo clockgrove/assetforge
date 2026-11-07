@@ -15,27 +15,65 @@ It is a development tool. A game repository never depends on it at runtime: Asse
 
 Animation is generated as a whole contact sheet per cycle, sliced and registered into frames; a single bad frame is fixed by a reference-guided edit.
 
-## Usage
+## Install in a game repository
 
-Assetforge runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)).
+Assetforge is published as `@clockgrove/assetforge`. Pin an exact version as a dev dependency. The game never imports it at runtime.
 
 ```sh
-pnpm install
+pnpm add -D --save-exact @clockgrove/assetforge@<version>
 export AI_GATEWAY_API_KEY=...   # the Vercel AI Gateway key, from the environment only
-pnpm assetforge stage --spec stevie-shelter.json --bible bible.json --profile profile.json
-pnpm assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../clockgrove
+pnpm exec assetforge stage --spec stevie-shelter.json --bible bible.json --profile profile.json
+pnpm exec assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../clockgrove
 ```
+
+Keep the run directory out of Git by adding `.assetforge/` to `.gitignore`.
+
+For one-off use, with only Node 24, run `npx @clockgrove/assetforge@<version> --help`.
 
 `stage` reserves the run's estimated cost against the cap (default 4 candidates and $5; `--candidates`, `--cap`) and refuses a run that would exceed it, then lists only the candidates that passed QA, each with its reasons. `pick` writes the chosen file and its manifest into the target with the review status pending and full provenance, and runs the target's validator. The input formats are in [docs/target-profile.md](docs/target-profile.md); the gateway's models and the default routes are in [docs/models.md](docs/models.md).
 
 For animation, `import` turns a contact sheet into strips: it slices the sheet, removes the background following the target's style profile, registers frames to one baseline and scale, and asks a vision model to propose families. `generate-sheet` has the model draw a whole cycle as one sheet first. The author confirms the grouping, and `write-families` writes one strip per family with review pending. See [docs/sheet-import.md](docs/sheet-import.md).
 
 ```sh
-pnpm assetforge import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
-pnpm assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
+pnpm exec assetforge import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
+pnpm exec assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
 ```
 
-`pnpm check` and `pnpm test` run offline with a scripted provider. `pnpm test:real` runs the opt-in real-provider check, which skips without a key.
+## Use from a coding agent (Claude Code, Codex, Copilot)
+
+The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetforge/SKILL.md`. Copy or link it where your harness reads skills, for example `.claude/skills/assetforge/` or `.agents/skills/assetforge/`.
+
+- Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetforge never prompts.
+- Run `stage --dry-run` first. It spends nothing and needs no key.
+- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`.
+- Agents stage, humans pick (PRD §5.7). Agents never run `pick`.
+
+## Commands and exit codes
+
+- `stage --spec <spec.json> --bible <bible.json> --profile <profile.json>`: generate candidates within the cap and stage those that pass QA. Options: `--candidates`, `--cap`, `--routes`, `--runs`, `--dry-run` (plan and cost forecast, no spend, no key), `--provider-script <module.js>` (a scripted provider for offline runs), `--json`.
+- `pick --run <dir> --candidate <id> --target <dir>`: write the chosen candidate into the target with review pending.
+- `--help`, `--version`.
+
+| Code | Meaning                                                                  |
+| ---- | ------------------------------------------------------------------------ |
+| 0    | Success                                                                  |
+| 1    | Unexpected internal error                                                |
+| 2    | Invalid input                                                            |
+| 3    | Cap refused (also a dry-run forecast over the cap)                       |
+| 4    | Provider error (missing `AI_GATEWAY_API_KEY`, or every candidate failed) |
+| 5    | QA found nothing                                                         |
+| 6    | The target's validator rejected the pick                                 |
+
+## Develop
+
+Assetforge runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)).
+
+- `pnpm install`
+- `pnpm assetforge …` runs the TypeScript sources directly.
+- `pnpm build` compiles to `dist/` for the package.
+- `pnpm check` runs Prettier, ESLint and the type check.
+- `pnpm test` runs offline with a scripted provider. It includes a test that packs the package, installs it in a temp dir from the npm registry and runs it.
+- `pnpm test:real` runs the opt-in real-provider check, which skips without a key.
 
 ## Status
 
