@@ -1,3 +1,4 @@
+import { InputError } from "../errors.ts";
 import { decodeImage, encodePng } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
 import { postprocessFrames } from "../postprocess.ts";
@@ -13,8 +14,14 @@ import {
 } from "../request.ts";
 import type { FrameGrid } from "../request.ts";
 import type { Routes } from "../routes.ts";
-import type { AssetSpec, LoadedReference, Point, TargetProfile } from "../types.ts";
-import type { GeneratedCandidate, Generator, GeneratorContext } from "./generator.ts";
+import type { AssetSpec, LoadedReference, Point } from "../types.ts";
+import type { GeneratedCandidate, Generator, GeneratorContext, PlannedCall } from "./generator.ts";
+
+function plannedCall(routes: Routes, operation: string): PlannedCall {
+  const route = routes[operation];
+  if (!route) throw new InputError(`no model route for operation "${operation}"`);
+  return { operation, model: route.model, estimatedCostUsd: route.estimatedCostUsd };
+}
 
 /** Default anchor: bottom centre of the frame, one pixel above the edge. */
 function anchorOf(spec: AssetSpec, grid: FrameGrid): Point {
@@ -99,8 +106,10 @@ async function finish(
 /** A still image: one text-and-reference generation, post-processed to a single frame. */
 export const stillGenerator: Generator = {
   kind: "still",
-  estimateCandidateUsd: (_spec: AssetSpec, _profile: TargetProfile, routes: Routes) =>
-    routes.still.estimatedCostUsd + routes.vision.estimatedCostUsd,
+  planCandidate: (_spec, _profile, routes) => [
+    plannedCall(routes, "still"),
+    plannedCall(routes, "vision"),
+  ],
   async generate(ctx) {
     const grid = frameGrid(
       { ...ctx.spec, frames: { ...ctx.spec.frames, count: 1 } },
@@ -124,7 +133,7 @@ export const stillGenerator: Generator = {
  */
 function requireKeyPose(spec: AssetSpec): string {
   if (!spec.keyPose) {
-    throw new Error(
+    throw new InputError(
       "a sprite-strip spec needs an author-approved keyPose: stage a still of the pose first, " +
         "choose one, and name its file as keyPose (frames are reference-guided edits of it)",
     );
@@ -132,16 +141,22 @@ function requireKeyPose(spec: AssetSpec): string {
   return spec.keyPose;
 }
 
+function requireAnimationFamily(spec: AssetSpec): void {
+  if (!spec.animationFamily) throw new InputError("a sprite-strip spec needs an animationFamily");
+}
+
 export const spriteStripGenerator: Generator = {
   kind: "sprite-strip",
-  estimateCandidateUsd(spec, profile, routes) {
+  planCandidate(spec, profile, routes) {
     const grid = frameGrid(spec, profile, 1);
+    requireAnimationFamily(spec);
     requireKeyPose(spec);
-    return grid.count * routes.edit.estimatedCostUsd + routes.vision.estimatedCostUsd;
+    const edit = plannedCall(routes, "edit");
+    return [...Array.from({ length: grid.count }, () => edit), plannedCall(routes, "vision")];
   },
   async generate(ctx) {
     const { spec, bible } = ctx;
-    if (!spec.animationFamily) throw new Error("a sprite-strip spec needs an animationFamily");
+    requireAnimationFamily(spec);
     const grid = frameGrid(spec, ctx.profile, 1);
     const inputs = await loadBibleInputs(spec, bible, ctx.bibleDir);
     const prompt = buildStillPrompt(spec, bible, grid, inputs);

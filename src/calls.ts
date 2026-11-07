@@ -1,4 +1,5 @@
 import type { Budget } from "./budget.ts";
+import { InputError, ProviderError } from "./errors.ts";
 import type { GenerationProvider, ImageInput, ProviderResult } from "./gateway/provider.ts";
 import type { Route, Routes } from "./routes.ts";
 import type { CallRecord, LoadedReference } from "./types.ts";
@@ -32,7 +33,7 @@ export class Caller {
 
   route(operation: string): Route {
     const route = this.routes[operation];
-    if (!route) throw new Error(`no model route for operation "${operation}"`);
+    if (!route) throw new InputError(`no model route for operation "${operation}"`);
     return route;
   }
 
@@ -53,7 +54,9 @@ export class Caller {
     } catch (error) {
       // A failed call may still have been billed; count the estimate so the cap stays safe.
       this.budget.settle(reservation, route.estimatedCostUsd);
-      throw error;
+      if (error instanceof ProviderError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ProviderError(`the ${operation} call failed: ${message}`, { cause: error });
     }
     const costUsd = result.costUsd ?? route.estimatedCostUsd;
     this.budget.settle(reservation, costUsd);
@@ -103,7 +106,7 @@ export class Caller {
       }),
     );
     const image = result.images[0];
-    if (!image) throw new Error(`the ${operation} call returned no image`);
+    if (!image) throw new ProviderError(`the ${operation} call returned no image`);
     return image;
   }
 

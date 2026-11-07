@@ -3,8 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
+import { InputError } from "./errors.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
-import type { Generator } from "./generators/generator.ts";
+import type { Generator, PlannedCall } from "./generators/generator.ts";
 import { sha256 } from "./request.ts";
 import type { Routes } from "./routes.ts";
 import type {
@@ -36,6 +37,53 @@ export interface StageOptions {
   capUsd?: number;
   runId?: string;
   now?: () => Date;
+  /** Receives one line per candidate outcome and one when the run stops early. */
+  log?: (message: string) => void;
+}
+
+/** What a stage run would call and cost, computed without spending anything. */
+export interface StagePlan {
+  kind: string;
+  requested: number;
+  capUsd: number;
+  /** The calls one candidate makes. */
+  perCandidate: PlannedCall[];
+  /** Calls across all candidates. */
+  calls: number;
+  estimateUsd: number;
+  /** Whether the estimate fits the cap; a forecast over the cap is reported, not thrown. */
+  withinCap: boolean;
+}
+
+export function planStage(options: {
+  spec: AssetSpec;
+  profile: TargetProfile;
+  routes: Routes;
+  generators: Generator[];
+  candidates?: number;
+  capUsd?: number;
+}): StagePlan {
+  const requested = options.candidates ?? DEFAULT_CANDIDATES;
+  const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
+  if (!Number.isInteger(requested) || requested < 1) {
+    throw new InputError(`invalid candidate count: ${requested}`);
+  }
+  if (typeof capUsd !== "number" || !Number.isFinite(capUsd) || capUsd < 0) {
+    throw new InputError(`invalid cost cap: ${capUsd}`);
+  }
+  const generator = options.generators.find((g) => g.kind === options.spec.kind);
+  if (!generator) throw new InputError(`no generator handles asset kind "${options.spec.kind}"`);
+  const perCandidate = generator.planCandidate(options.spec, options.profile, options.routes);
+  const estimateUsd = perCandidate.reduce((sum, c) => sum + c.estimatedCostUsd, 0) * requested;
+  return {
+    kind: generator.kind,
+    requested,
+    capUsd,
+    perCandidate,
+    calls: perCandidate.length * requested,
+    estimateUsd,
+    withinCap: estimateUsd <= capUsd + 1e-9,
+  };
 }
 
 /** A candidate that passed QA, as staged for the author. */
@@ -113,17 +161,13 @@ function provenanceOf(
  */
 export async function stage(options: StageOptions): Promise<{ run: RunRecord; runDir: string }> {
   const { spec, bible, profile, routes } = options;
-  const requested = options.candidates ?? DEFAULT_CANDIDATES;
-  const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
   const now = options.now ?? (() => new Date());
-  if (!Number.isInteger(requested) || requested < 1) {
-    throw new Error(`invalid candidate count: ${requested}`);
-  }
-  const generator = options.generators.find((g) => g.kind === spec.kind);
-  if (!generator) throw new Error(`no generator handles asset kind "${spec.kind}"`);
+  const log = options.log ?? (() => {});
+  const plan = planStage(options);
+  const { requested, capUsd, estimateUsd } = plan;
+  const generator = options.generators.find((g) => g.kind === spec.kind) as Generator;
 
   const budget = new Budget(capUsd);
-  const estimateUsd = generator.estimateCandidateUsd(spec, profile, routes) * requested;
   // The run-level reservation: refuse the whole run, before any call, if it would exceed the cap.
   budget.settle(budget.reserve(estimateUsd, `a run of ${requested} candidates`), 0);
 
@@ -174,6 +218,7 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
       });
       if (!generated.qa.passed) {
         run.filtered++;
+        log(`candidate ${index + 1}/${requested}: filtered by QA`);
         continue;
       }
       const id = `c${index + 1}`;
@@ -198,16 +243,20 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
           seeded ? seed : undefined,
         ),
       });
+      log(`candidate ${index + 1}/${requested}: passed QA`);
     } catch (error) {
       run.filtered++;
+      const message = error instanceof Error ? error.message : String(error);
+      // Bad input fails every candidate the same way: refuse the run rather than go on.
+      if (error instanceof InputError) throw error;
       if (error instanceof BudgetExceededError) {
         run.stopped = error.message;
+        log(`stopped: ${message}`);
         break;
       }
       // A candidate that fails to generate is not shown; the run goes on with the next one.
-      run.errors.push(
-        `candidate ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      run.errors.push(`candidate ${index + 1}: ${message}`);
+      log(`candidate ${index + 1}/${requested}: failed: ${message}`);
     } finally {
       run.spentUsd = budget.spentUsd;
     }
@@ -222,11 +271,29 @@ export async function writeRun(runDir: string, run: RunRecord): Promise<void> {
 }
 
 export async function readRun(runDir: string): Promise<RunRecord> {
-  return JSON.parse(await readFile(join(runDir, RUN_FILE), "utf8")) as RunRecord;
+  return (await parseJsonFile(join(runDir, RUN_FILE), "run")) as RunRecord;
+}
+
+async function parseJsonFile(path: string, what: string): Promise<unknown> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    const reason =
+      (error as NodeJS.ErrnoException).code === "ENOENT" ? "no such file" : String(error);
+    throw new InputError(`cannot read ${what} ${path}: ${reason}`, { cause: error });
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new InputError(`${what} ${path} is not valid JSON: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
 }
 
 /** Reads a JSON data file and returns it with the directory its relative paths resolve against. */
 export async function readJson<T>(path: string): Promise<{ value: T; dir: string }> {
   const full = resolve(path);
-  return { value: JSON.parse(await readFile(full, "utf8")) as T, dir: dirname(full) };
+  return { value: (await parseJsonFile(full, "file")) as T, dir: dirname(full) };
 }

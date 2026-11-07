@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRaster, encodePng, parseHex, setPixel } from "./image/raster.ts";
+import { InputError } from "./errors.ts";
 import type { AssetSpec, LoadedReference, Size, StyleBible, TargetProfile } from "./types.ts";
 
 /**
@@ -30,7 +31,12 @@ export async function loadReference(
   baseDir: string,
 ): Promise<LoadedReference> {
   const full = resolve(baseDir, path);
-  const bytes = new Uint8Array(await readFile(full));
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await readFile(full));
+  } catch (error) {
+    throw new InputError(`cannot read the ${role} image ${full}`, { cause: error });
+  }
   return { role, path, mediaType: sniffMediaType(bytes), bytes, sha256: sha256(bytes) };
 }
 
@@ -73,7 +79,7 @@ export async function loadBibleInputs(
   const subject = subjectOf(spec);
   const refs = bible.references.filter((r) => r.subject === subject && r.role !== "perspective");
   if (refs.length === 0) {
-    throw new Error(`the style bible has no reference images for subject "${subject}"`);
+    throw new InputError(`the style bible has no reference images for subject "${subject}"`);
   }
   return {
     subject: await Promise.all(refs.map((r) => loadReference(r.path, r.role, bibleDir))),
@@ -100,11 +106,11 @@ export function frameGrid(
   const count = spec.frames?.count ?? defaultCount;
   const max = profile.frames.maxEdge;
   if (max !== undefined && (frame.width > max || frame.height > max)) {
-    throw new Error(
+    throw new InputError(
       `frame ${frame.width}x${frame.height} exceeds the profile's ${max} px frame edge`,
     );
   }
-  if (!Number.isInteger(count) || count < 1) throw new Error(`invalid frame count: ${count}`);
+  if (!Number.isInteger(count) || count < 1) throw new InputError(`invalid frame count: ${count}`);
   const durationMs = spec.frames?.durationMs ?? profile.frames.durationMs;
   return durationMs === undefined ? { frame, count } : { frame, count, durationMs };
 }

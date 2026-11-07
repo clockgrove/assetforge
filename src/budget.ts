@@ -1,3 +1,5 @@
+import { InputError } from "./errors.ts";
+
 /** Bounded spend: every provider call reserves against the cap first and is refused if it would exceed it. */
 
 export class BudgetExceededError extends Error {
@@ -24,7 +26,7 @@ export class Budget {
   private reserved = 0;
 
   constructor(capUsd: number) {
-    if (!(capUsd >= 0)) throw new Error(`invalid cost cap: ${capUsd}`);
+    if (!(capUsd >= 0)) throw new InputError(`invalid cost cap: ${capUsd}`);
     this.capUsd = capUsd;
   }
 

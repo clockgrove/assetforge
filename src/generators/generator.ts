@@ -30,10 +30,20 @@ export interface GeneratedCandidate {
   parameters: Record<string, unknown>;
 }
 
+/** One model call a candidate makes, as forecast from the routes. */
+export interface PlannedCall {
+  operation: string;
+  model: string;
+  estimatedCostUsd: number;
+}
+
 export interface Generator {
   /** The `kind` of asset spec this generator handles. */
   kind: string;
-  /** Upper estimate of one candidate's cost from the routes; reserved before the run starts. */
-  estimateCandidateUsd(spec: AssetSpec, profile: TargetProfile, routes: Routes): number;
+  /**
+   * The calls one candidate makes, from the routes; their estimates are reserved before the run
+   * starts. Throws `InputError` for a spec that cannot be generated, before any spend.
+   */
+  planCandidate(spec: AssetSpec, profile: TargetProfile, routes: Routes): PlannedCall[];
   generate(context: GeneratorContext): Promise<GeneratedCandidate>;
 }
