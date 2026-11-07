@@ -13,7 +13,7 @@ It is a development tool. A game repository never depends on it at runtime: Asse
 5. **Operator pick.** A person picks and approves. Nothing is accepted automatically.
 6. **Hand-off.** The chosen files and their provenance are written into the target repository for its pipeline; media is stored with Git LFS.
 
-Animation starts from an approved key pose; each frame is a reference-guided edit of it.
+Animation is generated as a whole contact sheet per cycle, sliced and registered into frames; a single bad frame is fixed by a reference-guided edit.
 
 ## Status
 
