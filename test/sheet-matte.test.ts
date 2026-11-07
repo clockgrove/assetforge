@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRaster, getPixel, parseHex, setPixel } from "../src/image/raster.ts";
 import { matteChecks, matteFigure, matteQuality } from "../src/sheet/matte.ts";
+import { sliceSheet } from "../src/sheet/slice.ts";
 import type { SlicedFigure } from "../src/sheet/types.ts";
 import { resolveStyle } from "../src/style.ts";
-import { SHEET_BACKGROUND, syntheticSheet, truthAlpha } from "./fixtures/sheet.ts";
+import { LABEL_COLOUR, SHEET_BACKGROUND, syntheticSheet, truthAlpha } from "./fixtures/sheet.ts";
 
 function figureOf(index: number): { figure: SlicedFigure; truth: Uint8Array } {
   const sheet = syntheticSheet();
@@ -141,4 +142,98 @@ test("pale interior pixels stay opaque", () => {
     }
   }
   assert.ok(belly > 0);
+});
+
+/** Sheet coordinates of figure 0's rightmost masked pixel and a solid interior pixel, after slicing. */
+function sliceFirst(sheet: ReturnType<typeof syntheticSheet>) {
+  const figure = sliceSheet(sheet.raster).figures[0]!;
+  const { box, mask } = figure;
+  let right = { x: -1, y: -1 };
+  let solid = { x: -1, y: -1 };
+  for (let y = 3; y < box.height - 3; y++) {
+    for (let x = 3; x < box.width - 3; x++) {
+      if (mask[y * box.width + x] !== 1) continue;
+      if (x > right.x) right = { x, y };
+      let inside = true;
+      for (let dy = -3; dy <= 3 && inside; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          if (mask[(y + dy) * box.width + x + dx] !== 1) inside = false;
+        }
+      }
+      if (inside && solid.x < 0) solid = { x, y };
+    }
+  }
+  return {
+    figure,
+    right: { x: box.x + right.x, y: box.y + right.y },
+    solid: { x: box.x + solid.x, y: box.y + solid.y },
+  };
+}
+
+test("a dropped speck beside the figure and background enclosed by it never reach the matte", () => {
+  const sheet = syntheticSheet();
+  const before = sliceFirst(sheet);
+  // A dark speck 2 px right of the figure's rightmost pixel: inside the unmixing band, outside the
+  // figure's box, so slicing drops it. A background hole inside the figure's solid interior.
+  const speck = [0, 1].flatMap((dx) =>
+    [0, 1].map((dy) => ({ x: before.right.x + 2 + dx, y: before.right.y + dy })),
+  );
+  for (const p of speck) setPixel(sheet.raster, p.x, p.y, [...LABEL_COLOUR, 255]);
+  const hole = [0, 1, 2].flatMap((dx) =>
+    [0, 1, 2].map((dy) => ({ x: before.solid.x + dx - 1, y: before.solid.y + dy - 1 })),
+  );
+  for (const p of hole) setPixel(sheet.raster, p.x, p.y, [...SHEET_BACKGROUND, 255]);
+
+  const figure = sliceSheet(sheet.raster).figures[0]!;
+  const matted = matteFigure(figure, resolveStyle(undefined));
+  const at = (p: { x: number; y: number }) =>
+    (p.y - figure.box.y) * figure.box.width + p.x - figure.box.x;
+  for (const p of speck) {
+    assert.equal(figure.mask[at(p)], 0, "the speck is not the figure's");
+    assert.equal(
+      matted.image.data[at(p) * 4 + 3],
+      0,
+      `speck pixel ${p.x},${p.y} reached the frame`,
+    );
+  }
+  for (const p of hole) {
+    assert.equal(figure.mask[at(p)], 0, "enclosed background is not masked");
+    assert.ok(
+      matted.image.data[at(p) * 4 + 3]! < 32,
+      `enclosed background ${p.x},${p.y} is opaque (${matted.image.data[at(p) * 4 + 3]})`,
+    );
+  }
+  assert.ok(matteChecks(matted.quality).every((r) => r.passed));
+});
+
+test("opaque background colour inside a figure fails the background check, not the halo check", () => {
+  const { figure } = figureOf(0);
+  const matted = matteFigure(figure, resolveStyle(undefined));
+  const image = matted.image;
+  // Paint a 12 x 12 block of opaque background colour in the middle of the solid interior.
+  let cx = 0;
+  let cy = 0;
+  let n = 0;
+  for (let p = 0; p < figure.mask.length; p++) {
+    if (figure.mask[p] !== 1) continue;
+    cx += p % image.width;
+    cy += Math.floor(p / image.width);
+    n++;
+  }
+  cx = Math.round(cx / n);
+  cy = Math.round(cy / n);
+  for (let y = cy - 6; y < cy + 6; y++) {
+    for (let x = cx - 6; x < cx + 6; x++) {
+      if (getPixel(image, x, y)[3] === 255) setPixel(image, x, y, [...SHEET_BACKGROUND, 255]);
+    }
+  }
+  const quality = matteQuality(image, SHEET_BACKGROUND);
+  assert.ok(quality.backgroundPixels > 0, "interior background is measured");
+  const [halo, background] = matteChecks(quality);
+  assert.equal(halo!.passed, true);
+  assert.equal(background!.passed, false);
+  assert.match(
+    background!.reason,
+    /opaque background colour inside the figure; the limit is 0\.50%/,
+  );
 });

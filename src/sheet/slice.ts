@@ -19,7 +19,8 @@ interface Found {
   removed: number;
 }
 
-const HOLE_FRACTION = 0.005;
+/** Px around a dropped label, speck or neighbour also kept out of the frame (its soft fringe). */
+const EXCLUDE_FRINGE = 2;
 /** Ratio between neighbouring areas (largest first) that separates figures from labels. */
 const SIZE_DROP = 3;
 
@@ -269,50 +270,44 @@ function detectGrid(sheet: Raster, figures: Component[]): GridSpec | undefined {
   return { columns, rows, cell, origin: { x: 0, y: 0 } };
 }
 
-/** The figure's crop mask: its pixels, plus small enclosed holes. */
+/**
+ * The figure's crop mask: exactly its own components' pixels. Enclosed background (a gap between
+ * an arm and the body) stays 0, so the background colour never becomes opaque in a frame.
+ */
 function cropMask(parts: Component[], crop: Box, sheetWidth: number): Uint8Array {
   const mask = new Uint8Array(crop.width * crop.height);
-  let area = 0;
   for (const part of parts) {
     for (const p of part.pixels) {
       const x = (p % sheetWidth) - crop.x;
       const y = Math.floor(p / sheetWidth) - crop.y;
       mask[y * crop.width + x] = 1;
-      area++;
     }
-  }
-  const limit = HOLE_FRACTION * area;
-  const seen = new Uint8Array(mask.length);
-  for (let start = 0; start < mask.length; start++) {
-    if (mask[start] || seen[start]) continue;
-    const stack = [start];
-    seen[start] = 1;
-    const hole: number[] = [];
-    let open = false;
-    while (stack.length > 0) {
-      const p = stack.pop() as number;
-      hole.push(p);
-      const x = p % crop.width;
-      const y = (p - x) / crop.width;
-      if (x === 0 || y === 0 || x === crop.width - 1 || y === crop.height - 1) open = true;
-      for (const [dx, dy] of [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ] as const) {
-        const nx = x + dx;
-        const ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= crop.width || ny >= crop.height) continue;
-        const q = ny * crop.width + nx;
-        if (mask[q] || seen[q]) continue;
-        seen[q] = 1;
-        stack.push(q);
-      }
-    }
-    if (!open && hole.length < limit) for (const p of hole) mask[p] = 1;
   }
   return mask;
+}
+
+/**
+ * Per crop pixel: 1 on foreground that is not the figure's (labels, specks, neighbours) and on its
+ * fringe within EXCLUDE_FRINGE px, never on the figure's own mask. Matting zeroes these pixels.
+ */
+function excludedMask(mask: Uint8Array, fg: Uint8Array, crop: Box): Uint8Array {
+  const out = new Uint8Array(mask.length);
+  const r = EXCLUDE_FRINGE;
+  for (let p = 0; p < mask.length; p++) {
+    if (!fg[p] || mask[p]) continue;
+    const x = p % crop.width;
+    const y = (p - x) / crop.width;
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= crop.width || yy >= crop.height) continue;
+        const q = yy * crop.width + xx;
+        if (!mask[q]) out[q] = 1;
+      }
+    }
+  }
+  return out;
 }
 
 function clipBox(box: Box, within: Box): Box {
@@ -329,7 +324,9 @@ function build(
   limit: Box,
   cellBox: Box,
   padding: number,
-  background: Rgb,
+  bg: Background,
+  hasAlpha: boolean,
+  tolerance: number,
 ): Omit<SlicedFigure, "id" | "cell"> {
   const extent = unionBox(found.parts.map((p) => p.box));
   const box = clipBox(
@@ -354,11 +351,14 @@ function build(
     { op: "crop", box, cell: cellBox },
     { op: "strip-labels", removed: found.removed },
   ];
+  const mask = cropMask(found.parts, box, sheet.width);
+  const fg = foreground(sheet, hasAlpha, bg, tolerance, box);
   return {
     box,
     crop,
-    mask: cropMask(found.parts, box, sheet.width),
-    background,
+    mask,
+    excluded: excludedMask(mask, fg, box),
+    background: bg.colour,
     transforms,
   };
 }
@@ -424,7 +424,7 @@ export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResu
         figures.push({
           id: 0,
           cell: { row, column, box: cell },
-          ...build(sheet, { parts: own, removed }, cell, cell, padding, bg.colour),
+          ...build(sheet, { parts: own, removed }, cell, cell, padding, bg, hasAlpha, tolerance),
         });
       }
     }
@@ -480,7 +480,9 @@ export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResu
         whole,
         whole,
         padding,
-        p.bg.colour,
+        p.bg,
+        hasAlpha,
+        tolerance,
       );
       figures.push({ id: 0, cell: { row: rowIndex, column, box: built.box }, ...built });
     });

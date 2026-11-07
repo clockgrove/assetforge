@@ -8,7 +8,7 @@ import { Caller } from "../src/calls.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import type { ImageRequest, VisionRequest } from "../src/gateway/provider.ts";
 import { decodePng, getPixel } from "../src/image/raster.ts";
-import { sha256 } from "../src/request.ts";
+import { loadBibleInputs, sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import { generateSheet } from "../src/sheet/generate.ts";
 import { GROUPING_FILE, importSheet, writeFamilies } from "../src/sheet/import.ts";
@@ -26,7 +26,6 @@ function painterlyProfile(): TargetProfile {
     style: { alpha: { mode: "soft" }, color: { rule: "full" } },
     manifest: {
       ...(base.manifest as Record<string, unknown>),
-      palette: "{{output.palette?}}",
       style: "{{profile.style?}}",
     },
   };
@@ -227,6 +226,19 @@ test("an imported sheet is sliced, cleaned to soft alpha, grouped by proposal, a
   }
   const preview = await readFile(written.previewPath, "utf8");
   for (const name of ["idle", "walk-right", "walk-left"]) assert.match(preview, new RegExp(name));
+
+  // A later write with another grouping reuses the import's common scale, so families match in size.
+  const scaleOf = async (path: string) =>
+    JSON.parse(await readFile(path, "utf8")).provenance.generated.parameters.commonScale as number;
+  const first = await scaleOf(written.families[0]!.result.manifestPath);
+  const stored = JSON.parse(await readFile(join(importDir, "import.json"), "utf8")).scale;
+  assert.equal(stored, first);
+  const again = await writeFamilies({
+    importDir,
+    grouping: { ...confirmed, families: [{ ...saved.families[0]!, name: "idle-only" }] },
+    targetDir: await mkdtemp(join(tmpdir(), "af-target-")),
+  });
+  assert.equal(await scaleOf(again.families[0]!.result.manifestPath), first);
 });
 
 test("a family over the jitter bound is refused, and nothing is written", async () => {
@@ -332,7 +344,12 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   assert.match(request.prompt, /"walk" animation cycle of 6 frames/);
   assert.match(request.prompt, /grey adult raccoon/);
   for (const hex of PALETTE) assert.ok(request.prompt.includes(hex));
-  assert.equal(request.references.length, 4, "subject references, perspective and palette");
+  // The bible's subject references, perspective sample and palette swatch, exactly and in order.
+  const inputs = await loadBibleInputs(options.spec, world.bible, world.bibleDir);
+  assert.deepEqual(
+    request.references.map((r) => sha256(r.bytes)),
+    [...inputs.subject, inputs.perspective, inputs.palette].map((r) => r.sha256),
+  );
   assert.equal(record.frames.length, 6);
   assert.equal(record.sheet.tool, defaultRoutes.sheet.model);
   assert.equal(grouping.status, "proposed");

@@ -17,10 +17,15 @@ export interface SlicedFigure {
   crop: Raster;
   /**
    * Per crop pixel (row-major, crop.width * crop.height): 1 where the pixel belongs to the figure
-   * (its foreground components, small enclosed holes filled), 0 elsewhere. Labels, specks,
-   * neighbouring figures and background are 0, so they never reach a frame.
+   * (its foreground components), 0 elsewhere. Labels, specks, neighbouring figures and background,
+   * enclosed background included, are 0, so they never reach a frame.
    */
   mask: Uint8Array;
+  /**
+   * Per crop pixel: 1 on other foreground in the crop (labels, specks, neighbours) and its fringe.
+   * Matting gives these pixels alpha 0 even beside the figure. Optional for hand-built figures.
+   */
+  excluded?: Uint8Array;
   /** The background colour estimated for this figure's cell (or neighbourhood). */
   background: Rgb;
   /** What slicing did to reach this figure, for provenance: crop, label and speck removal. */
@@ -75,6 +80,13 @@ export interface MatteQuality {
   edgePixels: number;
   /** haloPixels / edgePixels (0 when there is no edge). */
   haloFraction: number;
+  /** Visible pixels (alpha > 0). */
+  visiblePixels: number;
+  /**
+   * Opaque interior pixels (alpha 255, not on the edge) within tolerance of the background colour:
+   * leftover background inside the figure. 0 for source-alpha sheets, whose background is alpha.
+   */
+  backgroundPixels: number;
 }
 
 /** Where a frame sits after registration, measured on the registered frame. */

@@ -128,7 +128,7 @@ export function matteFigure(
 ): MattedFigure {
   const band = options.band ?? 2;
   const tolerance = options.tolerance ?? 24;
-  const { crop, mask, background } = figure;
+  const { crop, mask, background, excluded } = figure;
   const { width, height } = crop;
   const near = nearOpposite(mask, width, height, band);
   const out = createRaster(width, height);
@@ -162,7 +162,9 @@ export function matteFigure(
     const m = mask[p] === 1;
     let alpha = 0;
     let colour: readonly number[] = [0, 0, 0];
-    if (hasAlpha) {
+    if (!m && excluded?.[p] === 1) {
+      // A dropped label, speck or neighbour (or its fringe): never part of the frame.
+    } else if (hasAlpha) {
       const inRegion = m || grown?.[p] === 1;
       alpha = inRegion ? (crop.data[i + 3] ?? 0) : 0;
       colour = px;
@@ -223,22 +225,42 @@ export function matteFigure(
     transforms.push({ op: "quantize", palette: style.color.palette });
   }
 
-  return { image: out, quality: matteQuality(out, background, tolerance), transforms };
+  return {
+    image: out,
+    quality: matteQuality(out, background, tolerance, { interior: !hasAlpha }),
+    transforms,
+  };
 }
 
-export function matteQuality(image: Raster, background: Rgb, tolerance = 24): MatteQuality {
+/**
+ * Edge and interior measurements of a matte. `interior` (default true) counts opaque interior
+ * pixels within tolerance of the background; off for source-alpha sheets, where the background is
+ * transparency and its colour estimate means nothing.
+ */
+export function matteQuality(
+  image: Raster,
+  background: Rgb,
+  tolerance = 24,
+  options: { interior?: boolean } = {},
+): MatteQuality {
+  const interior = options.interior ?? true;
   const { width, height, data } = image;
   const alphaAt = (x: number, y: number) =>
     x < 0 || y < 0 || x >= width || y >= height ? 0 : (data[(y * width + x) * 4 + 3] ?? 0);
   let softPixels = 0;
   let edgePixels = 0;
   let haloPixels = 0;
+  let visiblePixels = 0;
+  let backgroundPixels = 0;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
       const a = data[i + 3] ?? 0;
       if (a > 0 && a < 255) softPixels++;
       if (a === 0) continue;
+      visiblePixels++;
+      const nearBackground =
+        distance([data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0], background) <= tolerance;
       if (
         alphaAt(x - 1, y) === 0 ||
         alphaAt(x + 1, y) === 0 ||
@@ -246,10 +268,8 @@ export function matteQuality(image: Raster, background: Rgb, tolerance = 24): Ma
         alphaAt(x, y + 1) === 0
       ) {
         edgePixels++;
-        if (distance([data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0], background) <= tolerance) {
-          haloPixels++;
-        }
-      }
+        if (nearBackground) haloPixels++;
+      } else if (interior && a === 255 && nearBackground) backgroundPixels++;
     }
   }
   return {
@@ -257,22 +277,32 @@ export function matteQuality(image: Raster, background: Rgb, tolerance = 24): Ma
     haloPixels,
     edgePixels,
     haloFraction: edgePixels === 0 ? 0 : haloPixels / edgePixels,
+    visiblePixels,
+    backgroundPixels,
   };
 }
 
-/** Deterministic halo and leftover-background checks over a matte's measured quality. */
+/**
+ * Deterministic halo and leftover-background checks over a matte's measured quality, both under
+ * one limit (default 0.5%): halo is the share of edge pixels that keep the background colour;
+ * background is the share of visible pixels that are opaque background colour inside the figure,
+ * and fails outright when nothing was made transparent.
+ */
 export function matteChecks(
   quality: MatteQuality,
   options: { maxHaloFraction?: number } = {},
 ): Reason[] {
   const max = options.maxHaloFraction ?? 0.005;
+  const pct = (v: number) => `${(v * 100).toFixed(2)}%`;
   const halo = quality.haloFraction <= max;
-  const leftover = quality.edgePixels > 0 && quality.haloPixels <= 2;
+  const leftoverFraction =
+    quality.visiblePixels === 0 ? 0 : quality.backgroundPixels / quality.visiblePixels;
+  const leftover = quality.edgePixels > 0 && leftoverFraction <= max;
   return [
     {
       check: "halo",
       passed: halo,
-      reason: `${quality.haloPixels} of ${quality.edgePixels} edge pixels (${(quality.haloFraction * 100).toFixed(2)}%) keep the background colour; the limit is ${(max * 100).toFixed(2)}%`,
+      reason: `${quality.haloPixels} of ${quality.edgePixels} edge pixels (${pct(quality.haloFraction)}) keep the background colour; the limit is ${pct(max)}`,
       source: "deterministic",
     },
     {
@@ -281,7 +311,7 @@ export function matteChecks(
       reason:
         quality.edgePixels === 0
           ? "no transparent edge: the background was not removed"
-          : `${quality.haloPixels} edge pixels are leftover background colour; at most 2 are allowed`,
+          : `${quality.backgroundPixels} of ${quality.visiblePixels} visible pixels (${pct(leftoverFraction)}) are opaque background colour inside the figure; the limit is ${pct(max)}`,
       source: "deterministic",
     },
   ];

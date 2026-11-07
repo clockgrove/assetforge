@@ -86,7 +86,7 @@ export function syntheticProfile(overrides: Partial<TargetProfile> = {}): Target
       frames: "{{output.frames}}",
       anchor: "{{output.anchor}}",
       bounds: "{{output.bounds}}",
-      palette: "{{output.palette}}",
+      palette: "{{output.palette?}}",
       contentHash: "{{output.sha256}}",
       accessibilityLabel: "{{spec.fields.accessibilityLabel?}}",
     },

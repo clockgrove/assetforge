@@ -76,7 +76,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
     "frames": "{{output.frames}}",
     "anchor": "{{output.anchor}}",
     "bounds": "{{output.bounds}}",
-    "palette": "{{output.palette}}",
+    "palette": "{{output.palette?}}",
     "contentHash": "{{output.sha256}}"
   },
   "review": { "path": "review.status", "pending": "pending" },

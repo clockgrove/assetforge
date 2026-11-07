@@ -24,7 +24,6 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
     style: { alpha: { mode: "soft" }, color: { rule: "full" } },
     manifest: {
       ...(base.manifest as Record<string, unknown>),
-      palette: "{{output.palette?}}",
       style: "{{profile.style?}}",
     },
   };

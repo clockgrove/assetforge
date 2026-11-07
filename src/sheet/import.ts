@@ -86,6 +86,11 @@ export interface ImportRecord {
   /** The grouping proposal's calls. */
   calls: CallRecord[];
   written?: Array<{ at: string; target: string; families: string[]; files: string[] }>;
+  /**
+   * The common scale fitted on the first write, reused by every later write of this import so all
+   * of an asset's families stay one size whatever grouping each write uses.
+   */
+  scale?: number;
 }
 
 export interface ImportOptions {
@@ -436,6 +441,7 @@ export async function writeFamilies(
     anchor: record.anchor,
     edges: style.edges,
     families,
+    ...(record.scale !== undefined && { scale: record.scale }),
   });
 
   let cursor = 0;
@@ -610,6 +616,7 @@ export async function writeFamilies(
 
   const previewPath = join(options.importDir, PREVIEW_FILE);
   await writeFile(previewPath, previewHtml(previews, frame, record.durationMs ?? 120));
+  record.scale ??= registration.scale;
   record.written = [
     ...(record.written ?? []),
     {
