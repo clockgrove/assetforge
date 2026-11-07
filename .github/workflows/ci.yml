@@ -16,6 +16,8 @@ concurrency:
 permissions:
   contents: read
 
+# Until the first code (assetforge#1) adds package.json, the steps after checkout are skipped so the
+# base branch is not red; once package.json exists they always run.
 jobs:
   ci:
     runs-on: ubuntu-26.04
@@ -28,19 +30,24 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
+        if: hashFiles('package.json') != ''
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0
           package-manager-cache: false
 
       - name: Enable pnpm from packageManager
+        if: hashFiles('package.json') != ''
         run: corepack enable
 
       - name: Install the locked dependencies
+        if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Check
+        if: hashFiles('package.json') != ''
         run: pnpm check
 
       - name: Test
+        if: hashFiles('package.json') != ''
         run: pnpm test
