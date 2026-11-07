@@ -490,3 +490,24 @@ export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResu
   figures.forEach((f, i) => (f.id = i + 1));
   return { mode: "components", background: sheetBg.colour, figures };
 }
+
+/**
+ * The whole image as one figure, for matting an image that was not sliced (generated or hand-made).
+ * Every pixel farther than `tolerance` from the border's median colour (or, on a transparent
+ * border, every pixel at alpha 128 or more) is the figure's: no component is dropped as a label or
+ * speck, so small detached parts of an author's image are kept.
+ */
+export function wholeImageFigure(image: Raster, tolerance = 40): SlicedFigure {
+  const whole: Box = { x: 0, y: 0, width: image.width, height: image.height };
+  const hasAlpha = image.data.some((_, i) => i % 4 === 3 && image.data[i] !== 255);
+  const bg = estimate(image, hasAlpha, boxBorder(image, whole));
+  return {
+    id: 1,
+    cell: { row: 0, column: 0, box: whole },
+    box: whole,
+    crop: image,
+    mask: foreground(image, hasAlpha, bg, tolerance, whole),
+    background: bg.colour,
+    transforms: [],
+  };
+}

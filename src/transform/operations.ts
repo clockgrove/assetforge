@@ -174,7 +174,7 @@ export const OPERATIONS: OperationSpec[] = [
           minimum: 0,
           default: 40,
           description:
-            "for an image that was not sliced: the foreground tolerance used to find its figures",
+            "for an image that was not sliced: RGB distance from its border colour beyond which a pixel is kept",
         },
       },
     },

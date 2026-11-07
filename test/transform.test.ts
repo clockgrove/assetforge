@@ -173,6 +173,37 @@ test("matte cleans a hand-made image with no slicing: background gone, figure ke
   assert.ok(checks.length > 0 && checks.every((c) => c.passed));
 });
 
+test("matte on a hand-made image keeps a small detached part; it drops nothing as a label", () => {
+  const r = createRaster(60, 40);
+  for (let y = 0; y < 40; y++) for (let x = 0; x < 60; x++) setPixel(r, x, y, [236, 230, 216, 255]);
+  for (let y = 7; y < 33; y++) for (let x = 5; x < 35; x++) setPixel(r, x, y, [70, 60, 90, 255]);
+  for (let y = 18; y < 21; y++) for (let x = 48; x < 51; x++) setPixel(r, x, y, [70, 60, 90, 255]);
+  const { items, step } = runOperation([item(r)], { op: "matte" });
+  const out = (items[0] as ImageItem).raster;
+  assert.equal(getPixel(out, 20, 20)[3], 255);
+  assert.equal(getPixel(out, 49, 19)[3], 255);
+  assert.equal(getPixel(out, 0, 0)[3], 0);
+  assert.deepEqual(step.report, { figure: { source: "whole-image", background: "#ece6d8" } });
+});
+
+test("matte records the slice figure it used, so equal input hashes never hide a different matte", () => {
+  const sheet = syntheticSheet();
+  const sliced = runOperation([item(sheet.raster, "walk")], { op: "slice" }).items;
+  const direct = runOperation(sliced, { op: "matte" }).step;
+  const padded = runOperation(runOperation(sliced, { op: "pad" }).items, { op: "matte" }).step;
+  assert.deepEqual(direct.inputs, padded.inputs);
+  assert.deepEqual(direct.params, padded.params);
+  const reports = (direct.report as { perInput: Array<{ figure: Record<string, string> }> })
+    .perInput;
+  assert.equal(reports.length, sliced.length);
+  assert.ok(
+    reports.every(
+      (r) => r.figure["source"] === "slice" && /^[0-9a-f]{64}$/.test(r.figure["sha256"] ?? ""),
+    ),
+  );
+  assert.notDeepEqual(direct.report, padded.report);
+});
+
 test("slice, matte and register over a sheet give registered frames with jitter in the meta", () => {
   const sheet = syntheticSheet();
   const recipe = parseRecipe({
@@ -335,6 +366,37 @@ test("a single output goes to the named file with its provenance beside it; sour
     transformFiles({ recipe, inputs: [input], out: input }),
     /never overwritten/,
   );
+  const engine = { name: rasterEngine.name, version: rasterEngine.version };
+  assert.deepEqual(record.sources[0]?.decodedBy, engine);
+  assert.deepEqual(record.outputs[0]?.encodedBy, engine);
+});
+
+test("a single output's file extension always matches the bytes written", async () => {
+  const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
+  const input = join(root, "in.png");
+  await writeFile(input, encodePng(blockImage(8, 8, 2, 2, 3, 3)));
+  await assert.rejects(
+    transformFiles({
+      recipe: parseRecipe({ steps: [{ op: "trim" }] }),
+      inputs: [input],
+      out: join(root, "out.webp"),
+    }),
+    /out\.webp names a \.webp file but the output is image\/png/,
+  );
+  const toWebp = parseRecipe({ steps: [{ op: "convert", params: { format: "webp" } }] });
+  await assert.rejects(
+    transformFiles({ recipe: toWebp, inputs: [input], out: join(root, "out2.png") }),
+    /output is image\/webp; use a \.webp path/,
+  );
+  assert.deepEqual(await readdir(root), ["in.png"]);
+  const { record } = await transformFiles({
+    recipe: toWebp,
+    inputs: [input],
+    out: join(root, "out.webp"),
+  });
+  assert.equal(record.outputs[0]?.mediaType, "image/webp");
+  const bytes = await readFile(join(root, "out.webp"));
+  assert.equal(bytes.subarray(0, 4).toString("latin1"), "RIFF");
 });
 
 test("the sheet import records its transformation steps, and each strip's provenance carries them", async () => {
@@ -368,10 +430,20 @@ test("the sheet import records its transformation steps, and each strip's proven
       ],
     },
   });
-  const manifest = JSON.parse(await readFile(families[1]?.result.manifestPath as string, "utf8"));
-  const provenance = manifest.provenance.generated as { steps: Array<{ op: string }> };
+  const stepsOf = async (i: number) => {
+    const path = families[i]?.result.manifestPath as string;
+    const manifest = JSON.parse(await readFile(path, "utf8"));
+    return (manifest.provenance.generated as { steps: Array<{ op: string }> }).steps;
+  };
+  // The non-mirrored family records no flip; the mirrored one records its own flip only.
   assert.deepEqual(
-    provenance.steps.map((s) => s.op),
+    (await stepsOf(0)).map((s) => s.op),
+    ["slice", "matte", "register", "apply-style", "join"],
+  );
+  const mirrored = await stepsOf(1);
+  assert.deepEqual(
+    mirrored.map((s) => s.op),
     ["slice", "matte", "flip", "register", "apply-style", "join"],
   );
+  assert.equal(mirrored.filter((s) => s.op === "flip").length, 1);
 });

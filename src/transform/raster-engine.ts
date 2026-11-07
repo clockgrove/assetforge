@@ -3,6 +3,7 @@
  * sheet slicer, matte and registration, an in-house lossless WebP encoder). Every implementation is
  * a pure function of its input pixels and parameters.
  */
+import { createHash } from "node:crypto";
 import { InputError } from "../errors.ts";
 import { applyStyle } from "../image/apply-style.ts";
 import { createRaster, decodeImage, encodePng, toHex } from "../image/raster.ts";
@@ -11,9 +12,9 @@ import { flipHorizontal, resampleTo } from "../image/resample.ts";
 import { encodeWebpLossless } from "../image/webp.ts";
 import { matteChecks, matteFigure } from "../sheet/matte.ts";
 import { registerFrames } from "../sheet/register.ts";
-import { sliceSheet } from "../sheet/slice.ts";
-import type { MatteQuality, RegisterOptions, SliceOptions } from "../sheet/types.ts";
-import type { Box, Point, Reason, Size } from "../types.ts";
+import { sliceSheet, wholeImageFigure } from "../sheet/slice.ts";
+import type { RegisterOptions, SliceOptions, SlicedFigure } from "../sheet/types.ts";
+import type { Box, Point, Size } from "../types.ts";
 import type { ImageEngine, ImageItem, OperationImpl } from "./types.ts";
 
 /** A new item from `item` with new pixels; the slice figure no longer lines up, so it is dropped. */
@@ -169,59 +170,42 @@ const slice: OperationImpl = ([item], p) => {
   };
 };
 
+/**
+ * A hash of a sliced figure's mask, exclusion mask and background: what `matte` reads besides the
+ * pixels, recorded in its step so the step can be replayed from its record.
+ */
+function figureHash(figure: SlicedFigure): string {
+  const h = createHash("sha256");
+  h.update(`figure ${figure.crop.width}x${figure.crop.height} ${toHex(figure.background)}\n`);
+  h.update(figure.mask);
+  if (figure.excluded) h.update("excluded\n").update(figure.excluded);
+  return h.digest("hex");
+}
+
 const matte: OperationImpl = ([item], p, { style }) => {
   const it = item as ImageItem;
   const options = { band: p["band"] as number, tolerance: p["tolerance"] as number };
   const checkOptions = { maxHaloFraction: p["maxHaloFraction"] as number };
-  if (it.figure) {
-    const matted = matteFigure(it.figure, style, options);
-    return {
-      items: [
-        derive(it, matted.image, {
-          transforms: matted.transforms,
-          quality: matted.quality,
-          checks: matteChecks(matted.quality, checkOptions),
-        }),
-      ],
-    };
-  }
-  // An image that was not sliced (generated, hand-made): find its figures, matte each, and put
-  // them back on a transparent canvas of the same size.
-  const sliced = sliceSheet(it.raster, {
-    components: true,
-    tolerance: p["sliceTolerance"] as number,
-  });
-  if (sliced.figures.length === 0) throw new InputError(`no figure found in ${it.name}`);
-  const out = createRaster(it.raster.width, it.raster.height);
-  const figures: Array<{ box: Box; background: string; quality: MatteQuality; checks: Reason[] }> =
-    [];
-  for (const figure of sliced.figures) {
-    const matted = matteFigure(figure, style, options);
-    const { box } = figure;
-    for (let y = 0; y < box.height; y++) {
-      for (let x = 0; x < box.width; x++) {
-        const from = (y * box.width + x) * 4;
-        if ((matted.image.data[from + 3] ?? 0) === 0) continue;
-        out.data.set(
-          matted.image.data.subarray(from, from + 4),
-          ((box.y + y) * out.width + box.x + x) * 4,
-        );
-      }
-    }
-    figures.push({
-      box,
-      background: toHex(figure.background),
-      quality: matted.quality,
-      checks: matteChecks(matted.quality, checkOptions),
-    });
-  }
+  // A sliced item mattes with its slice figure (mask, exclusions, cell background), recorded as a
+  // hash. Any other image (generated, hand-made, or changed since slicing) is one figure: every
+  // pixel away from its border colour is kept, however small or detached.
+  const figure = it.figure ?? wholeImageFigure(it.raster, p["sliceTolerance"] as number);
+  const matted = matteFigure(figure, style, options);
   return {
     items: [
-      derive(it, out, {
-        figures,
-        checks: figures.flatMap((f) => f.checks),
+      derive(it, matted.image, {
+        transforms: matted.transforms,
+        quality: matted.quality,
+        checks: matteChecks(matted.quality, checkOptions),
       }),
     ],
+    report: {
+      figure: {
+        source: it.figure ? "slice" : "whole-image",
+        background: toHex(figure.background),
+        ...(it.figure && { sha256: figureHash(it.figure) }),
+      },
+    },
   };
 };
 
@@ -335,7 +319,7 @@ export const RASTER_ENGINE_NAME = "assetforge-raster";
 
 export const rasterEngine: ImageEngine = {
   name: RASTER_ENGINE_NAME,
-  version: "1.0.0",
+  version: "1.1.0",
   operations: {
     crop,
     trim,

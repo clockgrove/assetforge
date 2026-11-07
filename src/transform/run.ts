@@ -190,6 +190,8 @@ export interface SourceFile {
   sha256: string;
   mediaType: string;
   pixels: string;
+  /** The engine that decoded the file. */
+  decodedBy: { name: string; version: string };
 }
 
 export interface OutputFile {
@@ -200,6 +202,8 @@ export interface OutputFile {
   width: number;
   height: number;
   pixels: string;
+  /** The engine whose encoder wrote the file's bytes. */
+  encodedBy: { name: string; version: string };
   /** What the operations measured for this output (matte checks, jitter, placement). */
   meta?: Record<string, unknown>;
 }
@@ -251,14 +255,19 @@ export async function transformFiles(
     let name = basename(path, extname(path));
     for (let n = 2; seen.has(name); n++) name = `${basename(path, extname(path))}-${n}`;
     seen.add(name);
+    const mediaType = sniffMediaType(bytes);
     sources.push({
       name,
       path,
       sha256: sha256(bytes),
-      mediaType: sniffMediaType(bytes),
+      mediaType,
       pixels: pixelHash(raster),
+      decodedBy: { name: decoder.name, version: decoder.version },
     });
-    items.push({ name, raster, mediaType: "image/png", meta: {} });
+    // An item keeps its source's media type when an engine can encode it; otherwise (JPEG today)
+    // it is written as PNG unless a `convert` step says otherwise.
+    const encodable = engines.some((e) => e.encoders[mediaType] !== undefined);
+    items.push({ name, raster, mediaType: encodable ? mediaType : "image/png", meta: {} });
   }
 
   const style = options.style ?? resolveStyle(undefined);
@@ -274,12 +283,20 @@ export async function transformFiles(
   const dir = single ? dirname(out) : out;
   const inputs = new Set(options.inputs.map((p) => resolve(p)));
   const planned = results.map((item) => {
-    const encoder = engines.map((e) => e.encoders[item.mediaType]).find((e) => e !== undefined);
-    if (!encoder) throw new InputError(`no engine encodes ${item.mediaType}`);
+    const engine = engines.find((e) => e.encoders[item.mediaType] !== undefined);
+    const encoder = engine?.encoders[item.mediaType];
+    if (!engine || !encoder) throw new InputError(`no engine encodes ${item.mediaType}`);
+    // The file's extension always matches the bytes written (.gitattributes routes by extension).
+    if (single && extname(out).slice(1).toLowerCase() !== encoder.extension) {
+      throw new InputError(
+        `refused: ${out} names a .${extname(out).slice(1)} file but the output is ${item.mediaType}; ` +
+          `use a .${encoder.extension} path, or add a convert step for that format`,
+      );
+    }
     const path = single ? out : join(dir, `${item.name}.${encoder.extension}`);
     if (inputs.has(path))
       throw new InputError(`refused: ${path} is an input; sources are never overwritten`);
-    return { item, encoder, path };
+    return { item, engine, encoder, path };
   });
   const paths = new Set(planned.map((p) => p.path));
   if (paths.size !== planned.length) throw new InputError("two outputs share a name");
@@ -288,7 +305,7 @@ export async function transformFiles(
 
   await mkdir(dir, { recursive: true });
   const outputs: OutputFile[] = [];
-  for (const { item, encoder, path } of planned) {
+  for (const { item, engine, encoder, path } of planned) {
     const bytes = encoder.encode(item.raster);
     await writeFile(path, bytes);
     const meta = jsonMeta(item.meta);
@@ -300,6 +317,7 @@ export async function transformFiles(
       width: item.raster.width,
       height: item.raster.height,
       pixels: pixelHash(item.raster),
+      encodedBy: { name: engine.name, version: engine.version },
       ...(meta !== undefined && { meta }),
     });
   }

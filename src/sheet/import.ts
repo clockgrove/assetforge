@@ -423,9 +423,9 @@ export async function writeFamilies(
     images.set(id, decodeImage(new Uint8Array(await readFile(join(options.importDir, f.file)))));
   }
   const style = record.style;
-  const writeSteps: TransformStep[] = [];
   const figures: ImageItem[] = [];
   const families: string[] = [];
+  const flipSteps = new Map<string, TransformStep>();
   for (const p of plan) {
     let items = p.frames.map((id): ImageItem => ({
       name: `f${String(id).padStart(3, "0")}`,
@@ -435,7 +435,7 @@ export async function writeFamilies(
     }));
     if (p.mirrored) {
       const flipped = runOperation(items, { op: "flip" }, { style });
-      writeSteps.push(flipped.step);
+      flipSteps.set(p.family.name, flipped.step);
       items = flipped.items;
     }
     figures.push(...items);
@@ -454,7 +454,6 @@ export async function writeFamilies(
     },
     { style },
   );
-  writeSteps.push(registration.step);
   const commonScale = (registration.step.report as { scale: number }).scale;
 
   let cursor = 0;
@@ -499,7 +498,9 @@ export async function writeFamilies(
         style,
       },
     );
-    const familySteps = [...writeSteps, styled.step, joined.step];
+    // This family's own flip only; register runs over every family's frames at once.
+    const flip = flipSteps.get(s.family.name);
+    const familySteps = [...(flip ? [flip] : []), registration.step, styled.step, joined.step];
     const strip = (joined.items[0] as ImageItem).raster;
     const frameProvenance: FrameProvenance[] = [];
     let union: Box | undefined;
