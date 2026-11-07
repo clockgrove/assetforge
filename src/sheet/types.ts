@@ -116,7 +116,7 @@ export interface RegisteredFrame {
   image: Raster;
   /** Measured on `image`. */
   measure: FrameMeasure;
-  /** Largest of |baseline - anchor.y| and |centerX - anchor.x|, in px. */
+  /** Largest of |baseline - anchor.y| and |centerX - (anchor.x + 0.5)| (a pixel's centre is x + 0.5), in px. */
   jitterPx: number;
   /** The scale and normalisation applied, and the placement, for provenance. */
   transforms: Transform[];
