@@ -3,6 +3,8 @@
  * the model for a whole cycle as one contact sheet, which keeps identity consistent across frames,
  * and the sheet then goes through the same import path as a sheet made anywhere else.
  */
+import { InputError } from "../errors.ts";
+import type { PlannedCall } from "../generators/generator.ts";
 import { Budget } from "../budget.ts";
 import { Caller } from "../calls.ts";
 import type { GenerationProvider } from "../gateway/provider.ts";
@@ -69,6 +71,18 @@ export function buildSheetPrompt(
   ].join("\n");
 }
 
+/** The calls one generated sheet makes: the sheet itself, then the grouping proposal. */
+export function planSheet(spec: AssetSpec, profile: TargetProfile, routes: Routes): PlannedCall[] {
+  if (!spec.animationFamily) throw new InputError("a sheet spec needs an animationFamily");
+  const grid = frameGrid(spec, profile, 1);
+  if (grid.count < 2) throw new InputError("a sheet spec needs frames.count of at least 2");
+  return ["sheet", "vision"].map((operation) => {
+    const route = routes[operation];
+    if (!route) throw new InputError(`no model route for operation "${operation}"`);
+    return { operation, model: route.model, estimatedCostUsd: route.estimatedCostUsd };
+  });
+}
+
 /**
  * Generates one sheet and imports it. The run reserves the sheet call and the grouping call
  * against the cap before any provider call, and refuses when they would exceed it.
@@ -77,12 +91,12 @@ export async function generateSheet(
   options: GenerateSheetOptions,
 ): Promise<{ record: ImportRecord; importDir: string; grouping: Grouping; spentUsd: number }> {
   const { spec, bible, profile, routes } = options;
-  if (!spec.animationFamily) throw new Error("a sheet spec needs an animationFamily");
+  // planSheet refuses a spec without an animationFamily, so it is set below.
+  const plan = planSheet(spec, profile, routes);
   const grid = frameGrid(spec, profile, 1);
-  if (grid.count < 2) throw new Error("a sheet spec needs frames.count of at least 2");
   const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
   const budget = new Budget(capUsd);
-  const estimate = routes.sheet.estimatedCostUsd + routes.vision.estimatedCostUsd;
+  const estimate = plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
   budget.settle(budget.reserve(estimate, "a sheet and its grouping proposal"), 0);
 
   const call = new Caller({
@@ -118,7 +132,7 @@ export async function generateSheet(
     ...(spec.anchor !== undefined && { anchor: spec.anchor }),
     propose: {
       call,
-      hints: [spec.animationFamily],
+      hints: [spec.animationFamily as string],
       ...(description !== undefined && { subjectDescription: description }),
       references: inputs.subject,
     },

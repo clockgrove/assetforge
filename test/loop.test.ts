@@ -370,7 +370,7 @@ test("the CLI takes the gateway key from the environment only, and refuses witho
       { env },
     ),
     (error: { code: number; stderr: string }) =>
-      error.code === 1 && /AI_GATEWAY_API_KEY is not set/.test(error.stderr),
+      error.code === 4 && /AI_GATEWAY_API_KEY is not set/.test(error.stderr),
   );
 });
 

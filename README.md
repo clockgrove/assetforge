@@ -45,14 +45,17 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 - Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetforge never prompts.
 - Run `stage --dry-run` first. It spends nothing and needs no key.
-- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`.
-- Agents stage, humans pick (PRD §5.7). Agents never run `pick`.
+- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetforge reaches.
+- Agents stage, humans pick (PRD §5.7). Agents never run `pick` or `write-families` and never confirm a grouping.
 
 ## Commands and exit codes
 
 - `stage --spec <spec.json> --bible <bible.json> --profile <profile.json>`: generate candidates within the cap and stage those that pass QA. Options: `--candidates`, `--cap`, `--routes`, `--runs`, `--dry-run` (plan and cost forecast, no spend, no key), `--provider-script <module.js>` (a scripted provider for offline runs), `--json`.
 - `pick --run <dir> --candidate <id> --target <dir>`: write the chosen candidate into the target with review pending.
-- `--help`, `--version`.
+- `import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>`: slice a contact sheet and propose families (`--no-propose` calls no model).
+- `generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>`: draw a whole cycle as one sheet within the cap, then import it. Takes `--dry-run` and `--provider-script` like `stage`.
+- `write-families --import <dir> --target <dir>`: write the strips of a human-confirmed grouping into the target with review pending.
+- `--help`, `--version`, and `<command> --help`.
 
 | Code | Meaning                                                                  |
 | ---- | ------------------------------------------------------------------------ |
@@ -62,7 +65,7 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 | 3    | Cap refused (also a dry-run forecast over the cap)                       |
 | 4    | Provider error (missing `AI_GATEWAY_API_KEY`, or every candidate failed) |
 | 5    | QA found nothing                                                         |
-| 6    | The target's validator rejected the pick                                 |
+| 6    | The target's validator rejected what was written                         |
 
 ## Develop
 
