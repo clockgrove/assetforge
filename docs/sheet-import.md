@@ -42,6 +42,8 @@ pnpm assetforge write-families --import .assetforge/imports/<import> --target ..
 }
 ```
 
+The import runs on the media transformation core ([transform.md](transform.md)). Importing is the recipe `slice → matte`, the contact sheet is `register → apply-style`, and writing is `flip` (for mirrored families) `→ register → apply-style → join`. `import.json` and each strip's provenance list these steps under `steps`.
+
 ## Style profile
 
 The target profile's optional `style` decides post-processing. Each world declares its own (clockgrove/clockgrove#61); nothing assumes one style.
@@ -65,6 +67,7 @@ A family's provenance record (`generator: "sheet-import"`) holds:
 - the source sheet: path, SHA-256, media type, and the model or tool that made it;
 - the model calls Assetforge made: the sheet generation, if any, and the grouping proposal, with their prompts, request IDs, times and costs;
 - the parameters: style, frames, mirroring, the family's reason, the common scale and the measured jitter;
+- `steps`: the transformation steps from the sheet to the strip, each with its parameters, engine and version, and input and output pixel hashes;
 - one entry per strip frame: its frame number, sheet hash, cell, tool and every transform applied (`crop`, `strip-labels`, `matte`, `binarize` and `quantize` where the style asks, `mirror`, `normalize-scale`, `scale`, `place`).
 
 For an imported sheet, the prompt field says that the tool's own prompt is not recorded. Manifest templates can read `{{output.jitterPx}}`, and `{{profile.style}}` for the style. `{{output.palette}}` is set only under a palette rule, so a full-colour template reads it as `{{output.palette?}}`.

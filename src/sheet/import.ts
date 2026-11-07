@@ -21,7 +21,9 @@ import {
   toHex,
 } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
-import { flipHorizontal } from "../image/resample.ts";
+import { applyStyle } from "../image/apply-style.ts";
+import { runOperation, runRecipe } from "../transform/run.ts";
+import type { ImageItem, Recipe, TransformStep } from "../transform/types.ts";
 import { sha256, sniffMediaType } from "../request.ts";
 import { resolveStyle } from "../style.ts";
 import type { ResolvedStyle } from "../style.ts";
@@ -33,16 +35,12 @@ import type {
   Point,
   Provenance,
   Reason,
-  Rgb,
   SheetSource,
   Size,
   TargetProfile,
   Transform,
 } from "../types.ts";
 import { checkConfirmed, familyFrames, proposeGrouping } from "./group.ts";
-import { matteChecks, matteFigure } from "./matte.ts";
-import { registerFrames } from "./register.ts";
-import { sliceSheet } from "./slice.ts";
 import type { Grouping, MatteQuality, SliceOptions } from "./types.ts";
 import type { LoadedReference } from "../types.ts";
 
@@ -52,6 +50,17 @@ export const CONTACT_FILE = "contact.png";
 export const PREVIEW_FILE = "preview.html";
 /** Default bound on registration jitter, in frame pixels. */
 export const DEFAULT_JITTER_BOUND_PX = 1;
+
+export { applyStyle };
+
+/**
+ * The import half of the sheet path as a recipe over the transformation core: slice the sheet into
+ * figures, then remove each figure's background to the style profile.
+ */
+export function sheetImportRecipe(slice: SliceOptions = {}): Recipe {
+  const params = JSON.parse(JSON.stringify(slice)) as Record<string, unknown>;
+  return { name: "sheet-import", steps: [{ op: "slice", params }, { op: "matte" }] };
+}
 
 export interface ImportedFrame {
   /** 1-based frame number, reading order on the sheet. */
@@ -86,6 +95,8 @@ export interface ImportRecord {
   generation?: { prompt: string; parameters: Record<string, unknown>; calls: CallRecord[] };
   /** The grouping proposal's calls. */
   calls: CallRecord[];
+  /** The transformation steps (slice, matte) that made the frames from the sheet. */
+  steps?: TransformStep[];
   written?: Array<{ at: string; target: string; families: string[]; files: string[] }>;
   /**
    * The common scale fitted on the first write, reused by every later write of this import so all
@@ -121,43 +132,6 @@ export interface ImportOptions {
   };
   generation?: ImportRecord["generation"];
   now?: () => Date;
-}
-
-/** Re-applies the style's alpha and colour rule after resampling, which softens both. */
-export function applyStyle(image: Raster, style: ResolvedStyle): Raster {
-  const out = createRaster(image.width, image.height);
-  out.data.set(image.data);
-  const palette = style.color.rule === "palette" ? style.color.palette.map(parseHex) : [];
-  for (let i = 0; i < out.data.length; i += 4) {
-    let a = out.data[i + 3] ?? 0;
-    if (style.alpha.mode === "binary") a = a >= style.alpha.threshold ? 255 : 0;
-    out.data[i + 3] = a;
-    if (a === 0) {
-      out.data[i] = 0;
-      out.data[i + 1] = 0;
-      out.data[i + 2] = 0;
-      continue;
-    }
-    if (palette.length > 0) {
-      const px = [out.data[i] ?? 0, out.data[i + 1] ?? 0, out.data[i + 2] ?? 0];
-      let best = palette[0] as Rgb;
-      let bestDist = Infinity;
-      for (const p of palette) {
-        const d =
-          2 * ((px[0] as number) - p[0]) ** 2 +
-          4 * ((px[1] as number) - p[1]) ** 2 +
-          3 * ((px[2] as number) - p[2]) ** 2;
-        if (d < bestDist) {
-          bestDist = d;
-          best = p;
-        }
-      }
-      out.data[i] = best[0];
-      out.data[i + 1] = best[1];
-      out.data[i + 2] = best[2];
-    }
-  }
-  return out;
 }
 
 /** The box of pixels with alpha >= threshold inside `within`, relative to it. */
@@ -269,8 +243,13 @@ export async function importSheet(
       },
     );
   }
-  const sliced = sliceSheet(raster, options.slice);
-  if (sliced.figures.length === 0) throw new InputError("no figures found on the sheet");
+  const sheetItem: ImageItem = { name: "sheet", raster, mediaType: "image/png", meta: {} };
+  const ran = runRecipe(sheetImportRecipe(options.slice), [sheetItem], { style });
+  const slicing = ran.steps[0]?.report as {
+    mode: "grid" | "components";
+    grid?: unknown;
+    background: string;
+  };
 
   const importId =
     options.importId ??
@@ -280,30 +259,35 @@ export async function importSheet(
 
   const sheetSha = sha256(options.sheet);
   const frames: ImportedFrame[] = [];
-  const cleaned: Raster[] = [];
-  for (const figure of sliced.figures) {
-    const matted = matteFigure(figure, style);
-    const file = frameFile(figure.id);
-    await writeFile(join(importDir, file), encodePng(matted.image));
-    cleaned.push(matted.image);
+  const cleaned: ImageItem[] = [];
+  for (const item of ran.items) {
+    const meta = item.meta as Pick<ImportedFrame, "cell" | "box" | "background" | "transforms"> & {
+      frame: number;
+      quality: MatteQuality;
+      checks: Reason[];
+    };
+    const file = frameFile(meta.frame);
+    await writeFile(join(importDir, file), encodePng(item.raster));
+    cleaned.push(item);
     frames.push({
-      id: figure.id,
+      id: meta.frame,
       file,
-      cell: figure.cell,
-      box: figure.box,
-      background: toHex(figure.background),
+      cell: meta.cell,
+      box: meta.box,
+      background: meta.background,
       // The matte's transforms start with the slicing ones.
-      transforms: matted.transforms,
-      quality: matted.quality,
-      checks: matteChecks(matted.quality),
+      transforms: meta.transforms,
+      quality: meta.quality,
+      checks: meta.checks,
     });
   }
 
-  const preview = registerFrames(cleaned, { frame, anchor, edges: style.edges });
+  const preview = runOperation(cleaned, { op: "register", params: { frame, anchor } }, { style });
+  const styled = runOperation(preview.items, { op: "apply-style" }, { style });
   const ids = frames.map((f) => f.id);
   const contact = encodePng(
     contactSheet(
-      preview.frames.map((f) => applyStyle(f.image, style)),
+      styled.items.map((i) => i.raster),
       ids,
       frame,
     ),
@@ -328,11 +312,12 @@ export async function importSheet(
     anchor,
     ...(profile.frames.durationMs !== undefined && { durationMs: profile.frames.durationMs }),
     slice: {
-      mode: sliced.mode,
-      ...(sliced.grid !== undefined && { grid: sliced.grid }),
-      background: toHex(sliced.background),
+      mode: slicing.mode,
+      ...(slicing.grid !== undefined && { grid: slicing.grid }),
+      background: slicing.background,
     },
     frames,
+    steps: ran.steps,
     ...(options.generation !== undefined && { generation: options.generation }),
     calls: [],
   };
@@ -437,27 +422,47 @@ export async function writeFamilies(
     const f = byId.get(id) as ImportedFrame;
     images.set(id, decodeImage(new Uint8Array(await readFile(join(options.importDir, f.file)))));
   }
-  const figures: Raster[] = [];
-  const families: string[] = [];
-  for (const p of plan) {
-    for (const id of p.frames) {
-      const image = images.get(id) as Raster;
-      figures.push(p.mirrored ? flipHorizontal(image) : image);
-      families.push(p.family.name);
-    }
-  }
   const style = record.style;
-  const registration = registerFrames(figures, {
-    frame: record.frame,
-    anchor: record.anchor,
-    edges: style.edges,
-    families,
-    ...(record.scale !== undefined && { scale: record.scale }),
-  });
+  const figures: ImageItem[] = [];
+  const families: string[] = [];
+  const flipSteps = new Map<string, TransformStep>();
+  for (const p of plan) {
+    let items = p.frames.map((id): ImageItem => ({
+      name: `f${String(id).padStart(3, "0")}`,
+      raster: images.get(id) as Raster,
+      mediaType: "image/png",
+      meta: {},
+    }));
+    if (p.mirrored) {
+      const flipped = runOperation(items, { op: "flip" }, { style });
+      flipSteps.set(p.family.name, flipped.step);
+      items = flipped.items;
+    }
+    figures.push(...items);
+    families.push(...items.map(() => p.family.name));
+  }
+  const registration = runOperation(
+    figures,
+    {
+      op: "register",
+      params: {
+        frame: record.frame,
+        anchor: record.anchor,
+        families,
+        ...(record.scale !== undefined && { scale: record.scale }),
+      },
+    },
+    { style },
+  );
+  const commonScale = (registration.step.report as { scale: number }).scale;
 
   let cursor = 0;
   const staged = plan.map((p) => {
-    const registered = registration.frames.slice(cursor, cursor + p.frames.length);
+    const registered = registration.items.slice(cursor, cursor + p.frames.length).map((item) => ({
+      item,
+      transforms: item.meta["transforms"] as Transform[],
+      jitterPx: item.meta["jitterPx"] as number,
+    }));
     cursor += p.frames.length;
     const jitterPx = Math.max(...registered.map((r) => r.jitterPx));
     return { ...p, registered, jitterPx };
@@ -481,16 +486,29 @@ export async function writeFamilies(
 
   for (const s of staged) {
     const count = s.registered.length;
-    const strip = createRaster(frame.width * count, frame.height);
+    const styled = runOperation(
+      s.registered.map((r) => r.item),
+      { op: "apply-style" },
+      { style },
+    );
+    const joined = runOperation(
+      styled.items,
+      { op: "join", params: { name: s.family.name } },
+      {
+        style,
+      },
+    );
+    // This family's own flip only; register runs over every family's frames at once.
+    const flip = flipSteps.get(s.family.name);
+    const familySteps = [...(flip ? [flip] : []), registration.step, styled.step, joined.step];
+    const strip = (joined.items[0] as ImageItem).raster;
     const frameProvenance: FrameProvenance[] = [];
     let union: Box | undefined;
     const usedColours = new Set<string>();
     s.registered.forEach((r, i) => {
-      const styled = applyStyle(r.image, style);
       for (let y = 0; y < frame.height; y++) {
         for (let x = 0; x < frame.width; x++) {
-          const px = getPixel(styled, x, y);
-          setPixel(strip, i * frame.width + x, y, px);
+          const px = getPixel(strip, i * frame.width + x, y);
           if (px[3] > 0) usedColours.add(toHex([px[0], px[1], px[2]]));
         }
       }
@@ -571,7 +589,7 @@ export async function writeFamilies(
         frames: s.frames,
         ...(s.family.mirrorOf !== undefined && { mirrorOf: s.family.mirrorOf }),
         familyReason: s.family.reason,
-        commonScale: registration.scale,
+        commonScale,
         jitterPx: s.jitterPx,
         jitterBoundPx: bound,
         importId: record.importId,
@@ -590,6 +608,7 @@ export async function writeFamilies(
       calls,
       sheet: record.sheet,
       frames: frameProvenance,
+      steps: [...(record.steps ?? []), ...familySteps],
     };
     const result = await writeToTarget({
       profile: record.profile,
@@ -627,7 +646,7 @@ export async function writeFamilies(
 
   const previewPath = join(options.importDir, PREVIEW_FILE);
   await writeFile(previewPath, previewHtml(previews, frame, record.durationMs ?? 120));
-  record.scale ??= registration.scale;
+  record.scale ??= commonScale;
   record.written = [
     ...(record.written ?? []),
     {

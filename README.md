@@ -34,6 +34,8 @@ For one-off use, with only Node 24, run `npx @clockgrove/assetforge@<version> --
 
 For animation, `import` turns a contact sheet into strips: it slices the sheet, removes the background following the target's style profile, registers frames to one baseline and scale, and asks a vision model to propose families. `generate-sheet` has the model draw a whole cycle as one sheet first. The author confirms the grouping, and `write-families` writes one strip per family with review pending. See [docs/sheet-import.md](docs/sheet-import.md).
 
+Any image, whether generated, imported or hand-made, can be transformed on its own, one operation at a time or with a recipe: `op matte in.png --out out.png`, or `recipe r.json in.png --out out/`. See [docs/transform.md](docs/transform.md).
+
 ```sh
 pnpm exec assetforge import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
 pnpm exec assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
@@ -55,6 +57,9 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 - `import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>`: slice a contact sheet and propose families (`--no-propose` calls no model).
 - `generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>`: draw a whole cycle as one sheet within the cap, then import it. Takes `--dry-run` and `--provider-script` like `stage`.
 - `write-families --import <dir> --target <dir>`: write the strips of a human-confirmed grouping into the target with review pending.
+- `op <operation> <input...> --out <path>`: run one image operation (crop, trim, pad, scale, slice, matte, apply-style, register, join, flip, renditions, convert) on any image, with a provenance record. Options: `--params <json>`, `--profile <profile.json>`.
+- `recipe <recipe.json> <input...> --out <path>`: run a recipe of operations, deterministically. See [docs/transform.md](docs/transform.md).
+- `ops`: list the operations, their parameter schemas and the engines.
 - `--help`, `--version`, and `<command> --help`.
 
 | Code | Meaning                                                                  |

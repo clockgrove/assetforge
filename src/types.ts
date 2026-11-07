@@ -1,4 +1,5 @@
 /** Core data types. Everything game-specific reaches Assetforge as one of these, as data. */
+import type { TransformStep } from "./transform/types.ts";
 
 export type Rgb = readonly [number, number, number];
 
@@ -178,6 +179,11 @@ export interface Provenance {
   /** For strips imported from a contact sheet: the sheet, and each frame's cell and transforms. */
   sheet?: SheetSource;
   frames?: FrameProvenance[];
+  /**
+   * The transformation steps (PRD §5.11) that made the output, in order: operation, parameters,
+   * engine and version, and input and output pixel hashes.
+   */
+  steps?: TransformStep[];
 }
 
 /** A file a generator produced. Each output declares its own media type and extension. */
