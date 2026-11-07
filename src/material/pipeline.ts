@@ -413,6 +413,19 @@ export async function runMaterials(options: {
       for (const scale of config.scales) {
         const source = channel === "albedo" ? albedo : mapSources.get(channel)!.raster;
         const rendition = downsample(source, grid, scale, native, channel === "normal");
+        if (channel !== "albedo") {
+          const checks = validateMaterialMap(
+            rendition,
+            rendition,
+            { width: grid.width * scale, height: grid.height * scale, count: grid.count },
+            channel,
+            { range: config.encoding?.[channel]?.range },
+          ).filter((r) => r.check === "material-range");
+          reasons.push(
+            ...checks.map((r) => ({ ...r, reason: `${channel}@${scale}x: ${r.reason}` })),
+          );
+          if (checks.some((r) => !r.passed)) return writeReport();
+        }
         const path = join(outDir, `${channel}@${scale}x.png`);
         const bytes = encodePng(rendition);
         await writeFile(path, bytes);

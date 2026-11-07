@@ -246,3 +246,47 @@ test("native 4x renditions retain exact geometry and temporal QA gates changed m
   await assert.rejects(runMaterials(f.options));
   await assert.rejects(readFile(result.reportPath), { code: "ENOENT" });
 });
+
+test("rendition normal renormalization fails QA before out-of-range delivery or compression", async () => {
+  const f = await setup();
+  f.config.channels = ["normal"];
+  f.config.encoding = { normal: { range: [0, 0.9], encoding: "unorm8" } };
+  // Exercise compression for accepted albedo renditions before rejecting the normal.
+  const compressor = join(f.dir, "compressor.mjs");
+  const compressed = await setup({ compression: true });
+  await writeFile(compressor, await readFile(join(compressed.dir, "compressor.mjs")));
+  f.config.compression = {
+    command: [process.execPath, compressor, "{{input}}", "{{output}}"],
+    version: "fake-ktx2-container",
+  };
+  const normal = createRaster(8, 4);
+  for (let y = 0; y < 4; y++)
+    for (let x = 0; x < 8; x++) setPixel(normal, x, y, [x % 2 ? 38 : 217, 128, 219, 255]);
+  await writeFile(join(f.dir, "normal.png"), encodePng(normal));
+  f.options.derivation.maps.normal = {
+    method: "mask-extraction",
+    version: "1",
+    path: "normal.png",
+  };
+  const result = await runMaterials(f.options);
+  assert.equal(result.passed, false);
+  assert.ok(
+    result.qa.reasons.some(
+      (r) => r.check === "material-range" && r.passed && r.reason.startsWith("normal:"),
+    ),
+  );
+  assert.ok(
+    result.qa.reasons.some(
+      (r) => r.check === "material-range" && !r.passed && r.reason.startsWith("normal@1x:"),
+    ),
+  );
+  assert.equal(
+    result.outputs.some((o) => o.channel === "normal"),
+    false,
+  );
+  await assert.rejects(readFile(join(f.dir, "out", "normal@1x.png")), { code: "ENOENT" });
+  await assert.rejects(readFile(join(f.dir, "out", "normal@1x.ktx2")), { code: "ENOENT" });
+  assert.equal(f.provider.calls.length, 0);
+  const report = JSON.parse(await readFile(result.reportPath, "utf8"));
+  assert.equal(report.qa.passed, false);
+});
