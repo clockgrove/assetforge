@@ -79,7 +79,7 @@ Strips written by the sheet import carry the same `steps` in their provenance: t
 
 An engine adapter (`ImageEngine` in `src/transform/types.ts`) has a name, a version, the operations it implements, its encoders by media type, and a decoder. The in-house engine, `assetforge-raster`, is Assetforge's own TypeScript raster code. It decodes PNG and JPEG, and encodes PNG and lossless WebP (VP8L). Its version is bumped whenever any operation's output bytes change.
 
-Another engine, such as sharp/libvips, ImageMagick or a model-based matte, implements some of the same operations and is passed to the runner ahead of the in-house engine, or named by a step. Recipes don't change. KTX2 output comes with the material-maps work (#14).
+Another engine, such as sharp/libvips, ImageMagick or a model-based matte, implements some of the same operations and is passed to the runner ahead of the in-house engine, or named by a step. Recipes don't change. Material derivation, native rendition and KTX2 encoding operations are registered by the material-maps runner (#14), with schemas and per-step provenance; see [materials.md](materials.md).
 
 ## Programmatic use
 

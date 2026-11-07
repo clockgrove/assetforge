@@ -1,31 +1,19 @@
-import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { promisify } from "node:util";
 import type { Caller } from "../calls.ts";
 import { InputError } from "../errors.ts";
-import { createRaster, decodeImage, encodePng, getPixel, setPixel } from "../image/raster.ts";
+import { decodeImage, encodePng } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
 import { sha256 } from "../request.ts";
 import type { AssetSpec, LoadedReference, QaResult, Reason, TargetProfile } from "../types.ts";
-import {
-  CORE_METHODS,
-  deriveNormals,
-  extractScalarMap,
-  temporalChecks,
-  validateMaterialMap,
-} from "./core.ts";
-import type { MaterialChannel, MaterialGrid } from "./core.ts";
+import { CORE_METHODS, temporalChecks, validateMaterialMap } from "./core.ts";
+import type { MaterialChannel } from "./core.ts";
 
-export interface MaterialProfile {
-  channels: MaterialChannel[];
-  scales: (1 | 2 | 4)[];
-  flickerBound: number | Partial<Record<MaterialChannel, number>>;
-  encoding?: Partial<Record<MaterialChannel, { range: [number, number]; encoding: "unorm8" }>>;
-  compression?: { command: string[]; version: string };
-  preview: { command: string[]; version: string };
-}
-
+export type { MaterialProfile } from "./profile.ts";
+import { resolveMaterialProfile } from "./profile.ts";
+import { targetCommand } from "./engine.ts";
+import { runRecipeAsync } from "../transform/run.ts";
+import type { TransformStep, ImageItem } from "../transform/types.ts";
 export interface MaterialDerivation {
   maps: Partial<
     Record<
@@ -52,8 +40,6 @@ export interface MaterialOutput {
   height: number;
 }
 
-const execute = promisify(execFile);
-const CHANNELS: MaterialChannel[] = ["normal", "height", "emissive", "roughness", "wind"];
 const LIT_CHECKS = [
   "flat-albedo",
   "normal-orientation",
@@ -64,61 +50,6 @@ const LIT_CHECKS = [
 
 function imageReference(bytes: Uint8Array, role: string, path: string): LoadedReference {
   return { bytes, mediaType: "image/png", role, path, sha256: sha256(bytes) };
-}
-
-async function command(args: string[], values: Record<string, string>, cwd: string): Promise<void> {
-  if (!Array.isArray(args) || !args.length || args.some((x) => typeof x !== "string" || !x)) {
-    throw new InputError("material target command must be a nonempty argument array");
-  }
-  const expanded = args.map((arg) =>
-    arg.replace(/\{\{([^}]+)\}\}/g, (_, key: string) => {
-      if (values[key] === undefined)
-        throw new InputError(`unknown material command placeholder: ${key}`);
-      return values[key];
-    }),
-  );
-  if (values["output"]) await rm(values["output"], { force: true });
-  await execute(expanded[0] as string, expanded.slice(1), {
-    cwd,
-    timeout: 120_000,
-    maxBuffer: 1024 * 1024,
-  });
-}
-
-function downsample(
-  source: Raster,
-  grid: MaterialGrid,
-  scale: number,
-  native: number,
-  normal: boolean,
-): Raster {
-  const factor = native / scale;
-  const out = createRaster(grid.width * grid.count * scale, grid.height * scale);
-  for (let y = 0; y < out.height; y++)
-    for (let x = 0; x < out.width; x++) {
-      const sums = [0, 0, 0];
-      let alpha = 0;
-      for (let sy = Math.floor(y * factor); sy < Math.ceil((y + 1) * factor); sy++)
-        for (let sx = Math.floor(x * factor); sx < Math.ceil((x + 1) * factor); sx++) {
-          const weight =
-            (Math.min((x + 1) * factor, sx + 1) - Math.max(x * factor, sx)) *
-            (Math.min((y + 1) * factor, sy + 1) - Math.max(y * factor, sy));
-          const p = getPixel(source, sx, sy);
-          alpha += p[3] * weight;
-          for (let c = 0; c < 3; c++)
-            sums[c] =
-              (sums[c] ?? 0) +
-              (normal ? (p[c] as number) / 127.5 - 1 : (p[c] as number)) * p[3] * weight;
-        }
-      if (!alpha) continue;
-      let rgb = sums.map((v) => v / alpha);
-      if (normal) {
-        const length = Math.hypot(...rgb);
-        rgb = length ? rgb.map((v) => (v / length + 1) * 127.5) : [128, 128, 255];
-      }
-      setPixel(out, x, y, [...rgb.map(Math.round), Math.round(alpha / (factor * factor))]);
-    }
-  return out;
 }
 
 function parseLit(text: string): Reason[] {
@@ -143,54 +74,6 @@ function parseLit(text: string): Reason[] {
   });
 }
 
-/** Validate a KTX2 container and its level data; the target is responsible for the actual codec. */
-function checkCompressed(bytes: Uint8Array, width: number, height: number): void {
-  const signature = [0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 104 || signature.some((v, i) => bytes[i] !== v))
-    throw new InputError("compressor did not produce KTX2");
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const vk = view.getUint32(12, true),
-    scheme = view.getUint32(44, true);
-  if (
-    view.getUint32(20, true) !== width ||
-    view.getUint32(24, true) !== height ||
-    view.getUint32(28, true) !== 0 ||
-    view.getUint32(32, true) !== 0 ||
-    view.getUint32(36, true) !== 1 ||
-    !view.getUint32(40, true)
-  )
-    throw new InputError("KTX2 dimensions or levels do not match rendition");
-  // KTX 2.0 §3.10: BasisLZ uses ETC1S (163); UASTC (166) permits optional Zstandard.
-  const blockCompressed =
-    ((vk >= 131 && vk <= 184) || (vk >= 1000066000 && vk <= 1000066013)) &&
-    [0, 2, 3].includes(scheme);
-  const dfdOffset = view.getUint32(48, true),
-    dfdLength = view.getUint32(52, true);
-  const basisDfd = dfdLength >= 28 && dfdOffset >= 104 && dfdOffset + dfdLength <= bytes.length;
-  const model = basisDfd ? bytes[dfdOffset + 12] : undefined;
-  if (!(
-    blockCompressed ||
-    (vk === 0 &&
-      basisDfd &&
-      ((scheme === 1 && model === 163) || ([0, 2].includes(scheme) && model === 166)))
-  ))
-    throw new InputError("KTX2 is not GPU-compressed/Basis");
-  const levels = view.getUint32(40, true);
-  if (80 + levels * 24 > bytes.length) throw new InputError("truncated KTX2 level index");
-  for (let i = 0; i < levels; i++) {
-    const offset = Number(view.getBigUint64(80 + i * 24, true));
-    const length = Number(view.getBigUint64(88 + i * 24, true));
-    if (
-      !Number.isSafeInteger(offset) ||
-      !Number.isSafeInteger(length) ||
-      length < 1 ||
-      offset < 80 + levels * 24 ||
-      offset + length > bytes.length
-    )
-      throw new InputError("truncated KTX2 level data");
-  }
-}
-
 export async function runMaterials(options: {
   albedoPath: string;
   spec: AssetSpec;
@@ -207,23 +90,22 @@ export async function runMaterials(options: {
   const reportPath = join(outDir, "materials.json");
   await rm(reportPath, { force: true });
   const { spec, profile, derivation, call } = options;
-  const config = profile.style?.materials;
-  if (
-    !config ||
-    !Array.isArray(config.channels) ||
-    config.channels.length === 0 ||
-    new Set(config.channels).size !== config.channels.length ||
-    config.channels.some((c) => !CHANNELS.includes(c))
-  )
-    throw new InputError("profile requires unique material channels");
-  if (
-    !Array.isArray(config.scales) ||
-    !config.scales.includes(1) ||
-    !config.scales.includes(2) ||
-    config.scales.some((s) => ![1, 2, 4].includes(s)) ||
-    new Set(config.scales).size !== config.scales.length
-  )
-    throw new InputError("material scales require 1 and 2, optionally 4");
+  const config = resolveMaterialProfile(profile.style?.materials);
+  const steps: TransformStep[] = [];
+  const commandResults: unknown[] = [];
+  const recipeItem = (raster: Raster, name: string): ImageItem => ({
+    name,
+    raster,
+    mediaType: "image/png",
+    meta: {},
+  });
+  const recipe = async (op: string, params: Record<string, unknown>, raster: Raster) => {
+    const result = await runRecipeAsync({ steps: [{ op, params }] }, [recipeItem(raster, op)], {
+      materialCall: call,
+    });
+    steps.push(...result.steps);
+    return result.items[0]!.raster;
+  };
   if (!derivation || !derivation.maps)
     throw new InputError("material derivation maps are required");
   const grid = {
@@ -279,33 +161,20 @@ export async function runMaterials(options: {
     const input = derivation.maps[channel];
     if (!input || !input.version?.trim())
       throw new InputError(`missing declared method/version for ${channel}`);
-    let raster: Raster, inputHash: string;
-    if (input.method === "height-derived-normal") {
-      if (channel !== "normal")
-        throw new InputError("height-derived-normal is only valid for normals");
-      const height = await derive("height");
-      raster = deriveNormals(height, nativeGrid, (input.strength ?? 1) * native);
-      inputHash = sha256(encodePng(height));
-    } else {
-      let bytes: Uint8Array;
-      if (input.method === "mask-extraction") {
-        if (!input.path) throw new InputError(`missing extraction source path for ${channel}`);
-        bytes = new Uint8Array(await readFile(resolve(options.baseDir, input.path)));
-      } else if (input.method === "model-assisted-painting") {
-        const image = await call.image(
-          `material-${channel}`,
-          `Derive an aligned ${channel} material map from image 1. Preserve every frame's pose and alpha bounds. ${channel === "normal" ? "Encode tangent-space +Y normals in normalized RGB." : "Encode scalar values as grayscale [0,1]."} Emissive light sources allowed: ${namedLightSources.join(", ") || "none"}. Do not add any unnamed light source. Method version: ${input.version}.`,
-          [ref],
-        );
-        bytes = image.bytes;
-      } else throw new InputError(`unknown derivation method for ${channel}`);
-      inputHash = sha256(bytes);
-      const source = decodeImage(bytes);
-      raster =
-        channel === "normal"
-          ? source
-          : extractScalarMap(albedo, source, nativeGrid, { component: input.component });
-    }
+    if (input.method === "height-derived-normal" && channel !== "normal")
+      throw new InputError("height-derived-normal is only valid for normals");
+    const source = input.method === "height-derived-normal" ? await derive("height") : albedo;
+    const params = {
+      grid: nativeGrid,
+      method: input.method,
+      version: input.version,
+      component: input.component ?? "red",
+      strength: (input.strength ?? 1) * native,
+      lightSources: namedLightSources,
+      ...(input.path ? { path: resolve(options.baseDir, input.path) } : {}),
+    };
+    const raster = await recipe(`material-${channel}`, params, source);
+    const inputHash = steps.at(-1)!.report!["inputHash"] as string;
     mapSources.set(channel, {
       raster,
       method: input.method,
@@ -399,6 +268,9 @@ export async function runMaterials(options: {
             ]),
           ),
           outputs,
+          steps,
+          commandResults,
+          lightRig: config.lightRig,
           qa,
         },
         null,
@@ -412,7 +284,11 @@ export async function runMaterials(options: {
     for (const channel of ["albedo", ...config.channels] as const)
       for (const scale of config.scales) {
         const source = channel === "albedo" ? albedo : mapSources.get(channel)!.raster;
-        const rendition = downsample(source, grid, scale, native, channel === "normal");
+        const rendition = await recipe(
+          "material-rendition",
+          { grid, scale, native, normal: channel === "normal" },
+          source,
+        );
         if (channel !== "albedo") {
           const checks = validateMaterialMap(
             rendition,
@@ -446,6 +322,7 @@ export async function runMaterials(options: {
         const provenance = {
           ...common,
           ...output,
+          steps: [...steps],
           derivation: {
             method: derived.method,
             version: derived.version,
@@ -468,13 +345,19 @@ export async function runMaterials(options: {
           if (!config.compression.version?.trim())
             throw new InputError("compression version required");
           const compressed = path.replace(/\.png$/, ".ktx2");
-          await command(
-            config.compression.command,
-            { input: path, output: compressed },
-            options.profileDir ?? options.baseDir,
+          await recipe(
+            "material-encode",
+            {
+              command: config.compression.command,
+              version: config.compression.version,
+              input: path,
+              output: compressed,
+              cwd: options.profileDir ?? options.baseDir,
+            },
+            rendition,
           );
+          commandResults.push(steps.at(-1)!.report);
           const packed = new Uint8Array(await readFile(compressed));
-          checkCompressed(packed, rendition.width, rendition.height);
           const compressedOutput = {
             ...output,
             path: compressed,
@@ -485,6 +368,7 @@ export async function runMaterials(options: {
           sidecars.set(`${compressed}.provenance.json`, {
             ...sidecars.get(`${path}.provenance.json`),
             ...compressedOutput,
+            steps: [...steps],
             compression: {
               version: config.compression.version,
               command: config.compression.command,
@@ -498,11 +382,17 @@ export async function runMaterials(options: {
     const previews: LoadedReference[] = [ref];
     for (const scene of ["dusk-rain", "night"]) {
       const path = join(outDir, `${scene}.png`);
-      await command(
+      const execution = await targetCommand(
         config.preview.command,
-        { materials: reportPath, output: path, scene },
+        {
+          materials: reportPath,
+          output: path,
+          scene,
+          lightRig: JSON.stringify(config.lightRig ?? {}),
+        },
         options.profileDir ?? options.baseDir,
       );
+      commandResults.push(execution);
       const bytes = new Uint8Array(await readFile(path));
       const raster = decodeImage(bytes);
       if (raster.width < 1 || raster.height < 1)
@@ -512,7 +402,13 @@ export async function runMaterials(options: {
         ...common,
         path,
         sha256: sha256(bytes),
-        preview: { scene, version: config.preview.version, command: config.preview.command },
+        preview: {
+          scene,
+          version: config.preview.version,
+          command: config.preview.command,
+          lightRig: config.lightRig,
+          execution,
+        },
       });
     }
     const text = await call.vision(
@@ -539,6 +435,8 @@ export async function runMaterials(options: {
       version: "1",
     });
   } catch (error) {
+    if (error && typeof error === "object" && "commandRecord" in error)
+      commandResults.push(error.commandRecord);
     reasons.push({
       check: "material-delivery",
       passed: false,

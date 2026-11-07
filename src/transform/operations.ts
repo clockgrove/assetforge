@@ -2,6 +2,7 @@
  * The image operations: name, scope and parameter schema, independent of any engine. Engines
  * implement them (see `raster-engine.ts`); recipes name them.
  */
+import { MATERIAL_OPERATIONS } from "../material/operations.ts";
 import type { ParamSchema } from "./schema.ts";
 import type { OperationContext, OperationSpec } from "./types.ts";
 
@@ -39,6 +40,7 @@ const styleFilter = (params: Record<string, unknown>, context: OperationContext)
   fill(params, { filter: context.style.edges });
 
 export const OPERATIONS: OperationSpec[] = [
+  ...MATERIAL_OPERATIONS,
   {
     name: "crop",
     summary: "cut a box out of each image",

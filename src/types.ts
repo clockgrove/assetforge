@@ -1,5 +1,5 @@
 /** Core data types. Everything game-specific reaches Assetforge as one of these, as data. */
-import type { MaterialProfile } from "./material/pipeline.ts";
+import type { MaterialProfile } from "./material/profile.ts";
 import type { TransformStep } from "./transform/types.ts";
 
 export type Rgb = readonly [number, number, number];
@@ -68,7 +68,7 @@ export interface LoadedReference {
  * crisp edges or a fixed palette for a flat-cartoon or pixel-art one. Every field is optional.
  */
 export interface StyleProfile {
-  /** Opt-in relightable material channels, renditions and target rendering commands. */
+  /** Relightable material channels, renditions and target rendering commands; defaults apply when absent. */
   materials?: MaterialProfile;
   /** `soft` keeps 8-bit alpha; `binary` writes only 0 or 255. `threshold` is the opacity bounds use. */
   alpha?: { mode: "soft" | "binary"; threshold?: number };

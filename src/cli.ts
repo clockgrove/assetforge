@@ -19,6 +19,7 @@ import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
 import { loadRoutes } from "./routes.ts";
 import { runMaterials } from "./material/pipeline.ts";
+import { resolveMaterialProfile } from "./material/profile.ts";
 import type { MaterialDerivation } from "./material/pipeline.ts";
 import { resolveStyle } from "./style.ts";
 import { describeOperations, parseRecipe, transformFiles } from "./transform/run.ts";
@@ -690,7 +691,7 @@ const materialsCommand: Command = {
   usage: `Usage: assetforge materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
                            --derivation <derivation.json> --out <directory>
                            [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                           [--provider-script <module>] [--json]
+                           [--provider-script <module>] [--dry-run] [--json]
 
 Derives the channels requested by style.materials, checks alignment and temporal stability,
 writes native-resolution renditions, runs target compression and dusk-rain/night previews,
@@ -705,6 +706,7 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
     cap: { type: "string" },
     routes: { type: "string" },
     "provider-script": { type: "string" },
+    "dry-run": { type: "boolean" },
     json: { type: "boolean" },
     help: { type: "boolean" },
   },
@@ -715,11 +717,52 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
     const derivation = await readJson<MaterialDerivation>(files["derivation"] as string);
     const routes = await loadRoutes(values["routes"] as string | undefined);
     routes["material-qa"] ??= routes.vision;
+    const config = resolveMaterialProfile(profile.value.style?.materials);
+    const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
+    new Budget(capUsd);
+    if (values["dry-run"]) {
+      const needed = new Set(config.channels);
+      if (needed.has("normal") && derivation.value.maps?.normal?.method === "height-derived-normal")
+        needed.add("height");
+      const operations = [...needed].flatMap((channel) => {
+        const input = derivation.value.maps?.[channel];
+        if (!input?.version?.trim())
+          throw new InputError(`missing declared method/version for ${channel}`);
+        return input.method === "model-assisted-painting" ? [`material-${channel}`] : [];
+      });
+      operations.push("material-qa");
+      const perCall = operations.map((operation) => {
+        const route = routes[operation];
+        if (!route || !Number.isFinite(route.estimatedCostUsd) || route.estimatedCostUsd < 0)
+          throw new InputError(`missing or invalid route for ${operation}`);
+        return { operation, model: route.model, estimatedCostUsd: route.estimatedCostUsd };
+      });
+      const estimateUsd = perCall.reduce((sum, call) => sum + call.estimatedCostUsd, 0);
+      const plan = {
+        kind: "materials",
+        channels: config.channels,
+        scales: config.scales,
+        calls: perCall.length,
+        perCall,
+        estimateUsd,
+        capUsd,
+        withinCap: estimateUsd <= capUsd + 1e-9,
+      };
+      const fields = { dryRun: true, plan };
+      const human = `dry run: materials, ${plan.calls} planned call(s), nothing spent\nforecast ${usd(estimateUsd)} against a $${capUsd.toFixed(2)} cap`;
+      if (plan.withinCap) return { exitCode: 0, fields, human };
+      return refusal(
+        "cap_refused",
+        `forecast ${usd(estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
+        fields,
+        human,
+      );
+    }
     const { provider, name } = await providerFor(values);
     const call = new Caller({
       provider,
       providerName: name,
-      budget: new Budget(numberOption(values, "cap", DEFAULT_CAP_USD)),
+      budget: new Budget(capUsd),
       routes,
     });
     const result = await runMaterials({

@@ -26,17 +26,35 @@ async function setup(options: { failLit?: boolean; compression?: boolean; model?
   await writeFile(join(dir, "albedo.png"), encodePng(albedo));
   await writeFile(join(dir, "height.png"), encodePng(height));
   await writeFile(join(dir, "zero.png"), encodePng(zero));
-  // Fake-only lit-quality proof: this target fixture copies albedo; it exercises the real
-  // subprocess and QA gate, while game-renderer lighting and model judgement stay opt-in.
+  // Synthetic Lambert rig proves normal-driven rendering; model judgement remains scripted.
   const renderer = join(dir, "renderer.mjs");
   await writeFile(
     renderer,
-    `import {readFile,writeFile} from 'node:fs/promises'; const [manifest,out,scene]=process.argv.slice(2);const data=JSON.parse(await readFile(manifest,'utf8'));if(!['dusk-rain','night'].includes(scene))throw Error('scene');await writeFile(out,await readFile(data.outputs.find(o=>o.channel==='albedo'&&o.scale===1).path));`,
+    `import {readFile,writeFile} from 'node:fs/promises';
+    import {decodeImage,encodePng,getPixel,setPixel} from ${JSON.stringify(new URL("../src/image/raster.ts", import.meta.url).href)};
+    const [manifest,out,scene]=process.argv.slice(2);
+    const data=JSON.parse(await readFile(manifest,'utf8'));
+    const rig=data.lightRig[scene];if(!rig)throw Error('missing synthetic light rig');
+    const load=async channel=>decodeImage(new Uint8Array(await readFile(data.outputs.find(o=>o.channel===channel&&o.scale===1).path)));
+    const albedo=await load('albedo');const normal=await load('normal');
+    for(let y=0;y<albedo.height;y++)for(let x=0;x<albedo.width;x++){
+      const p=getPixel(albedo,x,y),n=getPixel(normal,x,y);
+      const dot=Math.max(0,rig.direction.reduce((sum,v,c)=>sum+v*(n[c]/127.5-1),0));
+      setPixel(albedo,x,y,[...p.slice(0,3).map(v=>Math.round(v*(rig.ambient+rig.diffuse*dot))),p[3]]);
+    }
+    await writeFile(out,encodePng(albedo));console.log('rendered '+scene);`,
   );
-  const config: MaterialProfile = {
+  const config: MaterialProfile & {
+    scales: (1 | 2 | 4)[];
+    preview: { command: string[]; version: string };
+  } = {
     channels: ["height", "normal", "emissive", "roughness", "wind"],
     scales: [1, 2],
     flickerBound: 0,
+    lightRig: {
+      "dusk-rain": { direction: [0, 0, 1], ambient: 0.1, diffuse: 0.5 },
+      night: { direction: [0, 0, 1], ambient: 0.1, diffuse: 0.1 },
+    },
     preview: {
       command: [process.execPath, renderer, "{{materials}}", "{{output}}", "{{scene}}"],
       version: "synthetic-1",
@@ -145,6 +163,29 @@ test("material pipeline emits aligned native 1x/2x maps, provenance and lit revi
   assert.match(await readFile(join(f.dir, "out", "preview.html"), "utf8"), /dusk-rain.png/);
   const report = JSON.parse(await readFile(result.reportPath, "utf8"));
   assert.equal(report.calls[0].operation, "material-qa");
+  assert.deepEqual(
+    report.steps.slice(0, 5).map((s: { op: string }) => s.op),
+    [
+      "material-height",
+      "material-normal",
+      "material-emissive",
+      "material-roughness",
+      "material-wind",
+    ],
+  );
+  assert.equal(
+    report.steps.filter((s: { op: string }) => s.op === "material-rendition").length,
+    12,
+  );
+  assert.equal(report.commandResults[0].exitCode, 0);
+  assert.match(report.commandResults[0].stdout, /rendered dusk-rain/);
+  for (const [scene, expected] of [
+    ["dusk-rain", [48, 60, 72, 255]],
+    ["night", [16, 20, 24, 255]],
+  ] as const) {
+    const lit = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", `${scene}.png`))));
+    assert.deepEqual(getPixel(lit, 1, 1), expected);
+  }
 });
 
 test("lit QA rejects bad normal orientation even with valid maps", async () => {

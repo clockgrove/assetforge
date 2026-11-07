@@ -163,3 +163,23 @@ test("positive scalar ranges ignore transparent background and empty geometry fa
     ),
   );
 });
+
+test("albedo brightness changes cannot hide map flicker at an unchanged pose", () => {
+  const grid = { width: 1, height: 1, count: 2 };
+  const albedo = fill(grid, (x) => x * 255),
+    map = fill(grid, (x) => x * 255);
+  const checks = temporalChecks(albedo, map, grid, 0);
+  assert.deepEqual(
+    checks.map(({ passed, reason }) => ({ passed, reason })),
+    [
+      {
+        passed: false,
+        reason: "frame 0: residual 1.000000 > bound 0; 1 pose-corresponding pixels",
+      },
+      {
+        passed: false,
+        reason: "frame 1: residual 1.000000 > bound 0; 1 pose-corresponding pixels",
+      },
+    ],
+  );
+});

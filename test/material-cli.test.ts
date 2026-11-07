@@ -70,6 +70,10 @@ test("materials CLI writes native still and animation materials with scripted li
             channels: ["height", "normal"],
             scales: [1, 2],
             flickerBound: 0,
+            lightRig: {
+              "dusk-rain": { direction: [0.5, -0.5, 1], intensity: 0.4 },
+              night: { direction: [0, 0, 1], intensity: 0.1 },
+            },
             preview: {
               version: "synthetic-copy-1",
               command: [process.execPath, renderer, albedo, "{{output}}"],
@@ -115,4 +119,60 @@ test("materials CLI writes native still and animation materials with scripted li
     const report = JSON.parse(await readFile(doc.reportPath, "utf8"));
     assert.equal(report.qa.passed, true);
   }
+});
+
+test("materials dry-run forecasts defaults without provider or output writes and refuses over cap", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "assetforge-material-plan-"));
+  const profile = join(dir, "profile.json"),
+    spec = join(dir, "spec.json"),
+    derivation = join(dir, "derivation.json"),
+    out = join(dir, "out");
+  await writeFile(profile, JSON.stringify({ frames: { width: 4, height: 4 } }));
+  await writeFile(spec, JSON.stringify({ kind: "still", assetId: "synthetic" }));
+  await writeFile(
+    derivation,
+    JSON.stringify({
+      maps: Object.fromEntries(
+        ["normal", "height", "emissive", "roughness", "wind"].map((channel) => [
+          channel,
+          {
+            method: channel === "normal" ? "height-derived-normal" : "mask-extraction",
+            version: "1",
+            path: "unread.png",
+          },
+        ]),
+      ),
+    }),
+  );
+  const args = [
+    "materials",
+    "--albedo",
+    join(dir, "unread.png"),
+    "--profile",
+    profile,
+    "--spec",
+    spec,
+    "--derivation",
+    derivation,
+    "--out",
+    out,
+    "--dry-run",
+    "--json",
+  ];
+  const run = await cli(...args);
+  assert.equal(run.code, 0, run.stdout);
+  const doc = JSON.parse(run.stdout);
+  assert.equal(doc.dryRun, true);
+  assert.deepEqual(doc.plan.channels, ["normal", "height", "emissive", "roughness", "wind"]);
+  assert.deepEqual(doc.plan.scales, [1, 2]);
+  assert.equal(doc.plan.calls, 1);
+  assert.equal(doc.plan.estimateUsd, 0.02);
+  await assert.rejects(readFile(join(out, "materials.json")), { code: "ENOENT" });
+  const refused = await cli(...args, "--cap", "0");
+  assert.equal(refused.code, 3);
+  assert.equal(JSON.parse(refused.stdout).error.code, "cap_refused");
+  await writeFile(profile, JSON.stringify({ style: { materials: { channels: ["unknown"] } } }));
+  const invalid = await cli(...args);
+  assert.equal(invalid.code, 2);
+  assert.equal(JSON.parse(invalid.stdout).error.code, "invalid_input");
 });

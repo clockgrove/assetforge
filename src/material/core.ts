@@ -254,11 +254,9 @@ export function temporalChecks(
         if (!a[3] || !b[3]) continue;
         const m = getPixel(map, frame * grid.width + x, y),
           n = getPixel(map, previousFrame * grid.width + px, py);
-        const poseChange =
-          Math.max(...a.slice(0, 3).map((v, i) => Math.abs(v - (b[i] as number)))) / 255;
         const mapChange =
           Math.max(...m.slice(0, 3).map((v, i) => Math.abs(v - (n[i] as number)))) / 255;
-        residual = Math.max(residual, Math.max(0, mapChange - poseChange));
+        residual = Math.max(residual, mapChange);
         samples++;
       }
     const measured = samples ? residual : 0;

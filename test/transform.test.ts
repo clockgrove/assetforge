@@ -9,6 +9,7 @@ import { resolveStyle } from "../src/style.ts";
 import { OPERATIONS } from "../src/transform/operations.ts";
 import { rasterEngine } from "../src/transform/raster-engine.ts";
 import {
+  DEFAULT_ENGINES,
   parseRecipe,
   pixelHash,
   runOperation,
@@ -35,14 +36,27 @@ const item = (raster: Raster, name = "img"): ImageItem => ({
   meta: {},
 });
 
-test("every declared operation is implemented by the in-house engine", () => {
-  for (const op of OPERATIONS) assert.ok(rasterEngine.operations[op.name], op.name);
+test("every declared operation is implemented by a default engine", () => {
+  for (const op of OPERATIONS)
+    assert.ok(
+      DEFAULT_ENGINES.some(
+        (engine) => engine.operations[op.name] || engine.asyncOperations?.[op.name],
+      ),
+      op.name,
+    );
   assert.deepEqual(OPERATIONS.map((o) => o.name).sort(), [
     "apply-style",
     "convert",
     "crop",
     "flip",
     "join",
+    "material-emissive",
+    "material-encode",
+    "material-height",
+    "material-normal",
+    "material-rendition",
+    "material-roughness",
+    "material-wind",
     "matte",
     "pad",
     "register",
