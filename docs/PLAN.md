@@ -26,7 +26,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** character animation that holds together, and Raccoon World's first real set. PRD §5.2, plus the identity lock from §5.3.
 
 **Objectives:**
-- Key pose, then frame edits, with motion templates for idle, walk, sniff, eat, play and shelter.
+- Sprite-sheet import and sheet generation (assetforge#10): slicing, soft alpha, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Stevie's existing 57-frame sheet is the first import.
 - Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
 - Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.
 - Clockgrove: the first set approved and in the golden scene (the rest of #27).
@@ -99,7 +99,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 **Exit:**
 - One `.glb` prop picked from turntables and accepted by a target profile that declares 3D.
-- Video-to-frames compared with key-pose editing on Stevie's walk, and the better route recorded.
+- Video-to-frames compared with sheet generation on Stevie's walk, and the better route recorded.
 
 ## Wave 7: 1.0, a second adopter
 

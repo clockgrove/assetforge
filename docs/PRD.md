@@ -80,7 +80,16 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 ### 5.2 Animation that holds together
 
-- **Key pose first.** The author approves a key pose. Each frame is then a reference-guided edit of that pose. Video-to-frames comes later, as another generator.
+- **Sheet generation first (owner decision, 2026-11-07).** The model generates a whole cycle as one contact sheet, which keeps identity consistent across frames far better than frame-by-frame requests. An import path turns a sheet into a strip:
+  - slices the frames;
+  - removes the background to soft alpha;
+  - strips labels;
+  - registers every frame on the feet baseline;
+  - groups and orders frames into families, with vision-model proposals a person confirms.
+
+  The same import takes sheets made elsewhere. Raccoon World's first one is Stevie's 57-frame sheet: Clockgrove `docs/design/reference/stevie-sprite-sheet.png`, which is also his identity reference.
+- **Per-frame fixes.** A reference-guided edit of one frame, from an approved neighbour or key pose, repairs a single bad frame without regenerating the sheet.
+- **Video later.** Video-to-frames is a third route, compared against sheets once it arrives.
 - **Motion templates.** Per family (walk, idle, sniff, eat, play, shelter, sleep, groom, climb, converse and so on), a template gives the beats, timing and contact frames. A walk cycle loops and keeps its feet on the ground line.
 - **Loop and continuity QA.** It checks that:
   - the last frame flows into the first;
@@ -89,7 +98,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
   - the silhouette varies the way the template says it should.
 
   It also renders an onion-skin sheet and a looping preview for the person picking.
-- **Direction sets.** For isometric games, a direction set is generated as a family of related requests, sharing the key pose's identity.
+- **Direction sets.** For isometric games, a direction set is generated as a family of related requests, sharing the character's identity reference.
 
 ### 5.3 Consistency engine (the differentiator)
 
@@ -113,7 +122,7 @@ Raccoon World lights its yard dynamically: day, dusk and night, lantern and wind
 ### 5.6 Sets and campaigns
 
 - **Variant matrices.** One request expands into a grid: character × age × animation family, or prop × weather state. Shared references keep the grid consistent.
-- **Campaigns.** A whole set (for example Wave 8 §10.2) is planned as a campaign, with a budget, an order (identities and key poses first, then frames, then variants), progress, resume after interruption, and a final set-level audit.
+- **Campaigns.** A whole set (for example Wave 8 §10.2) is planned as a campaign, with a budget, an order (identities and sheets first, then frame fixes, then variants), progress, resume after interruption, and a final set-level audit.
 - **Cost forecast.** A campaign shows its forecast cost before it starts, and its actual cost against that forecast as it runs.
 
 ### 5.7 Review where review already happens
