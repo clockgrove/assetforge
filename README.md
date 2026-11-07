@@ -28,6 +28,13 @@ pnpm assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../clo
 
 `stage` reserves the run's estimated cost against the cap (default 4 candidates and $5; `--candidates`, `--cap`) and refuses a run that would exceed it, then lists only the candidates that passed QA, each with its reasons. `pick` writes the chosen file and its manifest into the target with the review status pending and full provenance, and runs the target's validator. The input formats are in [docs/target-profile.md](docs/target-profile.md); the gateway's models and the default routes are in [docs/models.md](docs/models.md).
 
+For animation, `import` turns a contact sheet into strips: it slices the sheet, removes the background following the target's style profile, registers frames to one baseline and scale, and asks a vision model to propose families. `generate-sheet` has the model draw a whole cycle as one sheet first. The author confirms the grouping, and `write-families` writes one strip per family with review pending. See [docs/sheet-import.md](docs/sheet-import.md).
+
+```sh
+pnpm assetforge import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
+pnpm assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
+```
+
 `pnpm check` and `pnpm test` run offline with a scripted provider. `pnpm test:real` runs the opt-in real-provider check, which skips without a key.
 
 ## Status

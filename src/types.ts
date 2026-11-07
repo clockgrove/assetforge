@@ -60,8 +60,24 @@ export interface LoadedReference {
   sha256: string;
 }
 
+/**
+ * The world's style profile, read as part of the target profile (clockgrove/clockgrove#61). It
+ * decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha,
+ * crisp edges or a fixed palette for a flat-cartoon or pixel-art one. Every field is optional.
+ */
+export interface StyleProfile {
+  /** `soft` keeps 8-bit alpha; `binary` writes only 0 or 255. `threshold` is the opacity bounds use. */
+  alpha?: { mode: "soft" | "binary"; threshold?: number };
+  /** `full` keeps every colour; `palette` snaps to `palette` (or the bible's palette). */
+  color?: { rule: "full" | "palette"; palette?: string[] };
+  /** `crisp` resamples nearest-neighbour (pixel art); `antialiased` filters. */
+  edges?: "antialiased" | "crisp";
+}
+
 export interface TargetProfile {
   name: string;
+  /** The world's style profile; post-processing of imported sheets follows it. */
+  style?: StyleProfile;
   /** The license value the target accepts for generated output (Clockgrove: `MIT`). */
   license: string;
   /** Free values for the manifest template, for example `{ "creator": "Clockgrove" }`. */
@@ -114,6 +130,35 @@ export interface CallRecord {
   providerTerms: string;
 }
 
+/** One step applied to a frame on its way from the source sheet to the strip. */
+export interface Transform {
+  op: string;
+  [parameter: string]: unknown;
+}
+
+/** Where a strip's frame came from and what was done to it. */
+export interface FrameProvenance {
+  /** Zero-based position in the written strip. */
+  index: number;
+  /** The frame's number in the import (1-based, reading order on the sheet). */
+  frame: number;
+  /** The grid cell (or, without a grid, the row and column in reading order) and its box. */
+  cell: { row: number; column: number; box: Box };
+  /** The model or tool that made the sheet, for example "ChatGPT image generation". */
+  tool: string;
+  sheetSha256: string;
+  transforms: Transform[];
+}
+
+/** The source contact sheet of an imported strip. */
+export interface SheetSource {
+  path: string;
+  sha256: string;
+  mediaType: string;
+  /** The model or tool that made the sheet. */
+  tool: string;
+}
+
 export interface Provenance {
   generator: string;
   route: string;
@@ -130,6 +175,9 @@ export interface Provenance {
   finishedAt: string;
   costUsd: number;
   calls: CallRecord[];
+  /** For strips imported from a contact sheet: the sheet, and each frame's cell and transforms. */
+  sheet?: SheetSource;
+  frames?: FrameProvenance[];
 }
 
 /** A file a generator produced. Each output declares its own media type and extension. */

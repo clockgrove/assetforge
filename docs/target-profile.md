@@ -49,6 +49,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 {
   "name": "clockgrove",
   "license": "MIT",
+  "style": { "alpha": { "mode": "soft" }, "color": { "rule": "full" } },
   "values": { "creator": "Clockgrove" },
   "frames": { "width": 64, "height": 64, "maxEdge": 256, "durationMs": 250 },
   "layout": {
@@ -75,7 +76,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
     "frames": "{{output.frames}}",
     "anchor": "{{output.anchor}}",
     "bounds": "{{output.bounds}}",
-    "palette": "{{output.palette}}",
+    "palette": "{{output.palette?}}",
     "contentHash": "{{output.sha256}}"
   },
   "review": { "path": "review.status", "pending": "pending" },
@@ -87,8 +88,9 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 
 This example follows the public manifest shape in Clockgrove's `packages/assets/docs/pipeline.md`; Clockgrove's real profile, and its validator command, live in Clockgrove (clockgrove/clockgrove#27).
 
+- **Style.** `style` is the world's style profile: alpha mode (`soft` or `binary`, with a `threshold`), colour rule (`full` or `palette`) and edges (`antialiased` or `crisp`). The sheet import path follows it ([sheet-import.md](sheet-import.md#style-profile)). It is optional, and templates can read it as `{{profile.style}}`.
 - **Templates.** `"{{a.b}}"` as a whole string inserts the value of any JSON type; `"{{a.b?}}"` drops the key when the value is undefined; `{{a.b}}` inside a longer string interpolates text. An undefined required value is an error.
-- **Values available:** `spec.*` (the spec, with its `fields` also merged in), `profile.*` (`values`, `name`, `license`), `bible.version`, `output.*` (`path`, `mediaType`, `extension`, `sha256`, and what the generator adds: `frames`, `anchor`, `bounds`, `palette` for images), `provenance` (the full record) and `run.*` (`runId`, `candidateId`, `pickedAt`).
+- **Values available:** `spec.*` (the spec, with its `fields` also merged in), `profile.*` (`values`, `name`, `license`), `bible.version`, `output.*` (`path`, `mediaType`, `extension`, `sha256`, and what the generator adds: `frames`, `anchor`, `bounds`, `palette` for images; imported strips add `jitterPx` and set `palette` only under a palette colour rule), `provenance` (the full record) and `run.*` (`runId`, `candidateId`, `pickedAt`).
 - **Provenance.** Every pick carries its full provenance record into the target. `layout.provenance`, when set, writes it as its own file at that path; the template can also embed `"{{provenance}}"`; with neither, it is written beside the media file as `<media path>.provenance.json`. The record holds the models, route, prompt, parameters, reference hashes, seed where supported, request IDs, times, cost, provider terms, bible version and license, plus every call. Each call marks `costSource` (`provider` or `estimate`) and `requestIdSource` (`provider`, or `local` when the gateway reported no ID and Assetforge generated one).
 - **Review.** Assetforge always sets the field at `review.path` to `review.pending` and never writes another value there.
 - **Validator.** Run in the target directory after the pick is written, with `{{manifest}}` and `{{media}}` replaced by the written paths. A non-zero exit is reported as a rejection.
