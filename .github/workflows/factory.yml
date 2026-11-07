@@ -28,12 +28,12 @@ env:
   FACTORY_TIMEOUT_MINUTES: 240 # under 360 on hosted runners; mirrored in timeout-minutes below
   FACTORY_AUTO_MERGE: "true"
   FACTORY_NOTIFY: kirkmarple-clockgrove
-  FACTORY_SETUP: ""
+  FACTORY_SETUP: corepack enable
   FACTORY_INSTALL: auto # auto (from the lockfile), none, or your own command
-  FACTORY_VALIDATION: ""
+  FACTORY_VALIDATION: "pnpm check, pnpm test"
   FACTORY_BUDGET_COMMAND: ""
   FACTORY_PROTECTED_PATHS: ""
-  FACTORY_CI_CHECKS: ""
+  FACTORY_CI_CHECKS: ci
   FACTORY_NODE_VERSION: 24.21.0 # the Node.js your CI uses
 permissions: # the job token reads code and Actions; every write goes through the App's token
   contents: read
