@@ -8,6 +8,8 @@ export interface Route {
   /** The provider terms the output was made under, recorded in provenance. */
   providerTerms: string;
   size?: string;
+  /** Whether the model accepts a seed; only then is one sent and recorded. */
+  supportsSeed?: boolean;
   providerOptions?: Record<string, Record<string, unknown>>;
 }
 
@@ -33,6 +35,7 @@ export const defaultRoutes: Routes = {
   edit: {
     model: "bfl/flux-kontext-pro",
     estimatedCostUsd: 0.05,
+    supportsSeed: true,
     providerTerms:
       "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },

@@ -71,7 +71,7 @@ export interface TargetProfile {
   manifest: unknown;
   /** Where the review status sits in the manifest, and the only value Assetforge writes there. */
   review: { path: string; pending: string };
-  /** Command run in the target directory after hand-off; `{manifest}` and `{media}` are replaced. */
+  /** Command run in the target directory after hand-off; `{{manifest}}` and `{{media}}` are replaced. */
   validator?: { command: string[] };
 }
 

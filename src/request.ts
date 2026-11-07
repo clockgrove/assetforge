@@ -45,7 +45,13 @@ export function paletteSwatch(palette: string[]): LoadedReference {
     }
   });
   const bytes = encodePng(raster);
-  return { role: "palette", path: "(palette swatch)", mediaType: "image/png", bytes, sha256: sha256(bytes) };
+  return {
+    role: "palette",
+    path: "(palette swatch)",
+    mediaType: "image/png",
+    bytes,
+    sha256: sha256(bytes),
+  };
 }
 
 export interface BibleInputs {
@@ -82,7 +88,11 @@ export interface FrameGrid {
   durationMs?: number;
 }
 
-export function frameGrid(spec: AssetSpec, profile: TargetProfile, defaultCount: number): FrameGrid {
+export function frameGrid(
+  spec: AssetSpec,
+  profile: TargetProfile,
+  defaultCount: number,
+): FrameGrid {
   const frame = {
     width: spec.frames?.width ?? profile.frames.width,
     height: spec.frames?.height ?? profile.frames.height,

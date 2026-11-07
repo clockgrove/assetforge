@@ -1,3 +1,4 @@
+import jpeg from "jpeg-js";
 import { PNG } from "pngjs";
 import type { Box, Rgb } from "../types.ts";
 
@@ -29,6 +30,18 @@ export function setPixel(
   r.data[i + 1] = green ?? 0;
   r.data[i + 2] = blue ?? 0;
   r.data[i + 3] = alpha ?? 0;
+}
+
+/**
+ * Decodes a model's raster image into 8-bit RGBA: any PNG pngjs reads (palette, grey, RGB, RGBA,
+ * 16-bit), or a JPEG, which some edit models return. The bytes' own signature decides.
+ */
+export function decodeImage(bytes: Uint8Array): Raster {
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) {
+    const img = jpeg.decode(Buffer.from(bytes), { useTArray: true, formatAsRGBA: true });
+    return { width: img.width, height: img.height, data: new Uint8Array(img.data) };
+  }
+  return decodePng(bytes);
 }
 
 /** Decodes any PNG pngjs reads (palette, grey, RGB, RGBA, 16-bit) into 8-bit RGBA. */

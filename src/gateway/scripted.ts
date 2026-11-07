@@ -11,8 +11,14 @@ import type {
  * answered by the script, and every request is kept in `calls` so tests can inspect it.
  */
 export interface Script {
-  image(request: ImageRequest, index: number): Omit<ImageResult, "requestId"> & { requestId?: string };
-  vision(request: VisionRequest, index: number): Omit<VisionResult, "requestId"> & { requestId?: string };
+  image(
+    request: ImageRequest,
+    index: number,
+  ): Omit<ImageResult, "requestId"> & { requestId?: string };
+  vision(
+    request: VisionRequest,
+    index: number,
+  ): Omit<VisionResult, "requestId"> & { requestId?: string };
 }
 
 export class ScriptedProvider implements GenerationProvider {

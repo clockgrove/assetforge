@@ -5,3 +5,5 @@ node_modules/
 .claude/
 .agents/
 .codex/
+docs/PRD.md
+docs/PLAN.md
