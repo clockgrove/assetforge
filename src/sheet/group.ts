@@ -1,3 +1,4 @@
+import { InputError, ProviderError } from "../errors.ts";
 import type { Caller } from "../calls.ts";
 import type { LoadedReference } from "../types.ts";
 import type { FamilyGroup, Grouping } from "./types.ts";
@@ -50,7 +51,7 @@ export function parseGrouping(text: string, frameIds: number[]): Grouping {
   }
   const rawFamilies = (parsed as { families?: unknown } | null | undefined)?.families;
   if (!Array.isArray(rawFamilies)) {
-    throw new Error("the vision reply contained no JSON object with a families array");
+    throw new ProviderError("the vision reply contained no JSON object with a families array");
   }
   const known = new Set(frameIds);
   const notes: string[] = [];
@@ -124,48 +125,49 @@ export async function proposeGrouping(
 
 export function checkConfirmed(grouping: unknown, frameIds: number[]): Grouping {
   const g = grouping as Partial<Grouping> | null;
-  if (!g || typeof g !== "object") throw new Error("the grouping file is not an object");
+  if (!g || typeof g !== "object") throw new InputError("the grouping file is not an object");
   if (g.status !== "confirmed") {
-    throw new Error(
+    throw new InputError(
       'the grouping is not confirmed: review the proposal, edit it as needed, and set status to "confirmed"',
     );
   }
   if (!Array.isArray(g.families) || g.families.length === 0) {
-    throw new Error("the grouping has no families");
+    throw new InputError("the grouping has no families");
   }
   const known = new Set(frameIds);
   const byName = new Map<string, FamilyGroup>();
   for (const f of g.families) {
     if (!f || typeof f.name !== "string" || !NAME_PATTERN.test(f.name)) {
-      throw new Error(
+      throw new InputError(
         `family name ${JSON.stringify(f?.name)} must be lowercase letters, digits and hyphens`,
       );
     }
-    if (byName.has(f.name)) throw new Error(`duplicate family name "${f.name}"`);
+    if (byName.has(f.name)) throw new InputError(`duplicate family name "${f.name}"`);
     byName.set(f.name, f);
   }
   for (const f of g.families) {
     const hasFrames = Array.isArray(f.frames) && f.frames.length > 0;
     const hasMirror = f.mirrorOf !== undefined;
     if (hasFrames && hasMirror) {
-      throw new Error(`family "${f.name}" has both frames and mirrorOf; use one`);
+      throw new InputError(`family "${f.name}" has both frames and mirrorOf; use one`);
     }
     if (!hasFrames && !hasMirror) {
-      throw new Error(`family "${f.name}" has neither frames nor mirrorOf`);
+      throw new InputError(`family "${f.name}" has neither frames nor mirrorOf`);
     }
     if (hasFrames) {
       for (const id of f.frames ?? []) {
-        if (!known.has(id)) throw new Error(`family "${f.name}" names unknown frame ${String(id)}`);
+        if (!known.has(id))
+          throw new InputError(`family "${f.name}" names unknown frame ${String(id)}`);
       }
     } else {
       const target = typeof f.mirrorOf === "string" ? byName.get(f.mirrorOf) : undefined;
       if (!target || target === f) {
-        throw new Error(
+        throw new InputError(
           `family "${f.name}" mirrors "${String(f.mirrorOf)}", which is not another family`,
         );
       }
       if (target.mirrorOf !== undefined || !target.frames || target.frames.length === 0) {
-        throw new Error(
+        throw new InputError(
           `family "${f.name}" mirrors "${target.name}", which has no frames of its own (no mirror chains)`,
         );
       }
@@ -179,11 +181,11 @@ export function familyFrames(
   name: string,
 ): { frames: number[]; mirrored: boolean } {
   const family = grouping.families.find((f) => f.name === name);
-  if (!family) throw new Error(`no family named "${name}"`);
+  if (!family) throw new InputError(`no family named "${name}"`);
   if (family.mirrorOf !== undefined) {
     const target = grouping.families.find((f) => f.name === family.mirrorOf);
     if (!target?.frames)
-      throw new Error(`family "${name}" mirrors "${family.mirrorOf}", which has no frames`);
+      throw new InputError(`family "${name}" mirrors "${family.mirrorOf}", which has no frames`);
     return { frames: [...target.frames], mirrored: true };
   }
   return { frames: [...(family.frames ?? [])], mirrored: false };

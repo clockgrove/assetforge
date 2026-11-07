@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
+import { InputError } from "./errors.ts";
 import { readRun, writeRun } from "./loop.ts";
 import type { StagedCandidate } from "./loop.ts";
 import { sha256 } from "./request.ts";
@@ -30,7 +31,7 @@ function inside(root: string, path: string): string {
   const full = resolve(root, path);
   const rel = relative(root, full);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`profile layout path "${path}" leaves the target directory`);
+    throw new InputError(`profile layout path "${path}" leaves the target directory`);
   }
   return full;
 }
@@ -111,7 +112,7 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
 
   const manifest = render(profile.manifest, context);
   if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
-    throw new Error("the profile's manifest template must render to a JSON object");
+    throw new InputError("the profile's manifest template must render to a JSON object");
   }
   setPath(manifest as Record<string, unknown>, profile.review.path, profile.review.pending);
 
@@ -140,7 +141,7 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
     const vars = { manifest: manifestRel, media: mediaRel };
     const command = profile.validator.command.map((part) => renderString(part, vars));
     const [file, ...args] = command;
-    if (!file) throw new Error("the profile's validator command is empty");
+    if (!file) throw new InputError("the profile's validator command is empty");
     try {
       const { stdout, stderr } = await run(file, args, { cwd: targetDir });
       result.validator = { accepted: true, command, output: `${stdout}${stderr}`.trim() };
@@ -161,13 +162,13 @@ export async function pick(options: PickOptions): Promise<PickResult> {
   const candidate = record.candidates.find((c) => c.id === options.candidateId);
   if (!candidate) {
     const ids = record.candidates.map((c) => c.id).join(", ") || "none";
-    throw new Error(
+    throw new InputError(
       `"${options.candidateId}" is not a QA-passing candidate of run ${record.runId} (passing: ${ids})`,
     );
   }
   const bytes = new Uint8Array(await readFile(join(options.runDir, candidate.file)));
   if (sha256(bytes) !== candidate.sha256) {
-    throw new Error(`staged file ${candidate.file} changed since it was staged`);
+    throw new InputError(`staged file ${candidate.file} changed since it was staged`);
   }
   const now = options.now ?? (() => new Date());
   const targetDir = resolve(options.targetDir);

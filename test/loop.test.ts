@@ -1,20 +1,27 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { BudgetExceededError } from "../src/budget.ts";
+import { InputError, ProviderError } from "../src/errors.ts";
 import type { GenerationProvider, ImageRequest } from "../src/gateway/provider.ts";
 import type { Generator } from "../src/generators/generator.ts";
 import { imageGenerators } from "../src/generators/image.ts";
 import { pick } from "../src/handoff.ts";
-import { stage } from "../src/loop.ts";
+import { planStage, stage } from "../src/loop.ts";
 import type { StageOptions } from "../src/loop.ts";
 import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import type { AssetSpec } from "../src/types.ts";
-import { PALETTE, scriptedProvider, shelterSpec, syntheticWorld } from "./fixtures/synthetic.ts";
+import {
+  PALETTE,
+  scriptedProvider,
+  shelterSpec,
+  syntheticProfile,
+  syntheticWorld,
+} from "./fixtures/synthetic.ts";
 import type { World } from "./fixtures/synthetic.ts";
 
 const exec = promisify(execFile);
@@ -209,6 +216,7 @@ test("a strip spec without an approved key pose is refused before any provider c
     stage(options(world, provider, unapproved)),
     /needs an author-approved keyPose/,
   );
+  await assert.rejects(stage(options(world, provider, unapproved)), InputError);
   assert.equal(provider.calls.length, 0);
   assert.equal(await exists(world.runsDir), false);
 });
@@ -268,7 +276,7 @@ test("another media type arrives through an added generator; each output declare
   const world = await syntheticWorld();
   const tone: Generator = {
     kind: "ambient-loop",
-    estimateCandidateUsd: () => 0,
+    planCandidate: () => [],
     async generate() {
       const samples = 800;
       const wav = Buffer.alloc(44 + samples * 2);
@@ -362,6 +370,83 @@ test("the CLI takes the gateway key from the environment only, and refuses witho
       { env },
     ),
     (error: { code: number; stderr: string }) =>
-      error.code === 1 && /AI_GATEWAY_API_KEY is not set/.test(error.stderr),
+      error.code === 4 && /AI_GATEWAY_API_KEY is not set/.test(error.stderr),
   );
+});
+
+test("planStage forecasts a still and a strip without spending, and flags an over-cap forecast", () => {
+  const base = { profile: syntheticProfile(), routes: defaultRoutes, generators: imageGenerators };
+  const still = planStage({
+    ...base,
+    spec: { kind: "still", assetId: "den", animationFamily: "idle" },
+    candidates: 2,
+    capUsd: 5,
+  });
+  assert.deepEqual(
+    still.perCandidate.map((c) => c.operation),
+    ["still", "vision"],
+  );
+  assert.equal(still.calls, 4);
+  assert.ok(
+    Math.abs(
+      still.estimateUsd -
+        2 * (defaultRoutes.still.estimatedCostUsd + defaultRoutes.vision.estimatedCostUsd),
+    ) < 1e-9,
+  );
+  assert.equal(still.withinCap, true);
+
+  const strip = planStage({ ...base, spec: shelterSpec, candidates: 4, capUsd: 1 });
+  assert.equal(strip.perCandidate.length, 7);
+  assert.equal(strip.perCandidate[0]?.operation, "edit");
+  assert.equal(strip.perCandidate[6]?.operation, "vision");
+  assert.equal(strip.calls, 28);
+  assert.equal(strip.withinCap, false);
+
+  assert.throws(() => planStage({ ...base, spec: shelterSpec, candidates: 0 }), InputError);
+  assert.throws(() => planStage({ ...base, spec: shelterSpec, capUsd: Number.NaN }), InputError);
+  assert.throws(() => planStage({ ...base, spec: { kind: "nope", assetId: "x" } }), InputError);
+});
+
+test("a provider failure is a ProviderError recorded in the run's errors, and the run goes on", async () => {
+  const world = await syntheticWorld();
+  const good = scriptedProvider();
+  const failing: GenerationProvider = {
+    generateImage: () => Promise.reject(new Error("upstream 503")),
+    analyzeImages: (request) => good.analyzeImages(request),
+  };
+  const lines: string[] = [];
+  const spec: AssetSpec = { kind: "still", assetId: "den", animationFamily: "idle" };
+  const { run } = await stage({
+    ...options(world, failing, spec),
+    candidates: 2,
+    log: (m) => lines.push(m),
+  });
+  assert.equal(run.candidates.length, 0);
+  assert.deepEqual(run.errors, [
+    "candidate 1: the still call failed: upstream 503",
+    "candidate 2: the still call failed: upstream 503",
+  ]);
+  assert.match(lines[0] ?? "", /^candidate 1\/2: failed: the still call failed/);
+  const caller = new (await import("../src/calls.ts")).Caller({
+    provider: failing,
+    providerName: "scripted",
+    budget: new (await import("../src/budget.ts")).Budget(5),
+    routes: defaultRoutes,
+  });
+  await assert.rejects(caller.image("still", "p", []), ProviderError);
+});
+
+test("a missing bible reference refuses the run as InputError and still leaves its run record", async () => {
+  const world = await syntheticWorld();
+  await rm(join(world.bibleDir, "refs/den.png"));
+  const provider = scriptedProvider();
+  const spec: AssetSpec = { kind: "still", assetId: "den", animationFamily: "idle" };
+  await assert.rejects(stage({ ...options(world, provider, spec), candidates: 2 }), InputError);
+  const [runId, ...more] = await readdir(world.runsDir);
+  assert.ok(runId);
+  assert.deepEqual(more, []);
+  const record = JSON.parse(await readFile(join(world.runsDir, runId, "run.json"), "utf8"));
+  assert.deepEqual(record.candidates, []);
+  assert.match(record.stopped, /^refused: cannot read/);
+  assert.equal(record.errors.length, 1);
 });

@@ -1,18 +1,33 @@
 {
-  "name": "assetforge",
+  "name": "@clockgrove/assetforge",
   "version": "0.0.0",
-  "private": true,
   "description": "Generates game assets through generation models and hands them to a game's own asset pipeline with full provenance.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clockgrove/assetforge.git"
+  },
   "type": "module",
+  "bin": {
+    "assetforge": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@12.18.0",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "assetforge": "node src/cli.ts",
+    "build": "tsc -p tsconfig.build.json",
     "check": "prettier --check . && eslint . && tsc --noEmit",
     "format": "prettier --write .",
+    "prepack": "pnpm build",
     "test": "node --test \"test/**/*.test.ts\"",
     "test:real": "node --test \"test/real/**/*.real.ts\""
   },

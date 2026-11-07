@@ -3,6 +3,7 @@
  * or hand work) becomes cleaned frames and a grouping proposal; an author-confirmed grouping then
  * becomes one strip, manifest and provenance per family in the target, with review pending.
  */
+import { InputError } from "../errors.ts";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -257,9 +258,19 @@ export async function importSheet(
   const style = resolveStyle(profile.style, options.bible?.palette);
   const frame = options.frame ?? { width: profile.frames.width, height: profile.frames.height };
   const anchor = options.anchor ?? defaultAnchor(frame);
-  const raster = decodeImage(options.sheet);
+  let raster: Raster;
+  try {
+    raster = decodeImage(options.sheet);
+  } catch (error) {
+    throw new InputError(
+      `cannot decode the sheet ${options.sheetPath}: ${(error as Error).message}`,
+      {
+        cause: error,
+      },
+    );
+  }
   const sliced = sliceSheet(raster, options.slice);
-  if (sliced.figures.length === 0) throw new Error("no figures found on the sheet");
+  if (sliced.figures.length === 0) throw new InputError("no figures found on the sheet");
 
   const importId =
     options.importId ??
@@ -413,7 +424,7 @@ export async function writeFamilies(
   const used = new Set(plan.flatMap((p) => p.frames));
   const badUsed = failedMatte.filter((f) => used.has(f.id));
   if (badUsed.length > 0) {
-    throw new Error(
+    throw new InputError(
       `refused: frames ${badUsed.map((f) => f.id).join(", ")} failed the background checks: ` +
         badUsed
           .flatMap((f) => f.checks.filter((c) => !c.passed).map((c) => `${f.id}: ${c.reason}`))
@@ -453,7 +464,7 @@ export async function writeFamilies(
   });
   const jittery = staged.filter((s) => s.jitterPx > bound);
   if (jittery.length > 0) {
-    throw new Error(
+    throw new InputError(
       `refused: registration jitter over the ${bound} px bound in ` +
         jittery.map((s) => `${s.family.name} (${s.jitterPx.toFixed(2)} px)`).join(", "),
     );
@@ -524,7 +535,7 @@ export async function writeFamilies(
         ],
       });
     });
-    if (!union) throw new Error(`family ${s.family.name} has no visible pixel`);
+    if (!union) throw new InputError(`family ${s.family.name} has no visible pixel`);
     const bytes = encodePng(strip);
 
     const spec: AssetSpec = {

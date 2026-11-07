@@ -4,7 +4,7 @@
 
 Chosen so the first adopter, Clockgrove (Node 24, pnpm, TypeScript), runs Assetforge with no new runtime.
 
-- **TypeScript on Node 24, no build step.** Node runs the `.ts` sources directly with its built-in type stripping, so the code uses erasable syntax only (no enums, namespaces or parameter properties) and imports name their `.ts` files. `tsc --noEmit` checks the types.
+- **TypeScript on Node 24, no build step in development (the build is only for the package).** Node runs the `.ts` sources directly with its built-in type stripping, so the code uses erasable syntax only (no enums, namespaces or parameter properties) and imports name their `.ts` files. `tsc --noEmit` checks the types.
 - **pnpm**, pinned through `packageManager` and enabled with corepack. CI installs with `pnpm install --frozen-lockfile --ignore-scripts`; no dependency needs an install script.
 - **Commands:** `pnpm check` runs Prettier, ESLint (typescript-eslint) and `tsc --noEmit`. `pnpm test` runs `node:test` over `test/**/*.test.ts`, offline with the scripted provider. `pnpm test:real` runs the opt-in real-provider checks in `test/real/`, which skip without `AI_GATEWAY_API_KEY`.
 - **Runtime dependencies:** `ai` (the Vercel AI SDK, imported only by `src/gateway/vercel.ts`), `pngjs` and `jpeg-js` (pure-JavaScript image codecs). TypeScript stays on 6.0, the newest version typescript-eslint supports.
@@ -32,3 +32,21 @@ The operator picks. `assetforge stage` stages only QA-passing candidates with th
 ## License of generated output (Kirk, 2026-11-07)
 
 Assetforge writes the license value the target profile declares (Clockgrove: MIT) and records the models, route and provider terms in provenance.
+
+## Packaging (assetforge#21, 2026-11-07)
+
+Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetforge` is taken.
+
+- The package ships compiled JavaScript in `dist/`, because Node refuses to strip types inside `node_modules`. `tsc -p tsconfig.build.json` builds it, with `rewriteRelativeImportExtensions` turning `.ts` imports into `.js`.
+- The repository still runs the sources directly. Development has no build step.
+- The package ships `dist/`, `skills/`, the README and the LICENSE.
+- The version stays `0.0.0` in the repository. The release sets it from the exact tag.
+- Publishing is left to a maintainer: the npm org, trusted publishing and the release workflow under `.github/`.
+
+## CLI contract (assetforge#21, 2026-11-07)
+
+- With `--json`, stdout is one JSON document: `ok`, `exitCode`, `command` and, on refusal, `error` with `code` and `message`. Logs go to stderr. Nothing prompts.
+- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused (also a dry-run forecast over the cap), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`).
+- `--dry-run` (on `stage` and `generate-sheet`, the commands that generate) spends nothing and needs no key.
+- `--provider-script` runs a scripted provider for offline runs.
+- Every future command follows this contract.
