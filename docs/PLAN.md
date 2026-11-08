@@ -26,7 +26,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** character animation that holds together, and Raccoon World's first real set. PRD §5.2, plus the identity lock from §5.3.
 
 **Objectives:**
-- Sprite-sheet import and sheet generation (assetforge#10): slicing, alpha by the style profile, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Stevie's existing 57-frame sheet is the first import.
+- Sprite-sheet import and sheet generation (assetforge#10): slicing, alpha by the style profile, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Jimothy's existing 57-frame sheet is the first import.
 - Media transformation core for images (PRD §5.11): slice and join sheets, crop, trim, pad and scale, background removal and alpha cleanup, baseline registration, renditions and format conversion. Deterministic, provenance-appending, chained as recipes, and usable from the CLI on any image. The sheet import is built on it.
 - Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
 - Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.

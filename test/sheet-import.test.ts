@@ -98,7 +98,7 @@ test("an imported sheet is sliced, cleaned to soft alpha, grouped by proposal, a
   // 1. It finds every figure and cleans it; the labels are stripped.
   const { record, importDir, grouping } = await importSheet({
     sheet: sheet.png,
-    sheetPath: "sheets/stevie-like.png",
+    sheetPath: "sheets/jimothy-like.png",
     tool: "ChatGPT image generation",
     assetId: "stevie",
     profile,
