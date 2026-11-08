@@ -23,6 +23,8 @@ export interface Routes {
   vision: Route;
   /** A whole animation cycle as one contact sheet. */
   sheet: Route;
+  /** Identity scoring: a typed decision model compares a candidate with an identity record. */
+  identity: Route;
   [operation: string]: Route;
 }
 
@@ -54,6 +56,13 @@ export const defaultRoutes: Routes = {
     estimatedCostUsd: 0.02,
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  identity: {
+    // #27's image eval: best on identity with reference images; `openai/gpt-6-luna-decisions`
+    // is the alternate. About $0.00003 per answer; the estimate is a deliberate upper bound.
+    model: "perplexity/pplx-decider-v1.2",
+    estimatedCostUsd: 0.001,
+    providerTerms: "Perplexity API Terms of Service, via Vercel AI Gateway (as of 2026-11-08)",
   },
 };
 

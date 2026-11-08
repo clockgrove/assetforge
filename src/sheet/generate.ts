@@ -14,6 +14,7 @@ import type { BibleInputs, FrameGrid } from "../request.ts";
 import type { Routes } from "../routes.ts";
 import type { AssetSpec, LoadedReference, StyleBible, TargetProfile } from "../types.ts";
 import { importSheet } from "./import.ts";
+import type { ImportIdentity } from "./import.ts";
 import type { ImportRecord } from "./import.ts";
 import type { Grouping, SliceOptions } from "./types.ts";
 
@@ -31,6 +32,11 @@ export interface GenerateSheetOptions {
   capUsd?: number;
   importId?: string;
   slice?: SliceOptions;
+  /**
+   * Scores the generated sheet against a character's identity lock (see `ImportOptions`), through
+   * this run's own budgeted caller; the scoring call is part of the reserved estimate.
+   */
+  identity?: Omit<ImportIdentity, "caller">;
   now?: () => Date;
 }
 
@@ -97,7 +103,10 @@ export async function generateSheet(
   const grid = frameGrid(spec, profile, 1);
   const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
   const budget = new Budget(capUsd);
-  const estimate = plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
+  const scoring = options.identity !== undefined && options.identity.settings.mode !== "off";
+  const estimate =
+    plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0) +
+    (scoring ? routes.identity.estimatedCostUsd : 0);
   budget.settle(budget.reserve(estimate, "a sheet and its grouping proposal"), 0);
 
   const call = new Caller({
@@ -129,6 +138,7 @@ export async function generateSheet(
     importsDir: options.importsDir,
     ...(options.importId !== undefined && { importId: options.importId }),
     ...(options.slice !== undefined && { slice: options.slice }),
+    ...(options.identity !== undefined && { identity: { ...options.identity, caller: call } }),
     frame: grid.frame,
     ...(spec.anchor !== undefined && { anchor: spec.anchor }),
     propose: {

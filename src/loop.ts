@@ -14,6 +14,7 @@ import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
 import { parseJsonFile } from "./json.ts";
+import type { IdentityAgreement } from "./identity.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
 import type { Generator, PlannedCall } from "./generators/generator.ts";
 import { sha256, sniffMediaType } from "./request.ts";
@@ -128,6 +129,23 @@ export interface RunRecord {
   filtered: number;
   /** Messages of candidates that failed to generate (no media is kept for them). */
   errors: string[];
+  /** Why each filtered candidate was filtered (planned runs); `candidate` is the 1-based number. */
+  rejections?: Array<{ candidate: number; reasons: Reason[] }>;
+  /**
+   * The identity lock check of a planned run: which lock version scored the candidates, the mode
+   * and threshold, and how often the identity verdict agreed with the QA verdict (the shadow-mode
+   * measurement). Absent when the character has no lock or scoring was off.
+   */
+  identity?: {
+    subject: string;
+    lockVersion: string;
+    lockSha256: string;
+    mode: "shadow" | "enforce";
+    threshold: number;
+    agreement: IdentityAgreement;
+    /** How many candidates were scored. */
+    scores: number;
+  };
   /** Why candidate generation stopped early, when it did (for example the cost cap). */
   stopped?: string;
   picked?: { candidateId: string; at: string; target: string; files: string[] };

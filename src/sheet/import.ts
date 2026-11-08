@@ -52,6 +52,8 @@ import type {
 import { checkConfirmed, familyFrames, proposeGrouping } from "./group.ts";
 import type { Grouping, MatteQuality, SliceOptions } from "./types.ts";
 import type { LoadedReference } from "../types.ts";
+import { scoreIdentity } from "../identity.ts";
+import type { IdentityRecord, IdentityScore, IdentitySettings } from "../identity.ts";
 
 export const IMPORT_FILE = "import.json";
 export const GROUPING_FILE = "grouping.json";
@@ -104,7 +106,12 @@ export interface ImportRecord {
   frames: ImportedFrame[];
   /** Set when Assetforge generated the sheet: the request that made it. */
   generation?: { prompt: string; parameters: Record<string, unknown>; calls: CallRecord[] };
-  /** The grouping proposal's calls. */
+  /**
+   * The identity lock's score of the contact sheet, when scoring ran. `filtered` makes
+   * `writeFamilies` refuse the sheet; the import itself is still written so the person sees why.
+   */
+  identity?: IdentityScore;
+  /** The grouping proposal's and the identity score's calls. */
   calls: CallRecord[];
   /** The transformation steps (slice, matte) that made the frames from the sheet. */
   steps?: TransformStep[];
@@ -114,6 +121,14 @@ export interface ImportRecord {
    * of an asset's families stay one size whatever grouping each write uses.
    */
   scale?: number;
+}
+
+/** Scoring a sheet's contact sheet against a character's identity record. */
+export interface ImportIdentity {
+  caller: Caller;
+  record: IdentityRecord;
+  references: LoadedReference[];
+  settings: IdentitySettings;
 }
 
 export interface ImportOptions {
@@ -143,6 +158,8 @@ export interface ImportOptions {
     references?: LoadedReference[];
   };
   generation?: ImportRecord["generation"];
+  /** When given and its mode is not "off", the contact sheet is scored against the identity lock. */
+  identity?: ImportIdentity;
   now?: () => Date;
 }
 
@@ -356,31 +373,43 @@ export async function importSheet(
     calls: [],
   };
 
+  const contactRef: LoadedReference = {
+    role: "contact sheet",
+    path: CONTACT_FILE,
+    mediaType: "image/png",
+    bytes: contact,
+    sha256: sha256(contact),
+  };
+  // Each caller's records from the first call made here, so a shared caller counts once.
+  const starts = new Map<Caller, number>();
+  for (const c of [options.identity?.caller, options.propose?.call]) {
+    if (c && !starts.has(c)) starts.set(c, c.records.length);
+  }
+  if (options.identity && options.identity.settings.mode !== "off") {
+    const { caller, record: lock, references, settings } = options.identity;
+    record.identity = await scoreIdentity({
+      caller,
+      record: lock,
+      references,
+      candidate: contactRef,
+      describe: `a numbered contact sheet of ${ids.length} frames of one character`,
+      settings,
+      edges: style.edges,
+    });
+  }
+
   let grouping: Grouping;
   if (options.propose) {
     const { call } = options.propose;
-    const before = call.records.length;
-    grouping = await proposeGrouping(
-      call,
-      {
-        role: "contact sheet",
-        path: CONTACT_FILE,
-        mediaType: "image/png",
-        bytes: contact,
-        sha256: sha256(contact),
-      },
-      options.propose.references ?? [],
-      {
-        frameIds: ids,
-        subject: options.subject ?? options.assetId,
-        ...(options.propose.subjectDescription !== undefined && {
-          subjectDescription: options.propose.subjectDescription,
-        }),
-        ...(options.propose.hints !== undefined && { hints: options.propose.hints }),
-        referenceRoles: (options.propose.references ?? []).map((r) => r.role),
-      },
-    );
-    record.calls = call.records.slice(before);
+    grouping = await proposeGrouping(call, contactRef, options.propose.references ?? [], {
+      frameIds: ids,
+      subject: options.subject ?? options.assetId,
+      ...(options.propose.subjectDescription !== undefined && {
+        subjectDescription: options.propose.subjectDescription,
+      }),
+      ...(options.propose.hints !== undefined && { hints: options.propose.hints }),
+      referenceRoles: (options.propose.references ?? []).map((r) => r.role),
+    });
   } else {
     grouping = {
       status: "proposed",
@@ -389,6 +418,7 @@ export async function importSheet(
       notes: "No vision proposal was made; group the frames by hand.",
     };
   }
+  record.calls = [...starts].flatMap(([c, start]) => c.records.slice(start));
   await writeFile(join(importDir, GROUPING_FILE), `${JSON.stringify(grouping, null, 2)}\n`);
   await writeImport(importDir, record);
   return { record, importDir, grouping };
@@ -431,6 +461,11 @@ export async function writeFamilies(
   const now = options.now ?? (() => new Date());
   const bound = options.jitterBoundPx ?? DEFAULT_JITTER_BOUND_PX;
   const record = await readImport(options.importDir);
+  if (record.identity?.filtered) {
+    throw new InputError(
+      `refused: the identity lock filtered this sheet: ${record.identity.reason}`,
+    );
+  }
   const ids = record.frames.map((f) => f.id);
   const grouping = checkConfirmed(options.grouping, ids);
   const byId = new Map(record.frames.map((f) => [f.id, f]));
@@ -658,6 +693,7 @@ export async function writeFamilies(
       costUsd: calls.reduce((sum, c) => sum + c.costUsd, 0),
       calls,
       sheet: record.sheet,
+      ...(record.identity && { identity: record.identity }),
       frames: frameProvenance,
       steps: [
         ...(record.steps ?? []),

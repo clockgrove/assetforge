@@ -97,7 +97,36 @@ The repository's default template supports `{{constitution}}`, `{{spec}}`, `{{br
 
 A human can review a plan and set only its `approved` field to `true`, then run `assetforge apply plan.json`. An unattended campaign explicitly passes `--auto-approve`. Any other plan edit requires planning again. Apply reloads and hashes the bible, template, character identity and image references before any generation. Changed source files invalidate the plan even when their declared versions were not bumped. Applied candidates carry the plan's exact compiler inputs and output in provenance and remain pending asset review.
 
-Model credentials come from `AI_GATEWAY_API_KEY`. Tests and offline harnesses can pass `--provider-script module.mjs`, whose default export supplies the existing `{ image, vision }` scripted provider contract. The compiler uses `vision` with its compilation request; return JSON containing `prompt`, `negativePrompt`, `violations` and `clamps`. For sprite strips, the compiler also returns `framePrompts`, one entry per frame of the approved key pose. Candidate QA returns JSON containing `styleScore`, `passed` and `reason`. Real providers are opt-in.
+Model credentials come from `AI_GATEWAY_API_KEY`. Tests and offline harnesses can pass `--provider-script module.mjs`, whose default export supplies the existing `{ image, vision }` scripted provider contract, plus `decide` for identity scoring (it returns `{ answer: { type: "score", score } }` or `{ answer: { type: "boolean", probability } }`). The compiler uses `vision` with its compilation request; return JSON containing `prompt`, `negativePrompt`, `violations` and `clamps`. For sprite strips, the compiler also returns `framePrompts`, one entry per frame of the approved key pose. Candidate QA returns JSON containing `styleScore`, `passed` and `reason`. Real providers are opt-in.
+
+## Identity lock scoring
+
+A character with an identity lock in the bible (`identities.<subject>`) has an identity record: the approved turnaround, any further approved `references` (paths relative to the bible), and the fingerprint a model checks for: `signatureFeatures`, `proportions` and `palette`. The record is versioned with the lock. Bump the lock's `version` when you change it; every score names the lock version and the hash of the whole lock, so an edit is visible even without a bump.
+
+Every candidate of a locked character is scored against its record by a typed decision model through the gateway (the `identity` route, default `perplexity/pplx-decider-v1.2`). The call is a Score question over five levels, from "a different character" to "the same character: every signature feature, the proportions and the colours match". The identity score is the answer's position over those levels, from 0 to 1. The reason shown is the matching level with the score, threshold, lock version and confidence. With `identity.question: "boolean"` the score is the model's probability that the candidate is the same character. Images under 384 px on a side are upscaled before the call, because some decision models reject small images. Every call logs its label, confidence, latency and cost on stderr and in its call record (`decision`).
+
+The target profile configures it:
+
+```json
+{ "identity": { "mode": "shadow", "threshold": 0.68, "question": "score" } }
+```
+
+- `shadow` (the default) scores every candidate beside the current QA and filters nothing. The reason is marked `shadow`, and `run.json` counts how often the identity verdict agreed with QA (`identity.agreement`).
+- `enforce` filters a candidate below the threshold, or one whose scoring call failed, as other QA failures are filtered. `run.json` lists each filtered candidate's reasons under `rejections`, and `apply` prints them.
+- `off` skips scoring.
+
+`plan --identity-mode <off|shadow|enforce>` overrides the profile for one plan. The plan records the mode, threshold and route, and its forecast includes one identity call per candidate. For imported sheets, `import` and `generate-sheet` take `--lock-bible <BIBLE.md>` (the art bible holding the locks) and `--identity-mode`. The contact sheet is scored at import. In enforce mode below the threshold, `write-families` refuses the sheet with the reason. Characters without a lock are never scored.
+
+Scores land in each candidate's `fields.identity` and provenance (`provenance.identity`: score, label, confidence, threshold, mode, lock version and hash, model, request ID, latency and cost), so the spread of identity scores across an approved set can be read later. Scoring filters and explains. It never approves; the person still picks.
+
+### Choosing the threshold
+
+```sh
+assetforge identity-eval --bible BIBLE.md --cases cases.json --profile profile.json \
+  --log identity-eval.jsonl --json
+```
+
+`cases.json` is a local labelled set: `[{ "image": "a.png", "subject": "stevie", "same": true, "qa": true }, ...]`, with image paths relative to the file and `qa` the current QA's verdict when known. The command scores each case, writes one JSON line per case to `--log`, and reports accuracy for every threshold, the recommended threshold (best accuracy, the middle of any tie), accuracy at the configured threshold, and agreement with the QA verdicts. Keep the set and the log out of the repository; they may hold a game's private art.
 
 ## MCP
 
@@ -107,4 +136,4 @@ assetforge mcp --provider-script scripted-provider.mjs
 
 The server implements [MCP 2025-11-25 stdio](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports), using newline-delimited JSON-RPC on stdin/stdout. It supports initialize, ping, tools/list and tools/call. Diagnostics never occupy stdout.
 
-The tools `bible_describe`, `bible_init`, `bible_preset`, `plan` and `apply` call the same code as the CLI. Arguments use local paths: `bible_describe` takes `bible`; `bible_init` takes `directory`, `world`, `preset`; `bible_preset` takes `bible`, `preset`; `plan` takes `spec`, `bible`, `profile`, `out`, and optional `brief`, `settings`, `routes`, `template`; `apply` takes `plan`, optional `out`, and boolean `autoApprove`. A harness shows the returned plan to its user before invoking apply. Tool execution failures are MCP tool errors, so the harness can inspect and explain them.
+The tools `bible_describe`, `bible_init`, `bible_preset`, `plan` and `apply` call the same code as the CLI. Arguments use local paths: `bible_describe` takes `bible`; `bible_init` takes `directory`, `world`, `preset`; `bible_preset` takes `bible`, `preset`; `plan` takes `spec`, `bible`, `profile`, `out`, and optional `brief`, `settings`, `routes`, `template`, `identityMode`; `apply` takes `plan`, optional `out`, and boolean `autoApprove`. A harness shows the returned plan to its user before invoking apply. Tool execution failures are MCP tool errors, so the harness can inspect and explain them.

@@ -1,5 +1,8 @@
-import { createGateway, generateImage, generateText } from "ai";
+import { createGateway, experimental_decide, generateImage, generateText } from "ai";
 import type {
+  DecisionAnswer,
+  DecisionRequest,
+  DecisionResult,
   GenerationProvider,
   ImageRequest,
   ImageResult,
@@ -110,6 +113,67 @@ export class VercelGateway implements GenerationProvider {
       text: result.text,
       ...requestId(gw["generationId"], result.response.id),
       ...(cost !== undefined && { costUsd: cost }),
+    };
+  }
+
+  /**
+   * A typed decision through the gateway's decision models. The question is always asked under
+   * the ID `answer`. Confidence is the provider's own statistic from provider metadata
+   * (Perplexity and TypeSafe report one per question), when it reports one.
+   */
+  async decide(req: DecisionRequest): Promise<DecisionResult> {
+    const q = req.question;
+    const question =
+      q.type === "score"
+        ? { type: "score" as const, instructions: q.instructions, criteria: q.levels }
+        : {
+            type: "boolean" as const,
+            instructions: q.instructions,
+            criteria: {
+              ...(q.whenTrue !== undefined && { true: q.whenTrue }),
+              ...(q.whenFalse !== undefined && { false: q.whenFalse }),
+            },
+          };
+    const result = await experimental_decide({
+      model: this.#gateway.decisionModel(req.model),
+      state: [
+        { type: "text", text: req.prompt },
+        ...req.images.map((i) => ({
+          type: "file" as const,
+          mediaType: i.mediaType,
+          data: i.bytes,
+        })),
+      ],
+      questions: { answer: question },
+      // Decision providers rate-limit tightly (#27); back off and retry rather than fail.
+      maxRetries: 4,
+    });
+    const raw = result.answers.answer as
+      | { type: "score"; score: number; probabilities?: Record<string, number> }
+      | { type: "boolean"; probability: number };
+    const answer: DecisionAnswer =
+      raw.type === "score"
+        ? {
+            type: "score",
+            score: raw.score,
+            ...(raw.probabilities !== undefined && { probabilities: raw.probabilities }),
+          }
+        : { type: "boolean", probability: raw.probability };
+    const meta = result.providerMetadata as Metadata;
+    const confidence = Object.values(meta ?? {})
+      .map((entry) => {
+        const c = entry?.["confidence"];
+        return toNumber(
+          c !== null && typeof c === "object" ? (c as Record<string, unknown>)["answer"] : c,
+        );
+      })
+      .find((c) => c !== undefined);
+    const cost = toNumber(gatewayMeta(meta)["cost"]);
+    return {
+      answer,
+      ...requestId(gatewayMeta(meta)["generationId"], result.response.id),
+      ...(cost !== undefined && { costUsd: cost }),
+      ...(confidence !== undefined && { confidence }),
     };
   }
 }
