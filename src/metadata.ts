@@ -126,6 +126,31 @@ function pngXmp(chunk: Chunk): string | undefined {
   const data = chunk.data.subarray(translatedEnd + 1);
   return (compressed === 1 ? inflateSync(data) : data).toString("utf8");
 }
+function readJpegSourceType(bytes: Uint8Array): DigitalSourceType | undefined {
+  const b = Buffer.from(bytes);
+  if (b[0] !== 0xff || b[1] !== 0xd8) throw new Error("invalid JPEG signature");
+  const identifier = Buffer.from("http://ns.adobe.com/xap/1.0/\0");
+  let offset = 2;
+  while (offset < b.length) {
+    if (b[offset++] !== 0xff) throw new Error("invalid JPEG marker");
+    while (b[offset] === 0xff) offset++;
+    const marker = b[offset++];
+    if (marker === undefined) throw new Error("truncated JPEG marker");
+    // XMP belongs to the header; entropy-coded scan data is not a segment stream.
+    if (marker === 0xda || marker === 0xd9) return undefined;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (offset + 2 > b.length) throw new Error("truncated JPEG segment");
+    const length = b.readUInt16BE(offset);
+    if (length < 2 || offset + length > b.length) throw new Error("invalid JPEG segment length");
+    const data = b.subarray(offset + 2, offset + length);
+    if (marker === 0xe1 && data.subarray(0, identifier.length).equals(identifier)) {
+      const value = readXmp(data.subarray(identifier.length).toString("utf8"));
+      if (value) return value;
+    }
+    offset += length;
+  }
+  return undefined;
+}
 function crc32(bytes: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of bytes) {
@@ -298,6 +323,8 @@ export function readDigitalSourceType(
       const value = xml === undefined ? undefined : readXmp(xml);
       if (value) return value;
     }
+  } else if (mediaType === "image/jpeg") {
+    return readJpegSourceType(bytes);
   } else if (mediaType === "image/webp") {
     const xml = webpChunks(bytes)
       .find((c) => c.type === "XMP ")

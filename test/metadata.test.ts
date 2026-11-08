@@ -56,6 +56,38 @@ for (const value of Object.values(types)) {
   });
 }
 
+test("JPEG XMP reader skips unrelated APP1 and stops before scan data", () => {
+  const segment = (payload: Buffer) => {
+    const header = Buffer.from([0xff, 0xe1, 0, 0]);
+    header.writeUInt16BE(payload.length + 2, 2);
+    return Buffer.concat([header, payload]);
+  };
+  const xml = `<rdf:Description xmlns:i="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" i:DigitalSourceType="${types.generated}"/>`;
+  const xmp = segment(Buffer.from(`http://ns.adobe.com/xap/1.0/\0${xml}`));
+  const soi = Buffer.from([0xff, 0xd8]);
+  const unrelated = segment(Buffer.from(`Exif\0\0${xml}`));
+  assert.equal(
+    readDigitalSourceType(
+      Buffer.concat([soi, unrelated, xmp, Buffer.from([0xff, 0xd9])]),
+      "image/jpeg",
+    ),
+    types.generated,
+  );
+  assert.equal(
+    readDigitalSourceType(
+      Buffer.concat([soi, unrelated, Buffer.from([0xff, 0xda]), xmp]),
+      "image/jpeg",
+    ),
+    undefined,
+  );
+  for (const tail of [[0xff], [0xff, 0xe1, 0], [0xff, 0xe1, 0, 1], [0xff, 0xe1, 0, 20, 0]]) {
+    assert.throws(
+      () => readDigitalSourceType(Buffer.concat([soi, Buffer.from(tail)]), "image/jpeg"),
+      /JPEG/,
+    );
+  }
+});
+
 test("WebP uses extended container with XMP flag and unchanged VP8L pixels", () => {
   const original = encodeWebpLossless(raster);
   const encoded = embedDigitalSourceType(original, "image/webp", types.generated);

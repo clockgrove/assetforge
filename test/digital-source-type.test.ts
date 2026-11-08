@@ -31,6 +31,51 @@ import {
 
 const metadataOp = "embed-digital-source-type";
 
+function taggedJpeg(raster: ReturnType<typeof drawSubject>, value: string): Buffer {
+  const original = jpeg.encode(raster, 95).data;
+  const xml = `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:iptc="http://iptc.org/std/Iptc4xmpExt/2008-02-29/" iptc:DigitalSourceType="${value}"/></rdf:RDF></x:xmpmeta>`;
+  const payload = Buffer.from(`http://ns.adobe.com/xap/1.0/\0${xml}`);
+  const header = Buffer.from([0xff, 0xe1, 0, 0]);
+  header.writeUInt16BE(payload.length + 2, 2);
+  return Buffer.concat([original.subarray(0, 2), header, payload, original.subarray(2)]);
+}
+
+test("JPEG APP1 lineage survives deterministic transforms and sheet import", async () => {
+  const root = await mkdtemp(join(tmpdir(), "iptc-jpeg-"));
+  const sheet = syntheticSheet();
+  for (const value of [types.generated, types.composite]) {
+    const bytes = taggedJpeg(sheet.raster, value);
+    const path = join(root, "sheet.jpg");
+    await writeFile(path, bytes);
+    const result = await transformFiles({
+      inputs: [path],
+      out: join(root, "out.png"),
+      recipe: { steps: [] },
+    });
+    assert.equal(result.record.outputs[0]!.digitalSourceType, value);
+    assert.equal(
+      readDigitalSourceType(await readFile(result.record.outputs[0]!.path), "image/png"),
+      value,
+    );
+    const { record, importDir } = await importSheet({
+      sheet: bytes,
+      sheetPath: path,
+      tool: "synthetic",
+      assetId: "jpeg-sheet",
+      importsDir: root,
+      digitalSourceType: types.human,
+      profile: syntheticProfile({ style: { alpha: { mode: "soft" }, color: { rule: "full" } } }),
+    });
+    assert.equal(record.digitalSourceType, value);
+    for (const file of ["contact.png", ...record.frames.map((frame) => frame.file)]) {
+      assert.equal(
+        readDigitalSourceType(await readFile(join(importDir, file)), "image/png"),
+        value,
+      );
+    }
+  }
+});
+
 test("transform files retain generation lineage, combine human pixels, and leave pixel hashes unchanged by XMP", async () => {
   const root = await mkdtemp(join(tmpdir(), "iptc-transform-"));
   const raster = drawSubject(16);
@@ -101,10 +146,16 @@ test("generated Stevie strip and model-edited human prop disclose origin through
   const posePath = join(pose.runDir, pose.run.candidates[0]!.file);
   const jpegPose = join(world.dir, "human-pose.jpg");
   await writeFile(jpegPose, jpeg.encode(drawSubject(96), 90).data);
+  const generatedJpegPose = join(world.dir, "generated-pose.jpg");
+  const compositeJpegPose = join(world.dir, "composite-pose.jpg");
+  await writeFile(generatedJpegPose, taggedJpeg(drawSubject(96), types.generated));
+  await writeFile(compositeJpegPose, taggedJpeg(drawSubject(96), types.composite));
   for (const [assetId, keyPose, expected] of [
     ["stevie", posePath, types.generated],
     ["prop", join(world.dir, "key-pose.png"), types.composite],
     ["jpeg-prop", jpegPose, types.composite],
+    ["jpeg-generated", generatedJpegPose, types.generated],
+    ["jpeg-composite", compositeJpegPose, types.composite],
   ] as const) {
     const { run, runDir } = await stage({
       ...base,
