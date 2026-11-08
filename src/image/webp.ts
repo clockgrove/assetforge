@@ -257,3 +257,86 @@ export function encodeWebpLossless(r: Raster): Uint8Array {
   out.set(payload, 20);
   return out;
 }
+
+function u24le(n: number): number[] {
+  return [n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff];
+}
+
+function chunk(tag: string, payload: ArrayLike<number>): Uint8Array {
+  const out = new Uint8Array(8 + payload.length + (payload.length % 2));
+  out.set([...Array.from(tag, (c) => c.charCodeAt(0)), ...u32le(payload.length)], 0);
+  out.set(payload, 8);
+  return out;
+}
+
+function concat(parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const p of parts) {
+    out.set(p, offset);
+    offset += p.length;
+  }
+  return out;
+}
+
+/**
+ * Encodes same-sized rasters as an animated lossless WebP (extended file format: VP8X, ANIM, then
+ * one ANMF per frame holding that frame's VP8L chunk). Frames are not blended; every frame lasts
+ * `durationMs`. The output is a pure function of the input.
+ */
+export function encodeAnimatedWebp(
+  frames: Raster[],
+  options: {
+    durationMs: number;
+    /** 0 loops forever. */
+    loopCount?: number;
+    background?: [number, number, number, number];
+  },
+): Uint8Array {
+  const first = frames[0];
+  if (!first) throw new Error("An animated WebP needs at least one frame");
+  const { width, height } = first;
+  if (frames.some((f) => f.width !== width || f.height !== height)) {
+    throw new Error("Animated WebP frames must all share one size");
+  }
+  const { durationMs, loopCount = 0, background = [0, 0, 0, 0] } = options;
+  if (!Number.isInteger(durationMs) || durationMs < 0 || durationMs >= 1 << 24) {
+    throw new Error(`WebP frame duration must be 0..16777215 ms, got ${durationMs}`);
+  }
+  if (!Number.isInteger(loopCount) || loopCount < 0 || loopCount > 0xffff) {
+    throw new Error(`WebP loop count must be 0..65535, got ${loopCount}`);
+  }
+  const hasAlpha = frames.some((f) => {
+    for (let i = 3; i < f.data.length; i += 4) if (f.data[i] !== 255) return true;
+    return false;
+  });
+
+  const parts: Uint8Array[] = [
+    Uint8Array.of(0x57, 0x45, 0x42, 0x50),
+    chunk("VP8X", [
+      0x02 | (hasAlpha ? 0x10 : 0),
+      0,
+      0,
+      0,
+      ...u24le(width - 1),
+      ...u24le(height - 1),
+    ]),
+  ];
+  const [br, bg, bb, ba] = background;
+  parts.push(chunk("ANIM", [bb, bg, br, ba, loopCount & 0xff, loopCount >>> 8]));
+  for (const frame of frames) {
+    const header = [
+      ...u24le(0),
+      ...u24le(0),
+      ...u24le(width - 1),
+      ...u24le(height - 1),
+      ...u24le(durationMs),
+      0x02,
+    ];
+    parts.push(
+      chunk("ANMF", concat([Uint8Array.from(header), encodeWebpLossless(frame).subarray(12)])),
+    );
+  }
+  const body = concat(parts);
+  return concat([Uint8Array.of(0x52, 0x49, 0x46, 0x46, ...u32le(body.length)), body]);
+}
