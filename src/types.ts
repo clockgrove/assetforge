@@ -112,6 +112,8 @@ export interface TargetProfile {
     threshold?: number;
     question?: "score" | "boolean";
   };
+  /** Motion templates the target adds or overrides, and the animation QA thresholds. */
+  animation?: import("./animation/types.ts").AnimationProfile;
 }
 
 export interface Reason {
