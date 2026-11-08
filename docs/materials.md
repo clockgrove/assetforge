@@ -104,6 +104,8 @@ Deterministic QA checks alignment, ranges and named emissive coverage. Temporal 
 
 Synthetic geometry and scripted providers exercise derivation, QA and the CLI without model calls or committed media. Synthetic target command fixtures prove the subprocess contract; they do not prove the target game's renderer or a production GPU codec. Run the target's real tools and opt-in providers to assess their image quality.
 
+Material outputs carry the [Digital Source Type disclosure](transform.md#digital-source-type-disclosure) in their provenance. PNG renditions and target preview PNGs embed the same value in XMP. Deterministic derivations preserve source lineage; model-assisted painting of human-made material inputs uses `compositeWithTrainedAlgorithmicMedia`. Generated-only inputs retain `trainedAlgorithmicMedia`, and deterministic processing of untagged hand-made inputs uses `digitalCreation`. GPU-compressed KTX2 files retain the disclosure in their existing provenance sidecars. File hashes cover final encoded bytes including metadata; pixel hashes and bounds use decoded RGBA.
+
 ## Planning and CLI contract
 
 `assetforge materials ... --dry-run --json` validates the material profile and forecasts the required model-assisted derivations plus one lit vision QA call, including a height dependency for height-derived normals. It writes no files, calls no model or target command, and needs no provider key. The JSON `plan` records channels, scales, each model call, estimated USD, cap and whether the forecast fits. Target command costs are not model charges and are not included. A forecast over `--cap` exits 3.

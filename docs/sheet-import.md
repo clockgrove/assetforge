@@ -7,7 +7,8 @@ Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model 
 ```sh
 # A sheet made elsewhere: slice, clean, and stage a grouping proposal.
 pnpm assetforge import --sheet jimothy-sprite-sheet.png --profile profile.json --bible bible.json \
-  --asset jimothy --tool "ChatGPT image generation" --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
+  --asset jimothy --tool "ChatGPT image generation" \
+  --digital-source-type trainedAlgorithmicMedia --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
 
 # Or have the model draw the cycle as one sheet (spec: assetId, animationFamily, frames.count).
 pnpm assetforge generate-sheet --spec stevie-walk.json --bible bible.json --profile profile.json
@@ -71,6 +72,8 @@ A family's provenance record (`generator: "sheet-import"`) holds:
 - one entry per strip frame: its frame number, sheet hash, cell, tool and every transform applied (`crop`, `strip-labels`, `matte`, `binarize` and `quantize` where the style asks, `mirror`, `normalize-scale`, `scale`, `place`).
 
 For an imported sheet, the prompt field says that the tool's own prompt is not recorded. Manifest templates can read `{{output.jitterPx}}`, and `{{profile.style}}` for the style. `{{output.palette}}` is set only under a palette rule, so a full-colour template reads it as `{{output.palette?}}`.
+
+Written sheet images and strips embed the [Digital Source Type disclosure](transform.md#digital-source-type-disclosure) in PNG XMP, and their provenance records the same `digitalSourceType` and metadata-writing step. For an external sheet, an embedded disclosure is preserved. Untagged sheets default to `digitalCreation`, allowing hand-made sheets to pass through deterministic transforms without being called AI-generated. Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model-generated sheet such as a ChatGPT export, or `--digital-source-type compositeWithTrainedAlgorithmicMedia` for human work edited with a model. The flag also accepts `digitalCreation` or the full HTTP URI for any of these codes; a free-text `--tool` label alone does not establish AI origin. Assetforge’s own `generate-sheet` calls establish the generated source type directly. Slicing, matting, registration and mirroring are deterministic processing and do not erase that lineage. Bounds and pixel hashes use decoded RGBA; file SHA-256 covers the final tagged PNG. The target profile's validator sees those final bytes.
 
 ## Cost
 
