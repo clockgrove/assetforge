@@ -15,6 +15,7 @@ import {
   serializeBible,
   validateBible,
   validateTokens,
+  useBiblePreset,
 } from "../src/bible.ts";
 
 function base() {
@@ -75,7 +76,10 @@ test("bible validates required axes, ordered bounds, audience, anchors and appro
       b.axes.rendering = "oil" as never;
     },
     (b: ReturnType<typeof base>) => {
-      b.axes.saturation = [0.8, 0.2];
+      b.tokens["saturation"] = {
+        min: { $type: "number", $value: 0.8 },
+        max: { $type: "number", $value: 0.2 },
+      };
     },
     (b: ReturnType<typeof base>) => {
       b.tone.audience = "adult" as never;
@@ -156,6 +160,130 @@ test("DESIGN.md colors are UI context only and cannot mutate bible palette", asy
       subtle: "{colors.accent}",
     });
     assert.deepEqual(biblePalette(base()), ["#292433", "#c49b70", "#7c93a8"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("DTCG aliases infer referenced type before enclosing group type", () => {
+  validateTokens({
+    base: { $type: "number", $value: 1 },
+    alias: { $value: "{base}" },
+    conflicting: { $type: "color", alias: { $value: "{base}" } },
+  });
+  const bible = base();
+  bible.tokens["light"] = { $value: "{palette.warm}" };
+  bible.tokens["palette"] = { $type: "number", ink: { $value: "{light}" } };
+  bible.tokens["light"] = { $value: "{rim}" };
+  assert.deepEqual(biblePalette(validateBible(bible)), ["#a6c4e8"]);
+  assert.throws(
+    () =>
+      validateTokens({
+        base: { $type: "number", $value: 1 },
+        alias: { $type: "color", $value: "{base}" },
+      }),
+    /different type/,
+  );
+});
+
+test("missing bible is invalid input", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "missing-bible-"));
+  try {
+    await assert.rejects(loadBible(join(directory, "missing.md")), { name: "InputError" });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("outline and ranges use DTCG tokens and brief bounds cannot exceed the constitution", () => {
+  const bible = base();
+  assert.equal(bible.axes.outline.colour, "{outline}");
+  assert.deepEqual(bible.tokens["saturation"], {
+    min: { $type: "number", $value: 0.2 },
+    max: { $type: "number", $value: 0.8 },
+  });
+  const literal = base();
+  literal.axes.outline.colour = "#ffffff";
+  assert.throws(() => validateBible(literal), /reference a DTCG/);
+  for (const key of [
+    "audience",
+    "tone",
+    "palette",
+    "colorRule",
+    "identity",
+    "identities",
+    "contentLimits",
+    "rendering",
+    "proportions",
+    "signatureFeatures",
+    "turnaround",
+  ]) {
+    const invalid = base();
+    invalid.adjustable[key] = ["override"];
+    assert.throws(() => validateBible(invalid), /cannot override the constitution/);
+  }
+  const invalid = base();
+  invalid.adjustable["saturation"] = { min: 0, max: 1 };
+  assert.throws(() => validateBible(invalid), /exceeds constitutional/);
+  const valid = base();
+  valid.adjustable["saturation"] = { min: 0.3, max: 0.6 };
+  assert.doesNotThrow(() => validateBible(valid));
+});
+
+test("switch target-owned presets preserves world palette, locks, anchors and unknown prose", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "bible-switch-"));
+  try {
+    const paths = await initBible({
+      directory,
+      world: "Synthetic world",
+      preset: "cozy-storybook",
+    });
+    const document = await loadBible(paths.biblePath);
+    document.data.identities["synthetic"] = {
+      version: "2",
+      approved: true,
+      turnaround: "identity.png",
+      signatureFeatures: ["long ears"],
+      proportions: "small body",
+      palette: ["#292433"],
+    };
+    document.data.anchors.positive = [{ path: "positive.png", role: "style" }];
+    document.data.anchors.negative = [{ path: "negative.png", role: "avoid" }];
+    document.data["future"] = { keep: true };
+    document.data.tokens["palette"] = {
+      ink: { $type: "color", $value: { colorSpace: "srgb", components: [0, 0, 0] } },
+    };
+    document.data.colorRule = "palette";
+    const prose = document.prose + "\n## Unknown future notes\n\nPreserve these notes.\n";
+    await writeFile(paths.biblePath, serializeBible(document.data, prose));
+    const previous = await loadBible(paths.biblePath);
+    const described = await useBiblePreset({
+      biblePath: paths.biblePath,
+      preset: "flat-cartoon-kids",
+    });
+    const switched = await loadBible(paths.biblePath);
+    assert.equal(described.preset, "flat-cartoon-kids");
+    assert.equal(switched.data.axes.rendering, "flat-cartoon");
+    assert.equal(switched.data.tone.audience, "young-kids");
+    assert.notEqual(switched.hash, previous.hash);
+    assert.deepEqual(switched.data.identities, previous.data.identities);
+    assert.deepEqual(switched.data.anchors, previous.data.anchors);
+    assert.deepEqual(switched.data.tokens["palette"], previous.data.tokens["palette"]);
+    assert.deepEqual(switched.data["future"], { keep: true });
+    assert.equal(switched.data.colorRule, "palette");
+    assert.equal(switched.data.world, "Synthetic world");
+    assert.equal(switched.prose, prose);
+    assert.deepEqual(
+      switched.data.tokens["light"],
+      BIBLE_PRESETS["flat-cartoon-kids"]!.tokens["light"],
+    );
+    await assert.rejects(useBiblePreset({ biblePath: paths.biblePath, preset: "missing-preset" }), {
+      name: "InputError",
+    });
+    await assert.rejects(useBiblePreset({ biblePath: paths.biblePath, preset: "../escape" }), {
+      name: "InputError",
+    });
+    assert.equal((await loadBible(paths.biblePath)).hash, switched.hash);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

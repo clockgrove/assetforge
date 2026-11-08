@@ -8,12 +8,9 @@ axes:
   proportions: readable silhouettes with expressive heads
   outline:
     weight: none
-    colour: "#292433"
+    colour: "{outline}"
   shading: soft
   detailDensity: medium
-  saturation:
-    - 0.2
-    - 0.8
   texture: visible gentle brushwork, soft tactile surfaces
   lightingKey: soft diffuse warm key light
 tone:
@@ -91,6 +88,21 @@ tokens:
     max:
       $type: number
       $value: 0.95
+  saturation:
+    min:
+      $type: number
+      $value: 0.2
+    max:
+      $type: number
+      $value: 0.8
+  outline:
+    $type: color
+    $value:
+      colorSpace: srgb
+      components:
+        - 0.1607843137254902
+        - 0.1411764705882353
+        - 0.2
 adjustable:
   mood:
     - warm

@@ -8,12 +8,9 @@ axes:
   proportions: readable silhouettes with expressive heads
   outline:
     weight: none
-    colour: "#292433"
+    colour: "{outline}"
   shading: cel-2-3-tone
   detailDensity: medium
-  saturation:
-    - 0.1
-    - 0.5
   texture: weathered surfaces with restrained fine grain
   lightingKey: low-key directional light, isometric camera
 tone:
@@ -91,6 +88,21 @@ tokens:
     max:
       $type: number
       $value: 0.65
+  saturation:
+    min:
+      $type: number
+      $value: 0.1
+    max:
+      $type: number
+      $value: 0.5
+  outline:
+    $type: color
+    $value:
+      colorSpace: srgb
+      components:
+        - 0.1607843137254902
+        - 0.1411764705882353
+        - 0.2
 adjustable:
   mood:
     - somber
