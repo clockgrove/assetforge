@@ -109,7 +109,7 @@ test("import scores a locked character's sheet; enforce mode makes write-familie
       ],
       { env: env("1") },
     ),
-    /identity lock filtered this sheet: identity 0\.25 < threshold 0\.625 against "stevie" lock stevie-3/,
+    /identity lock filtered this sheet: identity 0\.25 < threshold 0\.68 against "stevie" lock stevie-3/,
   );
 });
 
@@ -259,12 +259,12 @@ export default {
   );
   assert.match(
     applied.stdout,
-    /candidate 1 filtered: identity-lock: identity 0\.25 < threshold 0\.625 against "stevie" lock stevie-3/,
+    /candidate 1 filtered: identity-lock: identity 0\.25 < threshold 0\.68 against "stevie" lock stevie-3/,
   );
-  assert.match(applied.stdout, /identity-lock \[decision\]: identity 1\.00 >= threshold 0\.625/);
+  assert.match(applied.stdout, /identity-lock \[decision\]: identity 1\.00 >= threshold 0\.68/);
   assert.match(
     applied.stdout,
-    /identity enforce against "stevie" lock stevie-3 \(threshold 0\.625\): 2 scored, agrees with QA on 1 of 2/,
+    /identity enforce against "stevie" lock stevie-3 \(threshold 0\.68\): 2 scored, agrees with QA on 1 of 2/,
   );
   assert.match(applied.stderr, /identity perplexity\/pplx-decider-v1\.2: .*confidence 0\.70/);
 });

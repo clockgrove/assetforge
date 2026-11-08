@@ -17,11 +17,11 @@ export type IdentityMode = "off" | "shadow" | "enforce";
 export const IDENTITY_MODES: readonly IdentityMode[] = ["off", "shadow", "enforce"];
 export const DEFAULT_IDENTITY_MODE: IdentityMode = "shadow";
 /**
- * Provisional: between the rubric's "partly the same" (0.5) and "the same character with a minor
- * deviation" (0.75) levels. It is to be replaced by the value `assetforge identity-eval`
- * recommends from a labelled set; see docs/decisions.md. Shadow mode, the default, filters nothing.
+ * Chosen by the owner from `assetforge identity-eval` on #27's identity set (44 cases): at 0.68
+ * pplx-decider-v1.2 accepts no wrong character and rejects 4 of 19 same-character crops. See
+ * docs/decisions.md. Shadow mode, the default, filters nothing.
  */
-export const DEFAULT_IDENTITY_THRESHOLD = 0.625;
+export const DEFAULT_IDENTITY_THRESHOLD = 0.68;
 /** Images shorter than this on a side are upscaled first; some decision models reject small images (#27). */
 export const MIN_DECISION_EDGE = 384;
 export const IDENTITY_OPERATION = "identity";

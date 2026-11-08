@@ -411,8 +411,9 @@ const importCommand: Command = {
 
 Slices a contact sheet (from any tool; --tool names it, for example "ChatGPT image
 generation"), removes the background to the profile's style, and has a vision model propose
-families in <import>/grouping.json with status "proposed" (--no-propose skips the model and
-needs no key). A human reviews the proposal against contact.png, edits it and sets its status
+families in <import>/grouping.json with status "proposed" (--no-propose skips the grouping
+model; it needs no key unless --lock-bible names a locked subject, whose identity score is a
+model call in shadow and enforce modes: add --identity-mode off to skip it). A human reviews the proposal against contact.png, edits it and sets its status
 to "confirmed" before write-families. See docs/sheet-import.md.
 
 With --lock-bible, a subject with an identity lock in that art bible has its contact sheet scored
@@ -1028,7 +1029,8 @@ Serves newline-delimited MCP JSON-RPC over stdin/stdout. Model keys come from th
 Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are local to this server.`,
   options: { "provider-script": { type: "string" }, help: { type: "boolean" } },
   async run(values) {
-    await serveMcp(await planningContext(values));
+    // Decision-call log lines go to stderr; stdout carries only JSON-RPC.
+    await serveMcp({ ...(await planningContext(values)), log: (m) => console.error(m) });
     return { exitCode: 0, fields: {}, human: "" };
   },
 };

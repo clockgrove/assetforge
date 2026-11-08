@@ -152,7 +152,7 @@ test("a Score decision becomes a 0..1 identity score with its label, confidence,
   assert.equal(score.filtered, false);
   assert.equal(score.lockVersion, "fox-1");
   assert.equal(score.model, "perplexity/pplx-decider-v1.2");
-  assert.match(score.reason, /identity 0\.75 >= threshold 0\.625 against "fox" lock fox-1/);
+  assert.match(score.reason, /identity 0\.75 >= threshold 0\.68 against "fox" lock fox-1/);
   const record = call.records[0]!;
   assert.equal(record.operation, "identity");
   assert.equal(record.decision?.label, IDENTITY_LEVELS[3]);
@@ -224,8 +224,9 @@ test("a Boolean decision uses the probability of true; a failed call fails close
     scripted(() => {
       throw new Error("429 rate limited");
     });
+  const failedLogs: string[] = [];
   const enforce = await scoreIdentity({
-    caller: caller(failing()),
+    caller: caller(failing(), (m) => failedLogs.push(m)),
     ...identity,
     candidate: candidate(),
     describe: "a still",
@@ -234,6 +235,12 @@ test("a Boolean decision uses the probability of true; a failed call fails close
   assert.equal(enforce.filtered, true);
   assert.equal(enforce.score, undefined);
   assert.match(enforce.error ?? "", /429 rate limited/);
+  // The failed call is logged with its model, latency and the estimate it was charged.
+  assert.equal(failedLogs.length, 1);
+  assert.match(
+    failedLogs[0]!,
+    /^identity perplexity\/pplx-decider-v1\.2: failed \(\d+ ms, \$\d+\.\d{6} estimate\): .*429 rate limited/,
+  );
   const shadow = await scoreIdentity({
     caller: caller(failing()),
     ...identity,

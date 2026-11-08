@@ -108,7 +108,7 @@ Every candidate of a locked character is scored against its record by a typed de
 The target profile configures it:
 
 ```json
-{ "identity": { "mode": "shadow", "threshold": 0.625, "question": "score" } }
+{ "identity": { "mode": "shadow", "threshold": 0.68, "question": "score" } }
 ```
 
 - `shadow` (the default) scores every candidate beside the current QA and filters nothing. The reason is marked `shadow`, and `run.json` counts how often the identity verdict agreed with QA (`identity.agreement`).

@@ -150,19 +150,40 @@ export class Caller {
       images: images.map((r) => ({ role: r.role, path: r.path, sha256: r.sha256 })),
     };
     const started = performance.now();
-    const result = await this.record(operation, prompt, images, parameters, undefined, (r) => {
-      const decide = this.provider.decide?.bind(this.provider);
-      if (!decide)
-        throw new ProviderError(`the provider cannot make typed decisions (${operation})`);
-      return decide({
-        model: r.model,
-        prompt,
-        images: images.map((ref) => ({ mediaType: ref.mediaType, bytes: ref.bytes })),
-        question,
+    let result: DecisionResult;
+    try {
+      result = await this.record(operation, prompt, images, parameters, undefined, (r) => {
+        const decide = this.provider.decide?.bind(this.provider);
+        if (!decide)
+          throw new ProviderError(`the provider cannot make typed decisions (${operation})`);
+        return decide({
+          model: r.model,
+          prompt,
+          images: images.map((ref) => ({ mediaType: ref.mediaType, bytes: ref.bytes })),
+          question,
+        });
       });
-    });
+    } catch (error) {
+      // A failed call is charged its route's estimate (see record); log it like a completed one.
+      const route = this.routes[operation];
+      const message = error instanceof Error ? error.message : String(error);
+      const latencyMs = Math.round(performance.now() - started);
+      this.log(
+        `${operation} ${route?.model ?? "(no route)"}: failed (${latencyMs} ms` +
+          `${route ? `, $${route.estimatedCostUsd.toFixed(6)} estimate` : ""}): ${message}`,
+      );
+      throw error;
+    }
     const record = this.records[this.records.length - 1] as CallRecord;
-    record.decision = decisionLog(question, result, Math.round(performance.now() - started));
+    try {
+      record.decision = decisionLog(question, result, Math.round(performance.now() - started));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log(
+        `${operation} ${record.model}: failed ($${record.costUsd.toFixed(6)} ${record.costSource}): ${message}`,
+      );
+      throw error;
+    }
     const d = record.decision;
     this.log(
       `${operation} ${record.model}: ${d.label} (value ${d.value.toFixed(3)}` +

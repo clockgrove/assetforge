@@ -69,4 +69,24 @@ The target-owned Agent Skill links the bible and starting presets. DESIGN.md con
 
 Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route, default `perplexity/pplx-decider-v1.2` from #27's image eval, with `openai/gpt-6-luna-decisions` as the alternate. Scoring starts in **shadow mode**: it runs beside the current QA, records the score and the agreement with QA, and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile until shadow runs have measured agreement. Scoring never approves.
 
-**Threshold: 0.625, provisional.** The issue requires the default to come from logged eval data. No labelled image set was available when this was implemented: #27's set is kept local by the owner, and the run had no gateway key. So 0.625 is the midpoint between the rubric levels "partly the same" (0.5) and "the same character with a minor deviation" (0.75). It is not measured. It filters nothing in the default shadow mode. Replace it with the threshold `assetforge identity-eval` recommends on #27's set (or an equivalent local labelled set). Record the set's size, the model, the recommended threshold and the agreement with QA here when you do. #27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
+**Threshold: 0.68 (owner, 2026-11-08).** The default comes from `assetforge identity-eval` run by the owner on #27's identity set, which stays local: 22 labelled crops, each judged against both locks (Stevie's approved three-quarter turnaround; Jimothy's sheet cell 3 plus his painted portrait), so 44 cases, 19 of them "same".
+
+| Model                                  | Recommended threshold | Accuracy    | False accepts | False rejects | Cost (44 calls) | p50 latency |
+| -------------------------------------- | --------------------- | ----------- | ------------- | ------------- | --------------- | ----------- |
+| perplexity/pplx-decider-v1.2 (default) | 0.678                 | 40/44 (91%) | 0             | 4             | $0.0014         | 1.15 s      |
+| openai/gpt-6-luna-decisions            | 0.395                 | 38/44 (86%) | 1             | 5             | $0.0084         | 1.12 s      |
+
+pplx-decider-v1.2's sweep:
+
+| Threshold                               | False accepts | False rejects |
+| --------------------------------------- | ------------- | ------------- |
+| 0.60                                    | 11            | 0             |
+| 0.625 (the earlier provisional default) | 9             | 1             |
+| 0.65                                    | 6             | 3             |
+| 0.678                                   | 0             | 4             |
+
+Same-character scores bunch at 0.61–0.65, so lower thresholds let many wrong-character crops through; at 0.68 none pass. The 4 false rejects are Stevie's back view, two Stevie meshes from the 3D spike and one Jimothy cell; enforce mode shows the person each with its score. pplx-decider-v1.2 stays the default model: more accurate and about 6× cheaper than the alternate.
+
+**Shadow mode stays the default.** The set is small, and 4 of 19 same-character cases would be filtered. The set has no per-case verdicts from today's vision QA, so its agreement figure is label agreement (40/44), not QA agreement; shadow runs on real art measure QA agreement before enforce becomes the default.
+
+#27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
