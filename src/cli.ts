@@ -12,6 +12,8 @@ import { VercelGateway } from "./gateway/vercel.ts";
 import { ScriptedProvider } from "./gateway/scripted.ts";
 import type { Script } from "./gateway/scripted.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
+import { generationTool, serveMcp } from "./mcp.ts";
+import type { ToolContext } from "./mcp.ts";
 import { imageGenerators } from "./generators/image.ts";
 import { pick } from "./handoff.ts";
 import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from "./loop.ts";
@@ -783,7 +785,129 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
   },
 };
 
+async function planningContext(values: Values): Promise<ToolContext> {
+  const scriptPath = values["provider-script"] as string | undefined;
+  if (scriptPath)
+    return {
+      provider: new ScriptedProvider(await loadScript(scriptPath)),
+      providerName: "scripted",
+    };
+  if (process.env["AI_GATEWAY_API_KEY"])
+    return { provider: gatewayProvider(), providerName: "vercel-ai-gateway" };
+  return {};
+}
+
+const bibleCommand: Command = {
+  name: "bible",
+  summary: "describe a world's art constitution or initialize a repository preset",
+  positionals: true,
+  usage: `Usage: assetforge bible describe --bible <BIBLE.md> [--json]
+       assetforge bible init --directory <target repository> --world <name> --preset <preset> [--json]
+       assetforge bible preset --bible <BIBLE.md> --preset <preset> [--json]
+
+Presets: cozy-storybook, flat-cartoon-kids, dark-gritty-isometric.
+Initialization explicitly writes a bible, Agent Skill and repository-owned prompt template.`,
+  options: {
+    bible: { type: "string" },
+    directory: { type: "string" },
+    world: { type: "string" },
+    preset: { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values, positionals = []) {
+    if (positionals.length !== 1 || !["describe", "init", "preset"].includes(positionals[0]!))
+      throw new InputError("bible requires describe, init or preset");
+    const result = await generationTool(`bible_${positionals[0]}`, values);
+    return { exitCode: 0, fields: { ...result }, human: JSON.stringify(result, null, 2) };
+  },
+};
+
+const planCommand: Command = {
+  name: "plan",
+  summary: "compile a reviewable generation plan; never generate images",
+  usage: `Usage: assetforge plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
+                       --out <plan.json> [--brief <brief.json>] [--settings <settings.json>]
+                       [--template <template.md>] [--routes <routes.json>]
+                       [--provider-script <module>] [--json]
+
+The configured compiler LLM writes prompt and negatives from repository templates.
+Without an available LLM, a marked deterministic template fallback is recorded.
+Review the saved plan before apply; this command never generates images.`,
+  options: {
+    spec: { type: "string" },
+    bible: { type: "string" },
+    profile: { type: "string" },
+    out: { type: "string" },
+    brief: { type: "string" },
+    settings: { type: "string" },
+    template: { type: "string" },
+    routes: { type: "string" },
+    "provider-script": { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const result = await generationTool("plan", values, await planningContext(values));
+    return { exitCode: 0, fields: { ...result }, human: JSON.stringify(result, null, 2) };
+  },
+};
+
+const applyCommand: Command = {
+  name: "apply",
+  summary: "generate exactly a saved plan after explicit spend approval",
+  positionals: true,
+  usage: `Usage: assetforge apply <plan.json> [--auto-approve] [--out <runs directory>]
+                        [--provider-script <module>] [--json]
+
+Refuses stale bible, template and identity inputs before generation.
+Set the plan's approved field to true after review, or use --auto-approve for unattended runs.
+Approval authorizes this generation spend; resulting assets remain pending review. Never prompts.`,
+  options: {
+    "auto-approve": { type: "boolean" },
+    out: { type: "string" },
+    "provider-script": { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values, positionals = []) {
+    if (positionals.length !== 1) throw new InputError("apply requires exactly one plan file");
+    const result = await generationTool(
+      "apply",
+      {
+        plan: positionals[0],
+        autoApprove: values["auto-approve"] === true,
+        out: values["out"],
+      },
+      await planningContext(values),
+    );
+    const fields = { ...result };
+    const human = formatRun(result.run, result.runDir);
+    if (result.run.candidates.length === 0)
+      return refusal("qa_found_nothing", "no candidate passed QA", fields, human);
+    return { exitCode: 0, fields, human };
+  },
+};
+
+const mcpCommand: Command = {
+  name: "mcp",
+  summary: "serve bible, plan and apply tools over MCP stdio",
+  usage: `Usage: assetforge mcp [--provider-script <module>]
+
+Serves newline-delimited MCP JSON-RPC over stdin/stdout. Model keys come from the environment.
+Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are local to this server.`,
+  options: { "provider-script": { type: "string" }, help: { type: "boolean" } },
+  async run(values) {
+    await serveMcp(await planningContext(values));
+    return { exitCode: 0, fields: {}, human: "" };
+  },
+};
+
 const commands: Command[] = [
+  bibleCommand,
+  planCommand,
+  applyCommand,
+  mcpCommand,
   materialsCommand,
   stageCommand,
   pickCommand,

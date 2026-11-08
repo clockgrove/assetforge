@@ -14,6 +14,26 @@ Run it as `npx @clockgrove/assetforge@<version> <command>`, or as `assetforge` (
 - Always pass `--json`. Stdout is exactly one JSON document with `ok`, `exitCode`, `command` and, on refusal, `error: { code, message }`.
 - Logs go to stderr. It never prompts.
 
+## Generation plans
+
+For repository-owned art direction, initialize the target's constitution with
+`bible init --directory <target> --world <name> --preset <preset> --json`.
+Load `bible describe --bible <BIBLE.md> --json` before writing a structured brief.
+The presets are `cozy-storybook`, `flat-cartoon-kids` and `dark-gritty-isometric`.
+Switch look and tone with `bible preset --bible <BIBLE.md> --preset <preset> --json`;
+it retains the world palette, anchors and identity locks and invalidates earlier plans.
+
+Use `plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
+--brief <brief.json> --out <plan.json> --json` to compile a reviewable plan without
+generating images. Show its prompts, clamps and cost forecast to the human.
+`apply <plan.json> --json` requires the human to set the plan's `approved` field;
+an unattended campaign uses `--auto-approve` to authorize generation spend.
+This approval never approves an asset. Apply refuses stale bible, template,
+identity and reference inputs. `mcp` exposes the same flow over stdio.
+
+See [generation knobs](https://github.com/clockgrove/assetforge/blob/main/docs/generation-knobs.md) in the source repository
+for the brief, run settings and versioned target template formats.
+
 ## Commands
 
 - `stage --spec <spec.json> --bible <bible.json> --profile <profile.json> [--candidates 4] [--cap 5] [--routes <routes.json>] [--runs .assetforge/runs] [--provider-script <module.js>] [--dry-run] [--json]`
@@ -49,11 +69,11 @@ Run it as `npx @clockgrove/assetforge@<version> <command>`, or as `assetforge` (
 ## Environment and network
 
 - Reads `AI_GATEWAY_API_KEY` (Vercel AI Gateway key), from the environment only. Not needed for `--dry-run` or `--provider-script`.
-- Reaches only `ai-gateway.vercel.sh` (HTTPS), and only for `stage`, `generate-sheet` and `import` (without `--no-propose`), never with `--dry-run` or `--provider-script`. `pick` and `write-families` run the target profile's own validator command locally. A sandbox can allow just that host.
+- Reaches only `ai-gateway.vercel.sh` (HTTPS), and only for `plan`, `apply`, `stage`, `generate-sheet` and `import` (without `--no-propose`), or their MCP equivalents, never with `--dry-run` or `--provider-script`. `pick` and `write-families` run the target profile's own validator command locally. A sandbox can allow just that host.
 
 ## The rule (PRD section 5.7)
 
-**Agents may stage candidates, generate and import sheets (and dry-run first to check cost). Agents never run `pick`, never confirm a grouping or run `write-families`, and never approve. A human picks, and Assetforge never marks anything approved.** Report the staged run or import directory and the candidate IDs to the human instead.
+**Agents may plan, apply authorized generation plans, stage candidates, generate and import sheets (and dry-run first to check cost). Agents never run `pick`, never confirm a grouping or run `write-families`, and never approve. A human picks, and Assetforge never marks anything approved.** Report the staged run or import directory and the candidate IDs to the human instead.
 
 ## Suggested flow
 
