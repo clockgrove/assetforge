@@ -166,6 +166,7 @@ export interface SheetSource {
 
 export interface Provenance {
   digitalSourceType?: DigitalSourceType;
+  sourceDeclaration?: import("./metadata.ts").SourceDeclaration;
   generator: string;
   route: string;
   models: string[];

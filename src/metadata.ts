@@ -1,3 +1,5 @@
+import { userInfo } from "node:os";
+import { InputError } from "./errors.ts";
 import { inflateSync } from "node:zlib";
 import type { TransformStep } from "./transform/types.ts";
 
@@ -7,20 +9,64 @@ export const DIGITAL_SOURCE_TYPES = {
   generated: `${vocabulary}trainedAlgorithmicMedia`,
   composite: `${vocabulary}compositeWithTrainedAlgorithmicMedia`,
   human: `${vocabulary}digitalCreation`,
+  undeclared: "undeclared",
 } as const;
-export type DigitalSourceType = (typeof DIGITAL_SOURCE_TYPES)[keyof typeof DIGITAL_SOURCE_TYPES];
-
-function sourceType(value: unknown): DigitalSourceType | undefined {
-  return Object.values(DIGITAL_SOURCE_TYPES).find((v) => v === value);
+// IPTC Digital Source Type vocabulary, including retained deprecated concepts.
+const sourceCodes = [
+  "digitalCapture",
+  "computationalCapture",
+  "negativeFilm",
+  "positiveFilm",
+  "print",
+  "minorHumanEdits",
+  "humanEdits",
+  "compositeWithTrainedAlgorithmicMedia",
+  "algorithmicallyEnhanced",
+  "softwareImage",
+  "digitalArt",
+  "digitalCreation",
+  "dataDrivenMedia",
+  "trainedAlgorithmicMedia",
+  "algorithmicMedia",
+  "screenCapture",
+  "virtualRecording",
+  "composite",
+  "compositeCapture",
+  "compositeSynthetic",
+] as const;
+export type IptcDigitalSourceType = `${typeof vocabulary}${(typeof sourceCodes)[number]}`;
+export type DigitalSourceType = IptcDigitalSourceType | "undeclared";
+export interface SourceDeclaration {
+  value: IptcDigitalSourceType;
+  declaredBy: string;
 }
 
+export function parseDigitalSourceType(value: string): IptcDigitalSourceType | undefined {
+  const code = sourceCodes.find((code) => value === code || value === `${vocabulary}${code}`);
+  return code === undefined ? undefined : `${vocabulary}${code}`;
+}
+function sourceType(value: unknown): IptcDigitalSourceType | undefined {
+  return typeof value === "string" ? parseDigitalSourceType(value) : undefined;
+}
+export function sourceDeclaration(value: DigitalSourceType): SourceDeclaration {
+  const parsed = parseDigitalSourceType(value);
+  if (!parsed) throw new InputError(`invalid --digital-source-type: ${value}`);
+  return { value: parsed, declaredBy: userInfo().username };
+}
+export function requireDeclared(value: DigitalSourceType | undefined): void {
+  if (!value || value === "undeclared")
+    throw new InputError(
+      "refused: asset source type is undeclared; declare it with --digital-source-type <IPTC code> before publishing or exporting",
+    );
+}
 export function combineDigitalSourceTypes(values: readonly DigitalSourceType[]): DigitalSourceType {
   if (values.includes(DIGITAL_SOURCE_TYPES.composite)) return DIGITAL_SOURCE_TYPES.composite;
   if (values.includes(DIGITAL_SOURCE_TYPES.generated))
-    return values.includes(DIGITAL_SOURCE_TYPES.human)
+    return values.some((value) => value !== DIGITAL_SOURCE_TYPES.generated)
       ? DIGITAL_SOURCE_TYPES.composite
       : DIGITAL_SOURCE_TYPES.generated;
-  return DIGITAL_SOURCE_TYPES.human;
+  if (!values.length || values.includes("undeclared")) return "undeclared";
+  return values[0]!;
 }
 
 export function metadataStep(value: DigitalSourceType, pixelHashes: string[]): TransformStep {
@@ -231,6 +277,7 @@ type Gltf = {
 /** Adds a document-level packet while preserving other extensions and packet references. */
 export function embedGltfDigitalSourceType(document: Gltf, value: DigitalSourceType): Gltf {
   const result = structuredClone(document);
+  if (value === "undeclared") return result;
   const extensions = (result.extensions ??= {});
   const old = extensions["KHR_xmp_json_ld"] as
     { packets?: Record<string, unknown>[]; packet?: number } | undefined;
@@ -273,6 +320,7 @@ export function embedDigitalSourceType(
   mediaType: string,
   value: DigitalSourceType,
 ): Uint8Array {
+  if (value === "undeclared") return bytes;
   if (mediaType === "image/png") {
     const chunks = pngChunks(bytes);
     const previous = chunks.map(pngXmp).find((s) => s !== undefined);

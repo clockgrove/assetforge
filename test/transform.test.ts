@@ -432,6 +432,7 @@ test("the sheet import records its transformation steps, and each strip's proven
   const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
   const sheet = syntheticSheet();
   const { record, importDir } = await importSheet({
+    digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
     sheet: sheet.png,
     sheetPath: "sheet.png",
     tool: "hand drawn",

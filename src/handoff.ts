@@ -3,11 +3,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
-  DIGITAL_SOURCE_TYPES,
   combineDigitalSourceTypes,
   embedDigitalSourceType,
   readDigitalSourceType,
   metadataStep,
+  requireDeclared,
 } from "./metadata.ts";
 import { decodeImage } from "./image/raster.ts";
 import { pixelHash } from "./transform/run.ts";
@@ -89,13 +89,13 @@ export interface TargetWriteResult {
  */
 export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResult> {
   const { profile, spec } = write;
+  if (write.provenance.digitalSourceType === "undeclared") requireDeclared("undeclared");
   const known = [
     write.provenance.digitalSourceType,
     readDigitalSourceType(write.output.bytes, write.output.mediaType),
   ].filter((value) => value !== undefined);
-  const digitalSourceType = known.length
-    ? combineDigitalSourceTypes(known)
-    : DIGITAL_SOURCE_TYPES.generated;
+  const digitalSourceType = known.length ? combineDigitalSourceTypes(known) : "undeclared";
+  requireDeclared(digitalSourceType);
   const output = {
     ...write.output,
     bytes: embedDigitalSourceType(write.output.bytes, write.output.mediaType, digitalSourceType),

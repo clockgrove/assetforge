@@ -8,6 +8,8 @@ import {
   embedDigitalSourceType,
   readDigitalSourceType,
   metadataStep,
+  sourceDeclaration,
+  requireDeclared,
 } from "../metadata.ts";
 import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
@@ -86,6 +88,7 @@ export interface ImportedFrame {
 
 export interface ImportRecord {
   digitalSourceType?: DigitalSourceType;
+  sourceDeclaration?: import("../metadata.ts").SourceDeclaration;
   importId: string;
   createdAt: string;
   assetId: string;
@@ -253,12 +256,13 @@ export async function importSheet(
     );
   }
   const embedded = readDigitalSourceType(options.sheet, sniffMediaType(options.sheet));
-  const digitalSourceType =
-    embedded ??
-    options.digitalSourceType ??
-    (options.generation?.calls.some((c) => c.operation !== "vision")
-      ? DIGITAL_SOURCE_TYPES.generated
-      : DIGITAL_SOURCE_TYPES.human);
+  const declaration =
+    options.digitalSourceType === undefined
+      ? undefined
+      : sourceDeclaration(options.digitalSourceType);
+  const digitalSourceType = options.generation?.calls.some((c) => c.operation !== "vision")
+    ? DIGITAL_SOURCE_TYPES.generated
+    : (embedded ?? declaration?.value ?? DIGITAL_SOURCE_TYPES.undeclared);
   const sheetItem: ImageItem = {
     name: "sheet",
     raster,
@@ -320,6 +324,7 @@ export async function importSheet(
 
   const record: ImportRecord = {
     digitalSourceType,
+    ...(declaration && { sourceDeclaration: declaration }),
     importId,
     createdAt: now().toISOString(),
     assetId: options.assetId,
@@ -456,9 +461,10 @@ export async function writeFamilies(
       id,
       readDigitalSourceType(bytes, "image/png") ??
         record.digitalSourceType ??
-        DIGITAL_SOURCE_TYPES.human,
+        DIGITAL_SOURCE_TYPES.undeclared,
     );
   }
+  for (const origin of frameOrigins.values()) requireDeclared(origin);
   const style = record.style;
   const figures: ImageItem[] = [];
   const families: string[] = [];
@@ -470,7 +476,7 @@ export async function writeFamilies(
       mediaType: "image/png",
       meta: {},
       digitalSourceType:
-        frameOrigins.get(id) ?? record.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
+        frameOrigins.get(id) ?? record.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
     }));
     if (p.mirrored) {
       const flipped = runOperation(items, { op: "flip" }, { style });
@@ -594,7 +600,9 @@ export async function writeFamilies(
     });
     if (!union) throw new InputError(`family ${s.family.name} has no visible pixel`);
     const digitalSourceType =
-      joined.items[0]?.digitalSourceType ?? record.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human;
+      joined.items[0]?.digitalSourceType ??
+      record.digitalSourceType ??
+      DIGITAL_SOURCE_TYPES.undeclared;
     const bytes = embedDigitalSourceType(encodePng(strip), "image/png", digitalSourceType);
 
     const spec: AssetSpec = {
@@ -615,6 +623,7 @@ export async function writeFamilies(
       `Imported from a contact sheet made with ${record.sheet.tool}; that tool's own prompt is not recorded.`;
     const provenance: Provenance = {
       digitalSourceType,
+      ...(record.sourceDeclaration && { sourceDeclaration: record.sourceDeclaration }),
       generator: "sheet-import",
       route: unique(calls.map((c) => c.route)).join(" + ") || `import:${record.sheet.tool}`,
       models: unique([

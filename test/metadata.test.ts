@@ -7,6 +7,7 @@ import {
   DIGITAL_SOURCE_TYPES as types,
   combineDigitalSourceTypes,
   embedDigitalSourceType,
+  embedGltfDigitalSourceType,
   readDigitalSourceType,
   metadataStep,
 } from "../src/metadata.ts";
@@ -27,7 +28,7 @@ function chunks(bytes: Uint8Array, png = false) {
 const raster = createRaster(3, 2);
 raster.data.set([200, 80, 42, 255, 0, 0, 0, 0, 12, 34, 56, 128]);
 
-for (const value of Object.values(types)) {
+for (const value of Object.values(types).filter((value) => value !== "undeclared")) {
   test(`PNG iTXt XMP round-trip preserves pixels: ${value.split("/").at(-1)}`, () => {
     const original = encodePng(raster);
     const encoded = embedDigitalSourceType(original, "image/png", value);
@@ -225,4 +226,20 @@ test("glTF does not alter a packet shared by asset and mesh", () => {
   );
   assert.equal(actual.extensions.KHR_xmp_json_ld.packets[1]["dc:source"], "original");
   assert.deepEqual(embedDigitalSourceType(encoded, "model/gltf+json", types.composite), encoded);
+});
+
+test("undeclared local PNG and WebP outputs do not acquire IPTC metadata", () => {
+  for (const [mediaType, original] of [
+    ["image/png", encodePng(raster)],
+    ["image/webp", encodeWebpLossless(raster)],
+  ] as const) {
+    const bytes = embedDigitalSourceType(original, mediaType, "undeclared");
+    assert.equal(readDigitalSourceType(bytes, mediaType), undefined);
+    assert.deepEqual(bytes, original);
+  }
+});
+
+test("undeclared glTF adapter does not serialize an IPTC value", () => {
+  const document = { asset: { version: "2.0" } };
+  assert.deepEqual(embedGltfDigitalSourceType(document, "undeclared"), document);
 });

@@ -1,3 +1,10 @@
+import {
+  DIGITAL_SOURCE_TYPES,
+  embedDigitalSourceType,
+  metadataStep,
+  readDigitalSourceType,
+} from "./metadata.ts";
+import { pixelHash } from "./transform/run.ts";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -914,9 +921,18 @@ export async function applyPlan(
       const id = `c${index + 1}`;
       const extension = "png";
       const file = `${id}.${extension}`;
-      await writeFile(join(runDir, file), image.bytes);
+      const keyPose = refs.find((ref) => ref.role.startsWith("key-pose"));
+      const digitalSourceType =
+        keyPose &&
+        readDigitalSourceType(keyPose.bytes, keyPose.mediaType) !== DIGITAL_SOURCE_TYPES.generated
+          ? DIGITAL_SOURCE_TYPES.composite
+          : DIGITAL_SOURCE_TYPES.generated;
+      const bytes = embedDigitalSourceType(image.bytes, image.mediaType, digitalSourceType);
+      await writeFile(join(runDir, file), bytes);
       const calls = [...plan.compiler.calls, ...caller.records];
       const provenance = {
+        digitalSourceType,
+        steps: [metadataStep(digitalSourceType, [pixelHash(decodeImage(bytes))])],
         generator: plan.spec.kind,
         route: calls.map((c) => c.route).join(" + "),
         models: [...new Set(calls.map((c) => c.model))],
@@ -954,7 +970,7 @@ export async function applyPlan(
         file,
         mediaType: image.mediaType,
         extension,
-        sha256: sha256(image.bytes),
+        sha256: sha256(bytes),
         reasons: [
           {
             check: "style-score",

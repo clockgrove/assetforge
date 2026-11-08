@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
-import { DIGITAL_SOURCE_TYPES } from "./metadata.ts";
+import { parseDigitalSourceType } from "./metadata.ts";
 import type { DigitalSourceType } from "./metadata.ts";
 import { InputError, ProviderError } from "./errors.ts";
 import { VercelGateway } from "./gateway/vercel.ts";
@@ -349,6 +349,14 @@ function parseSlice(grid: string | undefined, components: boolean | undefined): 
   return { grid: { columns } };
 }
 
+function declarationOption(values: Values): DigitalSourceType | undefined {
+  const code = values["digital-source-type"] as string | undefined;
+  if (code === undefined) return undefined;
+  const value = parseDigitalSourceType(code);
+  if (!value) throw new InputError(`invalid --digital-source-type: ${code}`);
+  return value;
+}
+
 const importCommand: Command = {
   name: "import",
   summary: "slice a contact sheet into frames and propose animation families",
@@ -394,15 +402,7 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
     const subjectOption = values["subject"] as string | undefined;
     const subject = subjectOption ?? asset;
     const sheet = await readBytes(sheetPath, "sheet");
-    const sourceCode = values["digital-source-type"] as string | undefined;
-    const digitalSourceType =
-      sourceCode === undefined
-        ? undefined
-        : Object.values(DIGITAL_SOURCE_TYPES).find(
-            (value) => value === sourceCode || value.endsWith(`/${sourceCode}`),
-          );
-    if (sourceCode !== undefined && !digitalSourceType)
-      throw new InputError(`invalid --digital-source-type: ${sourceCode}`);
+    const digitalSourceType = declarationOption(values);
     let propose: ImportOptions["propose"];
     if (!values["no-propose"]) {
       const routes = await loadRoutes(values["routes"] as string | undefined);
@@ -590,7 +590,7 @@ async function profileContext(path: string | undefined) {
 }
 
 async function runTransform(
-  options: Pick<TransformFilesOptions, "recipe" | "inputs" | "out">,
+  options: Pick<TransformFilesOptions, "recipe" | "inputs" | "out" | "digitalSourceType">,
   profilePath: string | undefined,
 ): Promise<Outcome> {
   const { record, provenancePath } = await transformFiles({
@@ -617,12 +617,13 @@ const opCommand: Command = {
   summary: "run one media operation over images (matte, trim, scale, convert, ...)",
   positionals: true,
   usage: `Usage: assetforge op <operation> <input...> --out <path> [--params <json object>]
-                     [--profile <profile.json>] [--json]
+                     [--profile <profile.json>] [--digital-source-type <IPTC code or URI>] [--json]
 
 Runs one operation (see \`assetforge ops\`) over the input images and writes the outputs and a
 provenance record. --out is a file for a single output, otherwise a directory.
 --profile supplies the style and frame size. Example: assetforge op matte in.png --out out.png`,
   options: {
+    "digital-source-type": { type: "string" },
     out: { type: "string" },
     params: { type: "string" },
     profile: { type: "string" },
@@ -650,7 +651,12 @@ provenance record. --out is a file for a single output, otherwise a directory.
     }
     const recipe = parseRecipe({ steps: [{ op: operation, params }] });
     return runTransform(
-      { recipe, inputs, out: o["out"] as string },
+      {
+        recipe,
+        inputs,
+        out: o["out"] as string,
+        ...(declarationOption(values) && { digitalSourceType: declarationOption(values)! }),
+      },
       values["profile"] as string | undefined,
     );
   },
@@ -660,11 +666,12 @@ const recipeCommand: Command = {
   name: "recipe",
   summary: "run a recipe file (a sequence of operations) over images",
   positionals: true,
-  usage: `Usage: assetforge recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--json]
+  usage: `Usage: assetforge recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--digital-source-type <IPTC code or URI>] [--json]
 
 Runs the steps of a recipe file in order over the input images and writes the outputs and a
 provenance record. --out is a file for a single output, otherwise a directory.`,
   options: {
+    "digital-source-type": { type: "string" },
     out: { type: "string" },
     profile: { type: "string" },
     json: { type: "boolean" },
@@ -677,7 +684,12 @@ provenance record. --out is a file for a single output, otherwise a directory.`,
     const o = required(values, ["out"]);
     const recipe = parseRecipe((await readJson<unknown>(recipePath)).value);
     return runTransform(
-      { recipe, inputs, out: o["out"] as string },
+      {
+        recipe,
+        inputs,
+        out: o["out"] as string,
+        ...(declarationOption(values) && { digitalSourceType: declarationOption(values)! }),
+      },
       values["profile"] as string | undefined,
     );
   },
@@ -708,13 +720,14 @@ const materialsCommand: Command = {
   usage: `Usage: assetforge materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
                            --derivation <derivation.json> --out <directory>
                            [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                           [--provider-script <module>] [--dry-run] [--json]
+                           [--digital-source-type <IPTC code or URI>] [--provider-script <module>] [--dry-run] [--json]
 
 Derives the channels requested by style.materials, checks alignment and temporal stability,
 writes native-resolution renditions, runs target compression and dusk-rain/night previews,
 and judges the flat and lit images with vision QA. Rejected materials exit 5 and remain
 unapproved. Model calls reserve against --cap. See docs/materials.md.`,
   options: {
+    "digital-source-type": { type: "string" },
     albedo: { type: "string" },
     spec: { type: "string" },
     profile: { type: "string" },
@@ -784,6 +797,7 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
     });
     const result = await runMaterials({
       albedoPath: resolve(files["albedo"] as string),
+      ...(declarationOption(values) && { digitalSourceType: declarationOption(values)! }),
       spec: spec.value,
       profile: profile.value,
       derivation: derivation.value,

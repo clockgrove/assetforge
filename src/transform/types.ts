@@ -27,6 +27,7 @@ export interface ImageItem {
 
 /** What every operation can read besides its parameters. */
 export interface OperationContext {
+  digitalSourceType?: DigitalSourceType;
   /** The style profile with defaults filled in; trims, scales and mattes follow it. */
   style: ResolvedStyle;
   /** The target profile's frame size, when one is known; `register` defaults to it. */

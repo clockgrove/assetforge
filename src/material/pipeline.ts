@@ -7,6 +7,7 @@ import {
   embedDigitalSourceType,
   readDigitalSourceType,
   metadataStep,
+  sourceDeclaration,
 } from "../metadata.ts";
 import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
@@ -85,6 +86,7 @@ function parseLit(text: string): Reason[] {
 
 export async function runMaterials(options: {
   albedoPath: string;
+  digitalSourceType?: DigitalSourceType;
   spec: AssetSpec;
   profile: TargetProfile;
   derivation: MaterialDerivation;
@@ -108,15 +110,18 @@ export async function runMaterials(options: {
     raster,
     mediaType: "image/png",
     meta: {},
-    digitalSourceType: origins.get(raster) ?? DIGITAL_SOURCE_TYPES.human,
+    digitalSourceType: origins.get(raster) ?? DIGITAL_SOURCE_TYPES.undeclared,
   });
   const recipe = async (op: string, params: Record<string, unknown>, raster: Raster) => {
     const result = await runRecipeAsync({ steps: [{ op, params }] }, [recipeItem(raster, op)], {
       materialCall: call,
+      ...(options.digitalSourceType !== undefined && {
+        digitalSourceType: options.digitalSourceType,
+      }),
     });
     steps.push(...result.steps);
     const item = result.items[0]!;
-    origins.set(item.raster, item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human);
+    origins.set(item.raster, item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared);
     return item.raster;
   };
   if (!derivation || !derivation.maps)
@@ -132,7 +137,9 @@ export async function runMaterials(options: {
   const albedo = decodeImage(albedoBytes);
   origins.set(
     albedo,
-    readDigitalSourceType(albedoBytes, sniffMediaType(albedoBytes)) ?? DIGITAL_SOURCE_TYPES.human,
+    readDigitalSourceType(albedoBytes, sniffMediaType(albedoBytes)) ??
+      options.digitalSourceType ??
+      DIGITAL_SOURCE_TYPES.undeclared,
   );
   const native = albedo.height / grid.height;
   if (
@@ -240,6 +247,9 @@ export async function runMaterials(options: {
     derivationHash: sha256(Buffer.from(JSON.stringify(derivation))),
     lightSources: sources.map((s) => ({ name: s.name, sha256: sha256(encodePng(s.mask)) })),
     generator: "assetforge-materials",
+    ...(options.digitalSourceType !== undefined && {
+      sourceDeclaration: sourceDeclaration(options.digitalSourceType),
+    }),
     version: "1",
     assetId: spec.assetId,
     source: { path: resolve(options.albedoPath), sha256: sha256(albedoBytes), nativeScale: native },
@@ -320,7 +330,7 @@ export async function runMaterials(options: {
           if (checks.some((r) => !r.passed)) return writeReport();
         }
         const path = join(outDir, `${channel}@${scale}x.png`);
-        const digitalSourceType = origins.get(rendition) ?? DIGITAL_SOURCE_TYPES.human;
+        const digitalSourceType = origins.get(rendition) ?? DIGITAL_SOURCE_TYPES.undeclared;
         const bytes = embedDigitalSourceType(encodePng(rendition), "image/png", digitalSourceType);
         steps.push(metadataStep(digitalSourceType, [pixelHash(rendition)]));
         await writeFile(path, bytes);

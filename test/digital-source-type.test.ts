@@ -81,7 +81,7 @@ test("transform files retain generation lineage, combine human pixels, and leave
   const raster = drawSubject(16);
   const human = join(root, "human.png"),
     generated = join(root, "generated.png");
-  await writeFile(human, encodePng(raster));
+  await writeFile(human, embedDigitalSourceType(encodePng(raster), "image/png", types.human));
   await writeFile(
     generated,
     embedDigitalSourceType(encodePng(raster), "image/png", types.generated),
@@ -262,4 +262,62 @@ test("material recipe's model-assisted edit of hand-made pixels is composite, de
     model.items,
   );
   assert.equal(deterministic.items[0]!.digitalSourceType, types.composite);
+});
+
+test("undeclared imports stage previews but refuse target export until an identified declaration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "iptc-undeclared-"));
+  const sheet = syntheticSheet();
+  const profile = syntheticProfile({ style: { alpha: { mode: "soft" }, color: { rule: "full" } } });
+  const base = {
+    sheet: sheet.png,
+    sheetPath: "synthetic.png",
+    tool: "image generation label is not evidence",
+    assetId: "prop",
+    importsDir: root,
+    profile,
+  };
+  const { record, importDir } = await importSheet(base);
+  assert.equal(record.digitalSourceType, "undeclared");
+  for (const file of ["contact.png", ...record.frames.map((frame) => frame.file)])
+    assert.equal(
+      readDigitalSourceType(await readFile(join(importDir, file)), "image/png"),
+      undefined,
+    );
+  const grouping = {
+    status: "confirmed",
+    families: [{ name: "idle", frames: [1], reason: "synthetic" }],
+  };
+  await assert.rejects(
+    writeFamilies({ importDir, grouping, targetDir: join(root, "target") }),
+    /undeclared.*--digital-source-type/,
+  );
+  const declared = await importSheet({ ...base, digitalSourceType: types.human });
+  assert.equal(declared.record.digitalSourceType, types.human);
+  assert.equal(declared.record.sourceDeclaration?.value, types.human);
+  assert.equal(
+    declared.record.sourceDeclaration?.declaredBy,
+    (await import("node:os")).userInfo().username,
+  );
+  const exported = await writeFamilies({
+    importDir: declared.importDir,
+    grouping,
+    targetDir: join(root, "target"),
+  });
+  const manifest = JSON.parse(await readFile(exported.families[0]!.result.manifestPath, "utf8"));
+  assert.deepEqual(
+    manifest.provenance.generated.sourceDeclaration,
+    declared.record.sourceDeclaration,
+  );
+  const undeclaredFile = join(root, "untagged.png");
+  await writeFile(undeclaredFile, encodePng(drawSubject(16)));
+  const transformed = await transformFiles({
+    inputs: [undeclaredFile],
+    recipe: { steps: [] },
+    out: join(root, "local.png"),
+  });
+  assert.equal(transformed.record.outputs[0]!.digitalSourceType, "undeclared");
+  assert.equal(
+    readDigitalSourceType(await readFile(join(root, "local.png")), "image/png"),
+    undefined,
+  );
 });

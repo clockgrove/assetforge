@@ -13,6 +13,7 @@ import {
   embedDigitalSourceType,
   readDigitalSourceType,
   metadataStep,
+  sourceDeclaration,
 } from "../metadata.ts";
 import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
@@ -45,6 +46,7 @@ export function pixelHash(r: Raster): string {
 }
 
 export interface RunOptions {
+  digitalSourceType?: DigitalSourceType;
   /** The style profile, defaults filled in; defaults to soft alpha, full colour, antialiased. */
   style?: ResolvedStyle;
   /** The target profile's frame size, which `register` defaults to. */
@@ -56,6 +58,9 @@ export interface RunOptions {
 function contextOf(options: RunOptions): OperationContext {
   return {
     style: options.style ?? resolveStyle(undefined),
+    ...(options.digitalSourceType !== undefined && {
+      digitalSourceType: options.digitalSourceType,
+    }),
     ...(options.materialCall && { materialCall: options.materialCall }),
     ...(options.frame !== undefined && { frame: options.frame }),
   };
@@ -111,7 +116,7 @@ export function runOperation(
       digitalSourceType:
         item.digitalSourceType ??
         combineDigitalSourceTypes(
-          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human),
+          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared),
         ),
     }));
     if (result.report) reports.push(result.report);
@@ -122,7 +127,7 @@ export function runOperation(
       return result.items.map((output) => ({
         ...output,
         digitalSourceType:
-          output.digitalSourceType ?? item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
+          output.digitalSourceType ?? item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
       }));
     });
   }
@@ -236,6 +241,7 @@ export interface OutputFile {
 /** The provenance record of a transformation: sources, every step, outputs. No clock, no randomness. */
 export interface TransformRecord {
   generator: "transform";
+  sourceDeclaration?: import("../metadata.ts").SourceDeclaration;
   recipe?: { name?: string; description?: string };
   style: ResolvedStyle;
   sources: SourceFile[];
@@ -287,7 +293,10 @@ export async function transformFiles(
       sha256: sha256(bytes),
       mediaType,
       pixels: pixelHash(raster),
-      digitalSourceType: readDigitalSourceType(bytes, mediaType) ?? DIGITAL_SOURCE_TYPES.human,
+      digitalSourceType:
+        readDigitalSourceType(bytes, mediaType) ??
+        options.digitalSourceType ??
+        DIGITAL_SOURCE_TYPES.undeclared,
       decodedBy: { name: decoder.name, version: decoder.version },
     });
     // An item keeps its source's media type when an engine can encode it; otherwise (JPEG today)
@@ -298,7 +307,10 @@ export async function transformFiles(
       raster,
       mediaType: encodable ? mediaType : "image/png",
       meta: {},
-      digitalSourceType: readDigitalSourceType(bytes, mediaType) ?? DIGITAL_SOURCE_TYPES.human,
+      digitalSourceType:
+        readDigitalSourceType(bytes, mediaType) ??
+        options.digitalSourceType ??
+        DIGITAL_SOURCE_TYPES.undeclared,
     });
   }
 
@@ -341,7 +353,7 @@ export async function transformFiles(
   await mkdir(dir, { recursive: true });
   const outputs: OutputFile[] = [];
   for (const { item, engine, encoder, path } of planned) {
-    const digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human;
+    const digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared;
     const bytes = embedDigitalSourceType(
       encoder.encode(item.raster),
       item.mediaType,
@@ -365,6 +377,9 @@ export async function transformFiles(
   }
   const record: TransformRecord = {
     generator: "transform",
+    ...(options.digitalSourceType !== undefined && {
+      sourceDeclaration: sourceDeclaration(options.digitalSourceType),
+    }),
     ...((options.recipe.name !== undefined || options.recipe.description !== undefined) && {
       recipe: {
         ...(options.recipe.name !== undefined && { name: options.recipe.name }),

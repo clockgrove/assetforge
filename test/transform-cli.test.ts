@@ -139,3 +139,53 @@ test("ops lists the operations", async () => {
   const names = doc.operations.map((o) => o.name);
   for (const n of ["matte", "slice", "join", "convert"]) assert.ok(names.includes(n), n);
 });
+
+test("CLI declarations validate the IPTC vocabulary and record the declarant without guessing", async () => {
+  const root = await mkdtemp(join(tmpdir(), "iptc-cli-declaration-"));
+  const input = join(root, "input.png"),
+    out = join(root, "out.png");
+  await writeFile(input, encodePng(createRaster(2, 2)));
+  const staged = await cli("op", "flip", input, "--out", out, "--json");
+  assert.equal(staged.code, 0);
+  assert.equal(JSON.parse(staged.stdout).outputs[0].digitalSourceType, "undeclared");
+  const invalid = await cli(
+    "op",
+    "flip",
+    input,
+    "--out",
+    out,
+    "--digital-source-type",
+    "imaginary",
+    "--json",
+  );
+  assert.equal(invalid.code, 2);
+  assert.match(invalid.stdout, /invalid --digital-source-type/);
+  for (const code of [
+    "digitalCreation",
+    "digitalCapture",
+    "computationalCapture",
+    "humanEdits",
+    "softwareImage",
+  ]) {
+    const result = await cli(
+      "op",
+      "flip",
+      input,
+      "--out",
+      out,
+      "--digital-source-type",
+      code,
+      "--json",
+    );
+    assert.equal(result.code, 0, result.stdout);
+    const record = JSON.parse(result.stdout);
+    const uri = `http://cv.iptc.org/newscodes/digitalsourcetype/${code}`;
+    assert.equal(record.outputs[0].digitalSourceType, uri);
+    assert.deepEqual(record.sourceDeclaration, {
+      value: uri,
+      declaredBy: (await import("node:os")).userInfo().username,
+    });
+    const { readDigitalSourceType } = await import("../src/metadata.ts");
+    assert.equal(readDigitalSourceType(await readFile(out), "image/png"), uri);
+  }
+});

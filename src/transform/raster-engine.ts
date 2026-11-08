@@ -150,7 +150,7 @@ const slice: OperationImpl = ([item], p) => {
   const items = sliced.figures.map((figure): ImageItem => ({
     name: `${it.name}-f${String(figure.id).padStart(3, "0")}`,
     raster: figure.crop,
-    digitalSourceType: it.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
+    digitalSourceType: it.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
     mediaType: it.mediaType,
     meta: {
       frame: figure.id,
@@ -285,7 +285,7 @@ const join: OperationImpl = (items, p) => {
         raster: out,
         mediaType: first.mediaType,
         digitalSourceType: combineDigitalSourceTypes(
-          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human),
+          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared),
         ),
         meta: { cell, columns, rows, placed },
       },

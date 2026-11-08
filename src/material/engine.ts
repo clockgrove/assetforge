@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   DIGITAL_SOURCE_TYPES,
+  requireDeclared,
   combineDigitalSourceTypes,
   embedDigitalSourceType,
   readDigitalSourceType,
@@ -86,7 +87,7 @@ export const materialEngine: ImageEngine = {
             const method = params["method"] as string;
             if (!(params["version"] as string).trim())
               throw new InputError("material method version required");
-            let digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human;
+            let digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared;
             let raster;
             let inputHash: string;
             if (method === "height-derived-normal") {
@@ -102,7 +103,9 @@ export const materialEngine: ImageEngine = {
                 bytes = new Uint8Array(await readFile(params["path"] as string));
                 digitalSourceType = combineDigitalSourceTypes([
                   digitalSourceType,
-                  readDigitalSourceType(bytes, sniffMediaType(bytes)) ?? DIGITAL_SOURCE_TYPES.human,
+                  readDigitalSourceType(bytes, sniffMediaType(bytes)) ??
+                    context.digitalSourceType ??
+                    DIGITAL_SOURCE_TYPES.undeclared,
                 ]);
               } else {
                 if (!context.materialCall)
@@ -163,6 +166,7 @@ export const materialEngine: ImageEngine = {
       "material-encode",
       async (items: ImageItem[], params: Record<string, unknown>): Promise<OperationResult> => {
         const item = items[0]!;
+        requireDeclared(item.digitalSourceType);
         const input = params["input"] as string,
           output = params["output"] as string;
         if (resolve(input) === resolve(output))
@@ -172,7 +176,7 @@ export const materialEngine: ImageEngine = {
           embedDigitalSourceType(
             encodePng(item.raster),
             "image/png",
-            item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
+            item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
           ),
         );
         const result = await targetCommand(
