@@ -7,6 +7,9 @@ import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
+import { loadBible } from "./bible.ts";
+import { identitySettings, loadIdentity } from "./identity.ts";
+import { evaluateIdentity } from "./identity-eval.ts";
 import { parseDigitalSourceType } from "./metadata.ts";
 import type { DigitalSourceType } from "./metadata.ts";
 import { InputError, ProviderError } from "./errors.ts";
@@ -328,10 +331,37 @@ async function readBytes(path: string, what: string): Promise<Uint8Array> {
   }
 }
 
+/**
+ * The identity lock of `subject` from `--lock-bible`, with the run's identity settings
+ * (`--identity-mode` over the profile's). Undefined when the subject has no lock or scoring is off.
+ */
+async function lockFor(values: Values, subject: string, profile: TargetProfile) {
+  const path = values["lock-bible"] as string | undefined;
+  const mode = values["identity-mode"] as string | undefined;
+  const settings = identitySettings(profile, mode);
+  if (path === undefined) {
+    if (mode !== undefined) throw new InputError("--identity-mode needs --lock-bible <BIBLE.md>");
+    return undefined;
+  }
+  const loaded = await loadIdentity(await loadBible(path), subject);
+  if (!loaded || settings.mode === "off") return undefined;
+  return { ...loaded, settings };
+}
+
+function formatIdentity(record: ImportRecord): string[] {
+  const score = record.identity;
+  if (!score) return [];
+  return [
+    `identity ${score.mode} (${score.model}): ${score.reason}`,
+    ...(score.filtered ? ["  write-families will refuse this sheet"] : []),
+  ];
+}
+
 function formatImport(record: ImportRecord, importDir: string, grouping: Grouping): string {
   const lines = [
     `import ${record.importId}: ${record.frames.length} frames (${record.slice.mode}) from ${record.sheet.path}`,
     `staged in ${importDir}; contact sheet ${join(importDir, CONTACT_FILE)}`,
+    ...formatIdentity(record),
   ];
   for (const f of record.frames) {
     for (const c of f.checks.filter((c) => !c.passed)) {
@@ -376,13 +406,19 @@ const importCommand: Command = {
                         [--bible <bible.json>] [--subject <name>] [--hints idle,walk-right,...]
                         [--grid <columns>] [--components] [--no-propose] [--cap ${DEFAULT_CAP_USD}]
                         [--routes <routes.json>] [--imports .assetforge/imports]
-                        [--digital-source-type <IPTC code or URI>] [--provider-script <module>] [--json]
+                        [--digital-source-type <IPTC code or URI>] [--provider-script <module>]
+                        [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>] [--json]
 
 Slices a contact sheet (from any tool; --tool names it, for example "ChatGPT image
 generation"), removes the background to the profile's style, and has a vision model propose
 families in <import>/grouping.json with status "proposed" (--no-propose skips the model and
 needs no key). A human reviews the proposal against contact.png, edits it and sets its status
-to "confirmed" before write-families. See docs/sheet-import.md.`,
+to "confirmed" before write-families. See docs/sheet-import.md.
+
+With --lock-bible, a subject with an identity lock in that art bible has its contact sheet scored
+against the lock by the identity decision model. --identity-mode overrides the profile's
+identity.mode: shadow (default) records the score, enforce makes write-families refuse a sheet
+below the threshold, off skips scoring.`,
   options: {
     sheet: { type: "string" },
     profile: { type: "string" },
@@ -395,6 +431,8 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
     grid: { type: "string" },
     components: { type: "boolean" },
     "no-propose": { type: "boolean" },
+    "lock-bible": { type: "string" },
+    "identity-mode": { type: "string" },
     cap: { type: "string" },
     routes: { type: "string" },
     imports: { type: "string" },
@@ -415,11 +453,25 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
     const subject = subjectOption ?? asset;
     const sheet = await readBytes(sheetPath, "sheet");
     const digitalSourceType = declarationOption(values);
+    const lock = await lockFor(values, subject, profile.value);
+    let shared: Caller | undefined;
+    const caller = async (): Promise<Caller> => {
+      if (!shared) {
+        const routes = await loadRoutes(values["routes"] as string | undefined);
+        const { provider, name } = await providerFor(values);
+        shared = new Caller({
+          provider,
+          providerName: name,
+          budget: new Budget(capUsd),
+          routes,
+          log: (m) => console.error(m),
+        });
+      }
+      return shared;
+    };
     let propose: ImportOptions["propose"];
     if (!values["no-propose"]) {
-      const routes = await loadRoutes(values["routes"] as string | undefined);
-      const { provider, name } = await providerFor(values);
-      const call = new Caller({ provider, providerName: name, budget: new Budget(capUsd), routes });
+      const call = await caller();
       const description = bible?.value.subjects?.[subject]?.description;
       const spec: AssetSpec = { kind: "sprite-sheet", assetId: asset, subject };
       const references = bible ? (await loadBibleInputs(spec, bible.value, bible.dir)).subject : [];
@@ -445,6 +497,14 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
       importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
       slice,
       ...(propose !== undefined && { propose }),
+      ...(lock && {
+        identity: {
+          caller: await caller(),
+          record: lock.record,
+          references: lock.references,
+          settings: lock.settings,
+        },
+      }),
     });
     return {
       exitCode: 0,
@@ -459,11 +519,14 @@ const generateSheetCommand: Command = {
   summary: "have the model draw a whole cycle as one sheet within a cost cap, then import it",
   usage: `Usage: assetforge generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>
                                 [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--imports .assetforge/imports]
+                                [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>]
                                 [--provider-script <module>] [--dry-run] [--json]
 
 Asks the model for a whole animation cycle as one sheet within the cost cap in USD, then
 imports it as the import command does, with a proposed grouping for a human to confirm.
---dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.`,
+--dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
+--lock-bible and --identity-mode score the generated sheet against the subject's identity lock
+as the import command does; the scoring call is part of the forecast and the cap.`,
   options: {
     spec: { type: "string" },
     bible: { type: "string" },
@@ -471,6 +534,8 @@ imports it as the import command does, with a proposed grouping for a human to c
     cap: { type: "string" },
     routes: { type: "string" },
     imports: { type: "string" },
+    "lock-bible": { type: "string" },
+    "identity-mode": { type: "string" },
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -483,7 +548,19 @@ imports it as the import command does, with a proposed grouping for a human to c
     const bible = await readJson<StyleBible>(files["bible"] as string);
     const profile = await readJson<TargetProfile>(files["profile"] as string);
     const routes = await loadRoutes(values["routes"] as string | undefined);
-    const perCall = planSheet(spec.value, profile.value, routes);
+    const lock = await lockFor(values, spec.value.subject ?? spec.value.assetId, profile.value);
+    const perCall = [
+      ...planSheet(spec.value, profile.value, routes),
+      ...(lock
+        ? [
+            {
+              operation: "identity",
+              model: routes.identity.model,
+              estimatedCostUsd: routes.identity.estimatedCostUsd,
+            },
+          ]
+        : []),
+    ];
     if (values["dry-run"]) {
       if (values["provider-script"]) await loadScript(values["provider-script"] as string);
       const estimateUsd = perCall.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
@@ -522,6 +599,9 @@ imports it as the import command does, with a proposed grouping for a human to c
       providerName: name,
       importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
       capUsd,
+      ...(lock && {
+        identity: { record: lock.record, references: lock.references, settings: lock.settings },
+      }),
     });
     return {
       exitCode: 0,
@@ -953,6 +1033,68 @@ Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are loc
   },
 };
 
+const identityEvalCommand: Command = {
+  name: "identity-eval",
+  summary: "score a local labelled image set against identity locks and recommend a threshold",
+  usage: `Usage: assetforge identity-eval --bible <BIBLE.md> --cases <cases.json> [--profile <profile.json>]
+                              [--log <identity-eval.jsonl>] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
+                              [--provider-script <module>] [--json]
+
+Scores every case of a labelled set against its subject's identity lock through the identity
+route. cases.json is a list (or {"cases": [...]}) of {"image", "subject", "same": true|false,
+"qa": true|false (optional)}, image paths relative to the file. Each call's label, confidence,
+latency and cost are logged on stderr, and one JSON line per case goes to --log. Reports accuracy
+for every threshold, the recommended threshold, accuracy at the profile's threshold and agreement
+with the cases' QA verdicts. Never filters or approves. Keep the set and the log local; they may
+hold a game's private art. See docs/generation-knobs.md.`,
+  options: {
+    bible: { type: "string" },
+    cases: { type: "string" },
+    profile: { type: "string" },
+    log: { type: "string" },
+    cap: { type: "string" },
+    routes: { type: "string" },
+    "provider-script": { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const o = required(values, ["bible", "cases"]);
+    const profilePath = values["profile"] as string | undefined;
+    const profile = profilePath ? (await readJson<TargetProfile>(profilePath)).value : {};
+    const { provider, name } = await providerFor(values);
+    const report = await evaluateIdentity({
+      biblePath: o["bible"] as string,
+      casesPath: o["cases"] as string,
+      profile,
+      routes: await loadRoutes(values["routes"] as string | undefined),
+      provider,
+      providerName: name,
+      capUsd: numberOption(values, "cap", DEFAULT_CAP_USD),
+      ...(values["log"] !== undefined && { logPath: values["log"] as string }),
+      log: (m) => console.error(m),
+    });
+    const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+    const lines = [
+      `${report.scored} of ${report.cases} cases scored by ${report.model} (${report.question}), ${report.failed} failed, $${report.spentUsd.toFixed(6)} spent`,
+      ...report.sweep.map(
+        (r) =>
+          `  threshold ${r.threshold.toFixed(3)}: ${r.correct}/${report.scored} correct (${pct(r.accuracy)}), ${r.falseRejects} false rejects, ${r.falseAccepts} false accepts`,
+      ),
+      report.recommended
+        ? `recommended threshold ${report.recommended.threshold.toFixed(3)} (${pct(report.recommended.accuracy)})`
+        : "no threshold recommended: nothing was scored",
+      `configured threshold ${report.configured.threshold}: ${pct(report.configured.accuracy)}`,
+      ...(report.qaAgreement
+        ? [
+            `agreement with QA: ${report.qaAgreement.agree}/${report.qaAgreement.scored} (${pct(report.qaAgreement.rate)}), identity-only failures ${report.qaAgreement.identityOnlyFailed}, QA-only failures ${report.qaAgreement.qaOnlyFailed}`,
+          ]
+        : []),
+    ];
+    return { exitCode: 0, fields: { ...report }, human: lines.join("\n") };
+  },
+};
+
 const commands: Command[] = [
   bibleCommand,
   planCommand,
@@ -964,6 +1106,7 @@ const commands: Command[] = [
   importCommand,
   generateSheetCommand,
   writeFamiliesCommand,
+  identityEvalCommand,
   opCommand,
   recipeCommand,
   opsCommand,

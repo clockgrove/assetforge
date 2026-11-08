@@ -83,7 +83,7 @@ export async function readEvalCases(path: string): Promise<{ cases: EvalCase[]; 
 export async function evaluateIdentity(options: {
   biblePath: string;
   casesPath: string;
-  profile: TargetProfile;
+  profile: Pick<TargetProfile, "identity">;
   routes: Routes;
   provider: GenerationProvider;
   providerName: string;

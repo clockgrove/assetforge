@@ -43,7 +43,10 @@ export interface IdentitySettings {
 }
 
 /** The profile's identity settings with defaults filled; `mode` overrides the profile's mode. */
-export function identitySettings(profile: TargetProfile, mode?: string): IdentitySettings {
+export function identitySettings(
+  profile: Pick<TargetProfile, "identity">,
+  mode?: string,
+): IdentitySettings {
   const config = profile.identity ?? {};
   const chosen = mode ?? config.mode ?? DEFAULT_IDENTITY_MODE;
   if (!IDENTITY_MODES.includes(chosen as IdentityMode))
