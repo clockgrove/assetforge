@@ -1,0 +1,14 @@
+# REUSE 3.3 licence metadata (https://reuse.software/spec-3.3/), checked by `reuse lint` in the
+# CI workflow's `reuse` job. When annotations overlap, the last match wins, so the list runs from
+# the whole repository to specific files. Every annotation overrides in-file text, so prose that
+# quotes a copyright line is not read as one.
+version = 1
+
+# Everything: code, docs, skills, test fixtures (synthetic) and any generated or authored media,
+# which is MIT as Clockgrove work (owner decision 2026-11-07). A third-party file gets its own
+# annotation below this one, with its own licence and copyright.
+[[annotations]]
+precedence = "override"
+path = "**"
+SPDX-FileCopyrightText = "2026 Clockgrove"
+SPDX-License-Identifier = "MIT"
