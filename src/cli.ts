@@ -156,6 +156,18 @@ function formatRun(run: RunRecord, runDir: string): string {
     lines.push("", `${c.id}  ${join(runDir, c.file)}  (${c.mediaType})`);
     for (const r of c.reasons) lines.push(`    ${r.check} [${r.source}]: ${r.reason}`);
   }
+  for (const rejection of run.rejections ?? [])
+    for (const r of rejection.reasons.filter((reason) => !reason.passed))
+      lines.push(`candidate ${rejection.candidate} filtered: ${r.check}: ${r.reason}`);
+  if (run.identity) {
+    const a = run.identity.agreement;
+    lines.push(
+      `identity ${run.identity.mode} against "${run.identity.subject}" lock ${run.identity.lockVersion}` +
+        ` (threshold ${run.identity.threshold}): ${run.identity.scores} scored,` +
+        ` agrees with QA on ${a.agree} of ${a.scored} (${(a.rate * 100).toFixed(0)}%),` +
+        ` identity-only failures ${a.identityOnlyFailed}, QA-only failures ${a.qaOnlyFailed}`,
+    );
+  }
   if (run.candidates.length > 0) {
     lines.push(
       "",
@@ -858,8 +870,11 @@ const planCommand: Command = {
   usage: `Usage: assetforge plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
                        --out <plan.json> [--brief <brief.json>] [--settings <settings.json>]
                        [--template <template.md>] [--routes <routes.json>]
-                       [--provider-script <module>] [--json]
+                       [--identity-mode <off|shadow|enforce>] [--provider-script <module>] [--json]
 
+--identity-mode overrides the profile's identity.mode for a character with an identity lock:
+shadow (the default) scores candidates beside QA without filtering, enforce filters those below
+the threshold, off skips scoring. The forecast includes the scoring calls.
 The configured compiler LLM writes prompt and negatives from repository templates.
 Without an available LLM, a marked deterministic template fallback is recorded.
 Review the saved plan before apply; this command never generates images.`,
@@ -872,12 +887,18 @@ Review the saved plan before apply; this command never generates images.`,
     settings: { type: "string" },
     template: { type: "string" },
     routes: { type: "string" },
+    "identity-mode": { type: "string" },
     "provider-script": { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean" },
   },
   async run(values) {
-    const result = await generationTool("plan", values, await planningContext(values));
+    const { "identity-mode": identityMode, ...rest } = values;
+    const result = await generationTool(
+      "plan",
+      { ...rest, identityMode },
+      await planningContext(values),
+    );
     return { exitCode: 0, fields: { ...result }, human: JSON.stringify(result, null, 2) };
   },
 };
@@ -908,7 +929,7 @@ Approval authorizes this generation spend; resulting assets remain pending revie
         autoApprove: values["auto-approve"] === true,
         out: values["out"],
       },
-      await planningContext(values),
+      { ...(await planningContext(values)), log: (m) => console.error(m) },
     );
     const fields = { ...result };
     const human = formatRun(result.run, result.runDir);

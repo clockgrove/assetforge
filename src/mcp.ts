@@ -13,6 +13,8 @@ import type { AssetSpec, TargetProfile } from "./types.ts";
 export interface ToolContext {
   provider?: GenerationProvider;
   providerName?: string;
+  /** Receives one line per provider decision call during apply. */
+  log?: (message: string) => void;
 }
 
 type Arguments = Record<string, unknown>;
@@ -69,6 +71,9 @@ export async function generationTool(
       ...(settingsPath && { settings: (await readJson<Partial<RunSettings>>(settingsPath)).value }),
       ...(stringArg(args, "template", false) && { templatePath: args["template"] as string }),
       routes: await loadRoutes(stringArg(args, "routes", false)),
+      ...(stringArg(args, "identityMode", false) && {
+        identityMode: args["identityMode"] as string,
+      }),
       ...context,
     });
     const planPath = resolve(stringArg(args, "out")!);
@@ -82,6 +87,7 @@ export async function generationTool(
     const result = await applyPlan(stringArg(args, "plan")!, {
       provider: context.provider,
       providerName: context.providerName,
+      ...(context.log && { log: context.log }),
       autoApprove: args["autoApprove"] === true,
       ...(stringArg(args, "out", false) && { outDir: args["out"] as string }),
     });
@@ -131,10 +137,17 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: Object.fromEntries(
-        ["spec", "profile", "bible", "brief", "settings", "template", "routes", "out"].map((k) => [
-          k,
-          stringProperty,
-        ]),
+        [
+          "spec",
+          "profile",
+          "bible",
+          "brief",
+          "settings",
+          "template",
+          "routes",
+          "out",
+          "identityMode",
+        ].map((k) => [k, stringProperty]),
       ),
       required: ["spec", "profile", "bible", "out"],
       additionalProperties: false,

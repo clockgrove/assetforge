@@ -14,6 +14,7 @@ import type { BibleInputs, FrameGrid } from "../request.ts";
 import type { Routes } from "../routes.ts";
 import type { AssetSpec, LoadedReference, StyleBible, TargetProfile } from "../types.ts";
 import { importSheet } from "./import.ts";
+import type { ImportIdentity } from "./import.ts";
 import type { ImportRecord } from "./import.ts";
 import type { Grouping, SliceOptions } from "./types.ts";
 
@@ -31,6 +32,8 @@ export interface GenerateSheetOptions {
   capUsd?: number;
   importId?: string;
   slice?: SliceOptions;
+  /** Scores the generated sheet against a character's identity lock; see `ImportOptions`. */
+  identity?: ImportIdentity;
   now?: () => Date;
 }
 
@@ -129,6 +132,7 @@ export async function generateSheet(
     importsDir: options.importsDir,
     ...(options.importId !== undefined && { importId: options.importId }),
     ...(options.slice !== undefined && { slice: options.slice }),
+    ...(options.identity !== undefined && { identity: options.identity }),
     frame: grid.frame,
     ...(spec.anchor !== undefined && { anchor: spec.anchor }),
     propose: {
