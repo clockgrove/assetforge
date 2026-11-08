@@ -120,7 +120,10 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
   if (!isRecord(value)) fail(`#${index + 1}`, "must be an object");
   const name = value["name"];
   if (typeof name !== "string" || !/^[a-z0-9][a-z0-9_]*$/.test(name)) {
-    fail(`#${index + 1}`, "name must be a lowercase word without '-' (it also matches name-<suffix>)");
+    fail(
+      `#${index + 1}`,
+      "name must be a lowercase word without '-' (it also matches name-<suffix>)",
+    );
   }
   const where = `"${name}"`;
   if (typeof value["loop"] !== "boolean") fail(where, "loop must be true or false");
@@ -139,7 +142,8 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
       fail(where, `beats[${i}] needs a name`);
     }
     const at = b["at"];
-    if (typeof at !== "number" || !(at >= 0 && at < 1)) fail(where, `beats[${i}].at must be in 0..1`);
+    if (typeof at !== "number" || !(at >= 0 && at < 1))
+      fail(where, `beats[${i}].at must be in 0..1`);
     if (b["contact"] !== undefined && typeof b["contact"] !== "boolean") {
       fail(where, `beats[${i}].contact must be true or false`);
     }

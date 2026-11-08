@@ -50,6 +50,11 @@ import type {
   Transform,
 } from "../types.ts";
 import { checkConfirmed, familyFrames, proposeGrouping } from "./group.ts";
+import { animationQa } from "../animation/qa.ts";
+import { DEFAULT_DURATION_MS, familyLoops, renderPreviews } from "../animation/run.ts";
+import { splitStrip } from "../animation/strip.ts";
+import { templatesFor, thresholdsFor } from "../animation/templates.ts";
+import type { AnimationReport } from "../animation/types.ts";
 import type { Grouping, MatteQuality, SliceOptions } from "./types.ts";
 import type { LoadedReference } from "../types.ts";
 import { scoreIdentity } from "../identity.ts";
@@ -447,6 +452,11 @@ export interface WrittenFamily {
   mirrored: boolean;
   jitterPx: number;
   result: TargetWriteResult;
+  /** The motion-template and loop and continuity checks on the written strip (pixels only). */
+  animation: AnimationReport;
+  /** The onion-skin sheet and the looping preview, in the import's preview directory. */
+  onionPath: string;
+  loopPreviewPath: string;
 }
 
 /**
@@ -468,6 +478,9 @@ export async function writeFamilies(
   }
   const ids = record.frames.map((f) => f.id);
   const grouping = checkConfirmed(options.grouping, ids);
+  // The profile's motion templates and thresholds are checked before anything is written.
+  templatesFor(record.profile);
+  thresholdsFor(record.profile);
   const byId = new Map(record.frames.map((f) => [f.id, f]));
 
   const failedMatte = record.frames.filter((f) => f.checks.some((c) => !c.passed));
@@ -725,6 +738,24 @@ export async function writeFamilies(
     });
     const previewFile = `preview/${s.family.name}.png`;
     await writeFile(join(options.importDir, previewFile), bytes);
+    const durationMs = record.durationMs ?? DEFAULT_DURATION_MS;
+    const stripFrames = splitStrip(strip, frame);
+    const animation = animationQa(
+      { frames: stripFrames, frame, anchor, family: s.family.name, durationMs },
+      record.profile,
+      style,
+    );
+    const rendered = renderPreviews(stripFrames, {
+      anchor,
+      loop: familyLoops(s.family.name, record.profile),
+      durationMs,
+      report: animation,
+      digitalSourceType,
+    });
+    const onionPath = join(options.importDir, "preview", `${s.family.name}.onion.png`);
+    const loopPreviewPath = join(options.importDir, "preview", `${s.family.name}.webp`);
+    await writeFile(onionPath, rendered.onion);
+    await writeFile(loopPreviewPath, rendered.preview);
     previews.push({ name: s.family.name, file: previewFile, count, jitterPx: s.jitterPx });
     written.push({
       name: s.family.name,
@@ -732,6 +763,9 @@ export async function writeFamilies(
       mirrored: s.mirrored,
       jitterPx: s.jitterPx,
       result,
+      animation,
+      onionPath,
+      loopPreviewPath,
     });
   }
 

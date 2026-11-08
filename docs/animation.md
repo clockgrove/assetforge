@@ -59,14 +59,14 @@ A template is data. Assetforge ships idle, walk, sniff, eat, play and shelter; a
 | `silhouette`       | Allowed change between consecutive frames, `1 − IoU` of their alpha masks: an idle barely moves, a walk must move some. |
 | `footprintDriftPx` | Optional per-family footprint drift bound (the walk's feet swing, so its bound is wider).                               |
 
-| Built-in  | Loop | Frames | Contact | Silhouette change | Beats                                          |
-| --------- | ---- | ------ | ------- | ----------------- | ---------------------------------------------- |
-| `idle`    | yes  | 2–12   | all     | 0–0.15            | rest, breathe-in                               |
-| `walk`    | yes  | 4–16   | all     | 0.01–0.4          | contact-a, passing-a, contact-b, passing-b     |
-| `sniff`   | yes  | 2–12   | all     | 0–0.25            | neutral, nose-down                             |
-| `eat`     | yes  | 2–12   | all     | 0–0.3             | reach, bite, chew                              |
-| `play`    | yes  | 3–16   | beats   | 0.01–0.5          | crouch (contact), airborne, land (contact)     |
-| `shelter` | yes  | 2–12   | all     | 0–0.15            | huddle, tremble                                |
+| Built-in  | Loop | Frames | Contact | Silhouette change | Beats                                      |
+| --------- | ---- | ------ | ------- | ----------------- | ------------------------------------------ |
+| `idle`    | yes  | 2–12   | all     | 0–0.15            | rest, breathe-in                           |
+| `walk`    | yes  | 4–16   | all     | 0.01–0.4          | contact-a, passing-a, contact-b, passing-b |
+| `sniff`   | yes  | 2–12   | all     | 0–0.25            | neutral, nose-down                         |
+| `eat`     | yes  | 2–12   | all     | 0–0.3             | reach, bite, chew                          |
+| `play`    | yes  | 3–16   | beats   | 0.01–0.5          | crouch (contact), airborne, land (contact) |
+| `shelter` | yes  | 2–12   | all     | 0–0.15            | huddle, tremble                            |
 
 The walk also bounds its cycle to 400–2000 ms. A family no template matches still gets the loop and continuity checks, with the defaults, and its report says no template matched.
 
@@ -74,16 +74,16 @@ The walk also bounds its cycle to 400–2000 ms. A family no template matches st
 
 Deterministic checks come first and are measured on pixels, at the style profile's alpha cut (binary) or alpha 128 (soft), so painterly, flat-cartoon and pixel-art strips are measured alike. Each failing check names the frame and the reason.
 
-| Check             | Fails when                                                                                                           | Bound (profile `animation.thresholds`)  |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `template`        | the frame count (or the cycle length) is outside the template                                                        | the template                            |
-| `beats`           | the strip has fewer frames than the template has beats                                                               | the template                            |
-| `ground-contact`  | a contact frame's feet baseline is off the ground line (the anchor's row)                                            | `groundTolerancePx`, default 1          |
-| `anchor-drift`    | a frame's centre of mass is off the anchor column                                                                    | `anchorDriftPx`, default 1              |
-| `footprint-drift` | the centre of a contact frame's footprint (the span of its bottom rows) moves away from the first frame's            | `footprintDriftPx`, default 2           |
-| `silhouette`      | consecutive frames change more or less than the template allows                                                      | the template                            |
-| `loop-seam`       | the last frame → first frame change exceeds the largest change between consecutive frames by more than the ratio     | `loopSeamRatio`, default 1.5            |
-| `identity-flicker`| the vision model labels a consecutive pair `flicker` at or above the cutoff, or its reply is unreadable              | `flickerCutoff`, default 0.7            |
+| Check              | Fails when                                                                                                       | Bound (profile `animation.thresholds`) |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `template`         | the frame count (or the cycle length) is outside the template                                                    | the template                           |
+| `beats`            | the strip has fewer frames than the template has beats                                                           | the template                           |
+| `ground-contact`   | a contact frame's feet baseline is off the ground line (the anchor's row)                                        | `groundTolerancePx`, default 1         |
+| `anchor-drift`     | a frame's centre of mass is off the anchor column                                                                | `anchorDriftPx`, default 1             |
+| `footprint-drift`  | the centre of a contact frame's footprint (the span of its bottom rows) moves away from the first frame's        | `footprintDriftPx`, default 2          |
+| `silhouette`       | consecutive frames change more or less than the template allows                                                  | the template                           |
+| `loop-seam`        | the last frame → first frame change exceeds the largest change between consecutive frames by more than the ratio | `loopSeamRatio`, default 1.5           |
+| `identity-flicker` | the vision model labels a consecutive pair `flicker` at or above the cutoff, or its reply is unreadable          | `flickerCutoff`, default 0.7           |
 
 Identity flicker is the only check that needs a model, because pixels cannot tell a pose change from a design change. It is one `flicker` call per consecutive pair (and the seam, on a loop), each with the two frames. Its model is the `flicker` route (default `google/gemini-3-flash`, estimated $0.02 a call), which a routes file can change. Every call's model, request ID, pair, label, confidence, cutoff and decision is appended to `flicker.jsonl` in the output directory: the logged data the cutoff is chosen from. The default cutoff of 0.7 is a starting point until enough decisions are logged. `--no-vision` skips the check and the report says so; it never counts as a pass. This checks frame-to-frame consistency within a strip only; scoring a character against its identity lock is separate work.
 
