@@ -42,6 +42,17 @@ import {
 import type { ImportOptions, ImportRecord } from "./sheet/import.ts";
 import type { Grouping, SliceOptions } from "./sheet/types.ts";
 import type { AssetSpec, StyleBible, TargetProfile } from "./types.ts";
+import {
+  DEFAULT_FIX_CAP_USD,
+  importTargets,
+  parseAnchor,
+  planAnimationQa,
+  planFrameFix,
+  runAnimationQa,
+  runFixFrame,
+  stripTarget,
+} from "./animation/commands.ts";
+import { formatReport } from "./animation/run.ts";
 
 type ErrorCode =
   | "invalid_input"
@@ -648,6 +659,10 @@ Agents never confirm a grouping.`,
         `  wrote ${f.result.manifestPath}`,
       );
       if (f.result.provenancePath) lines.push(`  wrote ${f.result.provenancePath}`);
+      lines.push(
+        ...formatReport({ ...f.animation, identityFlicker: "skipped" }).map((l) => `  ${l}`),
+      );
+      lines.push(`  onion skin ${f.onionPath}`, `  loop preview ${f.loopPreviewPath}`);
       if (f.result.validator) {
         lines.push(
           `  target validator ${f.result.validator.accepted ? "accepted" : "REJECTED"} it` +
@@ -704,6 +719,236 @@ async function runTransform(
   }
   return { exitCode: 0, fields: { provenancePath, ...record }, human: lines.join("\n") };
 }
+
+function positiveInteger(values: Values, name: string): number | undefined {
+  const raw = values[name];
+  if (typeof raw !== "string") return undefined;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new InputError(`--${name} must be a frame number (1 or more), got "${raw}"`);
+  }
+  return n;
+}
+
+const animationQaCommand: Command = {
+  name: "animation-qa",
+  summary: "check strips against motion templates and for loop and continuity; write previews",
+  usage: `Usage: assetforge animation-qa (--strip <strip.png> --family <name> --profile <profile.json>
+                              | --import <import directory>)
+                              [--out .assetforge/animation] [--subject <name>] [--anchor x,y]
+                              [--no-vision] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
+                              [--provider-script <module>] [--dry-run] [--json]
+
+Checks each strip against its family's motion template (beats, timing, contact frames,
+silhouette variation) and runs loop and continuity QA on pixels (loop seam, ground line,
+anchor and footprint drift). Identity flicker between consecutive frames is the one vision
+check: one flicker call per pair within the cost cap in USD, each label and confidence
+appended to flicker.jsonl; --no-vision skips it. Writes <family>.qa.json, the onion-skin
+sheet <family>.onion.png and the looping preview <family>.webp into --out.
+--import checks every family write-families wrote from that import.
+--dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
+Exits 5 when any check fails; every failed check names its frame.`,
+  options: {
+    strip: { type: "string" },
+    family: { type: "string" },
+    profile: { type: "string" },
+    import: { type: "string" },
+    out: { type: "string" },
+    subject: { type: "string" },
+    anchor: { type: "string" },
+    "no-vision": { type: "boolean" },
+    cap: { type: "string" },
+    routes: { type: "string" },
+    "provider-script": { type: "string" },
+    "dry-run": { type: "boolean" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
+    const routes = await loadRoutes(values["routes"] as string | undefined);
+    const vision = !values["no-vision"];
+    let targets;
+    if (typeof values["import"] === "string") {
+      if (values["strip"] !== undefined) throw new InputError("give --strip or --import, not both");
+      targets = await importTargets(values["import"]);
+    } else {
+      const o = required(values, ["strip", "family", "profile"]);
+      const profile = await readJson<TargetProfile>(o["profile"] as string);
+      const anchor = parseAnchor(values["anchor"] as string | undefined);
+      targets = [
+        stripTarget({
+          path: o["strip"] as string,
+          family: o["family"] as string,
+          profile: profile.value,
+          ...(typeof values["subject"] === "string" && { subject: values["subject"] }),
+          ...(anchor !== undefined && { anchor }),
+        }),
+      ];
+    }
+    if (typeof values["subject"] === "string") {
+      for (const t of targets) t.subject = values["subject"];
+    }
+    if (values["dry-run"]) {
+      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const plan = await planAnimationQa(targets, routes, capUsd, vision);
+      const human = [
+        `dry run: ${targets.length} strip(s), ${plan.calls} planned flicker call(s), nothing spent`,
+        ...plan.perFamily.map((f) => `  ${f.family}: ${f.calls} call(s)  ${plan.model}`),
+        `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
+          (plan.withinCap ? "" : " (over the cap)"),
+      ].join("\n");
+      const fields = { dryRun: true, plan };
+      if (plan.withinCap) return { exitCode: 0, fields, human };
+      return refusal(
+        "cap_refused",
+        `forecast ${usd(plan.estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
+        fields,
+        human,
+      );
+    }
+    const outDir = resolve((values["out"] as string | undefined) ?? ".assetforge/animation");
+    const { results, spentUsd } = await runAnimationQa({
+      targets,
+      outDir,
+      routes,
+      capUsd,
+      ...(vision && { provider: await providerFor(values) }),
+    });
+    const lines: string[] = [];
+    for (const r of results) {
+      lines.push(...formatReport(r.report));
+      lines.push(`  onion skin ${r.files.onion}`, `  preview ${r.files.preview}`);
+    }
+    if (vision)
+      lines.push(`$${spentUsd.toFixed(4)} spent; decisions in ${join(outDir, "flicker.jsonl")}`);
+    const fields = {
+      outDir,
+      spentUsd,
+      families: results.map((r) => ({ ...r.report, decisions: r.decisions, files: r.files })),
+    };
+    const human = lines.join("\n");
+    const failed = results.filter((r) => !r.report.passed).map((r) => r.report.family);
+    if (failed.length > 0) {
+      return refusal(
+        "qa_found_nothing",
+        `animation QA failed for ${failed.join(", ")}`,
+        fields,
+        human,
+      );
+    }
+    return { exitCode: 0, fields, human };
+  },
+};
+
+const fixFrameCommand: Command = {
+  name: "fix-frame",
+  summary: "regenerate one bad frame of a strip by a reference-guided edit within a cost cap",
+  usage: `Usage: assetforge fix-frame --strip <strip.png> --family <name> --profile <profile.json>
+                           --frame <n> (--from <n> | --key-pose <image>) --out <directory>
+                           [--subject <name>] [--note <text>] [--provenance <strip>.provenance.json]
+                           [--bible <bible.json>] [--anchor x,y] [--cap ${DEFAULT_FIX_CAP_USD}] [--routes <routes.json>]
+                           [--provider-script <module>] [--dry-run] [--json]
+
+Edits frame <n> (1-based) with one reference-guided edit call, from an approved neighbour
+frame (--from) or the approved key pose (--key-pose), within the cost cap in USD. Only that
+frame changes. Writes the fixed strip, its provenance (the strip's own, with the call and a
+fixes entry added) and its QA report and previews into --out. Never writes into a target and
+never sets a review value. --dry-run prints the planned call and forecast and needs no key.`,
+  options: {
+    strip: { type: "string" },
+    family: { type: "string" },
+    profile: { type: "string" },
+    frame: { type: "string" },
+    from: { type: "string" },
+    "key-pose": { type: "string" },
+    out: { type: "string" },
+    subject: { type: "string" },
+    note: { type: "string" },
+    provenance: { type: "string" },
+    bible: { type: "string" },
+    anchor: { type: "string" },
+    cap: { type: "string" },
+    routes: { type: "string" },
+    "provider-script": { type: "string" },
+    "dry-run": { type: "boolean" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const o = required(values, ["strip", "family", "profile", "frame", "out"]);
+    const index = positiveInteger(values, "frame") as number;
+    const neighbour = positiveInteger(values, "from");
+    const keyPose = values["key-pose"] as string | undefined;
+    if ((neighbour === undefined) === (keyPose === undefined)) {
+      throw new InputError("give exactly one of --from <frame> or --key-pose <image>");
+    }
+    const capUsd = numberOption(values, "cap", DEFAULT_FIX_CAP_USD);
+    const routes = await loadRoutes(values["routes"] as string | undefined);
+    const profile = await readJson<TargetProfile>(o["profile"] as string);
+    const anchor = parseAnchor(values["anchor"] as string | undefined);
+    const target = stripTarget({
+      path: o["strip"] as string,
+      family: o["family"] as string,
+      profile: profile.value,
+      ...(typeof values["subject"] === "string" && { subject: values["subject"] }),
+      ...(anchor !== undefined && { anchor }),
+    });
+    if (values["dry-run"]) {
+      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const plan = planFrameFix(routes, capUsd);
+      const human = [
+        `dry run: fix frame ${index}, ${plan.calls} planned call(s), nothing spent`,
+        ...plan.perCall.map((c) => `  ${c.operation}  ${c.model}  ~${usd(c.estimatedCostUsd)}`),
+        `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
+          (plan.withinCap ? "" : " (over the cap)"),
+      ].join("\n");
+      const fields = { dryRun: true, plan };
+      if (plan.withinCap) return { exitCode: 0, fields, human };
+      return refusal(
+        "cap_refused",
+        `forecast ${usd(plan.estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
+        fields,
+        human,
+      );
+    }
+    const bible =
+      typeof values["bible"] === "string"
+        ? (await readJson<StyleBible>(values["bible"])).value
+        : undefined;
+    const result = await runFixFrame({
+      target,
+      index,
+      from: keyPose !== undefined ? { keyPose } : { neighbour: neighbour as number },
+      ...(typeof values["note"] === "string" && { note: values["note"] }),
+      ...(typeof values["provenance"] === "string" && { provenancePath: values["provenance"] }),
+      ...(bible !== undefined && { bible: { version: bible.version, palette: bible.palette } }),
+      outDir: resolve(o["out"] as string),
+      routes,
+      capUsd,
+      provider: await providerFor(values),
+    });
+    const human = [
+      `fixed frame ${index} of ${target.family} with ${result.fix.model} (request ${result.fix.requestId}), $${result.spentUsd.toFixed(4)} spent`,
+      `wrote ${result.stripPath}`,
+      `wrote ${result.provenancePath}`,
+      ...formatReport(result.qa.report),
+      `  onion skin ${result.qa.files.onion}`,
+      `  preview ${result.qa.files.preview}`,
+    ].join("\n");
+    return {
+      exitCode: 0,
+      fields: {
+        stripPath: result.stripPath,
+        provenancePath: result.provenancePath,
+        fix: result.fix,
+        spentUsd: result.spentUsd,
+        qa: { ...result.qa.report, files: result.qa.files },
+      },
+      human,
+    };
+  },
+};
 
 const opCommand: Command = {
   name: "op",
@@ -1109,6 +1354,8 @@ const commands: Command[] = [
   generateSheetCommand,
   writeFamiliesCommand,
   identityEvalCommand,
+  animationQaCommand,
+  fixFrameCommand,
   opCommand,
   recipeCommand,
   opsCommand,

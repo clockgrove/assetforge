@@ -25,6 +25,8 @@ export interface Routes {
   sheet: Route;
   /** Identity scoring: a typed decision model compares a candidate with an identity record. */
   identity: Route;
+  /** Identity-flicker judgement between consecutive animation frames. */
+  flicker: Route;
   [operation: string]: Route;
 }
 
@@ -63,6 +65,13 @@ export const defaultRoutes: Routes = {
     model: "perplexity/pplx-decider-v1.2",
     estimatedCostUsd: 0.001,
     providerTerms: "Perplexity API Terms of Service, via Vercel AI Gateway (as of 2026-11-08)",
+  },
+  // Identity-flicker judgement between consecutive animation frames.
+  flicker: {
+    model: "google/gemini-3-flash",
+    estimatedCostUsd: 0.02,
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
 };
 
