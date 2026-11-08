@@ -90,3 +90,14 @@ Same-character scores bunch at 0.61–0.65, so lower thresholds let many wrong-c
 **Shadow mode stays the default.** The set is small, and 4 of 19 same-character cases would be filtered. The set has no per-case verdicts from today's vision QA, so its agreement figure is label agreement (40/44), not QA agreement; shadow runs on real art measure QA agreement before enforce becomes the default.
 
 #27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
+
+## Decision models for QA (owner, 2026-11-08; assetforge#27)
+
+#27 measured gateway decision models on image questions and closes with these outcomes:
+
+- **Identity scoring uses a decision model.** #39 scores every candidate of a locked character with `perplexity/pplx-decider-v1.2`, in shadow mode, at the 0.68 threshold (see Identity lock v1 above).
+- **Per-frame checks during a strip need no decision model.** A whole cycle is generated as one sheet (#10), and #38 checks it with pixel QA, one vision check for identity flicker and a budgeted per-frame fix.
+- **No decision-model perspective check.** Perspective stays in the candidate's vision QA. That vision call costs about half a cent next to a candidate of about $0.25, authors rely on its written reason, and there is no labelled perspective data to choose a model or cutoff from.
+- **Lit and style checks** cite #27's numbers when their Objectives are filed.
+
+Moving identity flicker to a decision-model screen is filed only once more labelled flicker data exists.
