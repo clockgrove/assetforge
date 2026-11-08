@@ -1,8 +1,8 @@
 /**
- * Opt-in example on the owner's real sheet, which is never committed here: point STEVIE_SHEET at a
- * local copy of Clockgrove's `docs/design/reference/stevie-sprite-sheet.png` (57 numbered frames,
+ * Opt-in example on the owner's real sheet, which is never committed here: point JIMOTHY_SHEET at a
+ * local copy of Clockgrove's `docs/design/reference/jimothy-sprite-sheet.png` (57 numbered frames,
  * 8 columns of 192 px cells). With AI_GATEWAY_API_KEY set as well, the vision model proposes the
- * grouping (one call, about $0.02). Run with `pnpm test:real`; it skips without STEVIE_SHEET.
+ * grouping (one call, about $0.02). Run with `pnpm test:real`; it skips without JIMOTHY_SHEET.
  */
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -17,8 +17,8 @@ import { defaultRoutes } from "../../src/routes.ts";
 import { importSheet } from "../../src/sheet/import.ts";
 import type { TargetProfile } from "../../src/types.ts";
 
-const sheetPath = process.env["STEVIE_SHEET"];
-const skip = sheetPath ? false : "STEVIE_SHEET not set";
+const sheetPath = process.env["JIMOTHY_SHEET"];
+const skip = sheetPath ? false : "JIMOTHY_SHEET not set";
 const propose = Boolean(process.env["AI_GATEWAY_API_KEY"]);
 
 const profile: TargetProfile = {
@@ -34,13 +34,13 @@ const profile: TargetProfile = {
   review: { path: "review.status", pending: "pending" },
 };
 
-test("real sheet: the Stevie sheet slices into 57 clean frames", { skip }, async () => {
-  const importsDir = await mkdtemp(join(tmpdir(), "assetforge-stevie-"));
+test("real sheet: the Jimothy sheet slices into 57 clean frames", { skip }, async () => {
+  const importsDir = await mkdtemp(join(tmpdir(), "assetforge-jimothy-"));
   const { record, importDir, grouping } = await importSheet({
     sheet: new Uint8Array(await readFile(sheetPath as string)),
     sheetPath: sheetPath as string,
     tool: "ChatGPT image generation",
-    assetId: "stevie",
+    assetId: "jimothy",
     profile,
     importsDir,
     ...(propose && {

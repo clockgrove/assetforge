@@ -6,8 +6,8 @@ Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model 
 
 ```sh
 # A sheet made elsewhere: slice, clean, and stage a grouping proposal.
-pnpm assetforge import --sheet stevie-sprite-sheet.png --profile profile.json --bible bible.json \
-  --asset stevie --tool "ChatGPT image generation" --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
+pnpm assetforge import --sheet jimothy-sprite-sheet.png --profile profile.json --bible bible.json \
+  --asset jimothy --tool "ChatGPT image generation" --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
 
 # Or have the model draw the cycle as one sheet (spec: assetId, animationFamily, frames.count).
 pnpm assetforge generate-sheet --spec stevie-walk.json --bible bible.json --profile profile.json
@@ -76,6 +76,6 @@ For an imported sheet, the prompt field says that the tool's own prompt is not r
 
 `generate-sheet` makes one `sheet` call (default `openai/gpt-image-2` at 1536x1024, estimated at $0.30) and one `vision` call for the grouping ($0.02). Both are reserved against the cap (default $5) before either is made. `import` makes the one grouping call, unless `--no-propose` is given.
 
-## The real Stevie sheet
+## The real Jimothy sheet
 
-The owner's sheet is never committed here. To run the opt-in example, point `STEVIE_SHEET` at a local copy of Clockgrove's `docs/design/reference/stevie-sprite-sheet.png` and run `pnpm test:real`. It checks that the sheet slices into 57 clean frames. With `AI_GATEWAY_API_KEY` set, it also asks for a grouping proposal.
+The owner's sheet is never committed here. To run the opt-in example, point `JIMOTHY_SHEET` at a local copy of Clockgrove's `docs/design/reference/jimothy-sprite-sheet.png` (Jimothy, the short-spine raccoon) and run `pnpm test:real`. It checks that the sheet slices into 57 clean frames. With `AI_GATEWAY_API_KEY` set, it also asks for a grouping proposal.

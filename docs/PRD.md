@@ -87,7 +87,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
   - registers every frame on the feet baseline;
   - groups and orders frames into families, with vision-model proposals a person confirms.
 
-  The same import takes sheets made elsewhere. Raccoon World's first one is Stevie's 57-frame sheet: Clockgrove `docs/design/reference/stevie-sprite-sheet.png`, which is also his identity reference.
+  The same import takes sheets made elsewhere. Raccoon World's first one is the 57-frame sheet of Jimothy, the short-spine raccoon: Clockgrove `docs/design/reference/jimothy-sprite-sheet.png`.
 - **Per-frame fixes.** A reference-guided edit of one frame, from an approved neighbour or key pose, repairs a single bad frame without regenerating the sheet.
 - **Video later.** Video-to-frames is a third route, compared against sheets once it arrives.
 - **Motion templates.** Per family (walk, idle, sniff, eat, play, shelter, sleep, groom, climb, converse and so on), a template gives the beats, timing and contact frames. A walk cycle loops and keeps its feet on the ground line.
