@@ -48,4 +48,43 @@ export interface VisionResult extends ProviderResult {
 export interface GenerationProvider {
   generateImage(request: ImageRequest): Promise<ImageResult>;
   analyzeImages(request: VisionRequest): Promise<VisionResult>;
+  /** A typed decision (Score or Boolean); providers without decision models leave it out. */
+  decide?(request: DecisionRequest): Promise<DecisionResult>;
+}
+
+/**
+ * A typed decision question. `score` asks for a position on ordered levels (indexed from zero);
+ * `boolean` asks for the probability that the statement is true.
+ */
+export type DecisionQuestion =
+  | { type: "score"; instructions: string; levels: string[] }
+  | { type: "boolean"; instructions: string; whenTrue?: string; whenFalse?: string };
+
+export interface DecisionRequest {
+  model: string;
+  /** Text state given before the images. */
+  prompt: string;
+  /** Images, in the order the prompt names them. */
+  images: ImageInput[];
+  question: DecisionQuestion;
+}
+
+export type DecisionAnswer =
+  | {
+      type: "score";
+      /** Fractional position in `[0, levels.length - 1]`. */
+      score: number;
+      /** Probability per level index, when the model reports a distribution. */
+      probabilities?: Record<string, number>;
+    }
+  | {
+      type: "boolean";
+      /** The model's probability that the statement is true. */
+      probability: number;
+    };
+
+export interface DecisionResult extends ProviderResult {
+  answer: DecisionAnswer;
+  /** The provider's own confidence statistic for the answer, when it reports one. */
+  confidence?: number;
 }

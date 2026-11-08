@@ -102,13 +102,25 @@ export interface TargetProfile {
   review: { path: string; pending: string };
   /** Command run in the target directory after hand-off; `{{manifest}}` and `{{media}}` are replaced. */
   validator?: { command: string[] };
+  /**
+   * Identity scoring of characters with an identity lock (docs/generation-knobs.md). `mode`:
+   * `shadow` (default) scores and records without filtering, `enforce` filters candidates below
+   * `threshold` (0..1), `off` skips scoring. `question` picks the typed decision (default `score`).
+   */
+  identity?: {
+    mode?: "off" | "shadow" | "enforce";
+    threshold?: number;
+    question?: "score" | "boolean";
+  };
 }
 
 export interface Reason {
   check: string;
   passed: boolean;
   reason: string;
-  source: "deterministic" | "vision";
+  source: "deterministic" | "vision" | "decision";
+  /** Set on a shadow-mode check: recorded beside QA, never used to filter. */
+  shadow?: true;
 }
 
 export interface QaResult {
@@ -133,6 +145,22 @@ export interface CallRecord {
   costUsd: number;
   costSource: "provider" | "estimate";
   providerTerms: string;
+  /** For a typed decision call: what it answered, how sure and how long it took. */
+  decision?: DecisionLog;
+}
+
+/** One typed decision call's answer, as logged in its call record. */
+export interface DecisionLog {
+  question: "score" | "boolean";
+  /** The answer's label: the nearest Score level's description, or `true`/`false`. */
+  label: string;
+  /** The answer on 0..1: a Score normalised over its levels, or a Boolean's probability of true. */
+  value: number;
+  /** The raw answer: a Score's position on its levels or a Boolean's probability. */
+  raw: number;
+  /** The provider's confidence, else the selected level's probability, when either is known. */
+  confidence?: number;
+  latencyMs: number;
 }
 
 /** One step applied to a frame on its way from the source sheet to the strip. */
@@ -190,6 +218,8 @@ export interface Provenance {
    * engine and version, and input and output pixel hashes.
    */
   steps?: TransformStep[];
+  /** The identity score against the character's identity lock, when the character has one. */
+  identity?: import("./identity.ts").IdentityScore;
 }
 
 /** A file a generator produced. Each output declares its own media type and extension. */

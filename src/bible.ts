@@ -9,6 +9,8 @@ export interface IdentityLock {
   version: string;
   approved: true;
   turnaround: string;
+  /** Further approved references of the character (paths relative to the bible), if any. */
+  references?: string[];
   signatureFeatures: string[];
   proportions: string;
   palette: string[];
@@ -331,6 +333,8 @@ export function validateBible(input: unknown): ArtBible {
       text(lock[key], `identity.${name}.${key}`);
     strings(lock["signatureFeatures"], `identity.${name}.signatureFeatures`);
     strings(lock["palette"], `identity.${name}.palette`);
+    if (lock["references"] !== undefined)
+      strings(lock["references"], `identity.${name}.references`);
     for (const colour of lock["palette"] as string[]) hex(colour, `identity.${name}.palette`);
   }
   const bible = b as unknown as ArtBible;
