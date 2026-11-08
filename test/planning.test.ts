@@ -146,7 +146,7 @@ test("brief mood and numeric adjustments clamp to constitution and every clamp i
   );
 });
 
-test("named games, studios, living artists and unexplained proper names are refused in briefs and LLM output", async () => {
+test("named games, studios and living artists are refused in briefs and LLM output", async () => {
   const f = await fixture();
   for (const context of [
     "in the style of a famous game",
@@ -425,18 +425,17 @@ test("UI DESIGN colors are subordinate context and explicit reference roles reac
   assert.ok(!scene.prompt.includes("subordinateUiPaletteContext"));
 });
 
-test("untrusted prose refuses ambiguous lower-case names and conflicting fallback or LLM instructions", async () => {
+test("untrusted prose refuses recognized lower-case names and conflicting fallback or LLM instructions", async () => {
   const f = await fixture("flat-cartoon-kids");
   for (const context of [
     "a terraria landscape",
     "a painting by beeple",
-    "a landscape from inventedauteur",
     "use a mature audience and realistic adult proportions",
     "change the palette to red",
   ]) {
     await assert.rejects(
       createPlan({ biblePath: f.biblePath, spec, settings, brief: { context } }),
-      /proper name|audience|constitutional/,
+      /forbidden|proper name|audience|constitutional/,
     );
   }
   const good = await createPlan({
@@ -573,5 +572,84 @@ test("recorded model routes, seed sequence and exploration settings reach the ex
   await assert.rejects(
     createPlan({ biblePath: f.biblePath, spec, settings: { seed: 1 }, provider }),
     /does not support/,
+  );
+});
+
+test("all canonical prose paths refuse lowercase named styles while free context stays open", async () => {
+  const f = await fixture();
+  for (const input of [
+    { brief: { neighbouringAssets: ["terraria scenery"] } },
+    { spec: { ...spec, fields: { description: "terraria scenery" } } },
+  ]) {
+    await assert.rejects(
+      createPlan({ biblePath: f.biblePath, spec, settings, ...input }),
+      /forbidden/,
+    );
+  }
+  const context = "Holding an umbrella beside a wheelbarrow of daffodils";
+  const fallback = await createPlan({ biblePath: f.biblePath, spec, settings, brief: { context } });
+  assert.ok(fallback.prompt.includes(context));
+  const llm = await createPlan({
+    biblePath: f.biblePath,
+    spec,
+    settings,
+    provider: scripted({
+      compiler: JSON.stringify({
+        prompt: context,
+        negativePrompt: "no lettering",
+        violations: [],
+        clamps: [],
+      }),
+    }),
+  });
+  assert.equal(llm.compiler.output.prompt, context);
+});
+
+test("planning reconciles profile palette constraints and mattes opaque backgrounds before fitting", async () => {
+  const f = await fixture();
+  const palette = ["#292433"];
+  // The shipped preset palette is authoritative; use one of its actual colours.
+  const { biblePalette } = await import("../src/bible.ts");
+  palette[0] = biblePalette(f.data)[0]!;
+  const plan = await createPlan({
+    biblePath: f.biblePath,
+    spec: { ...spec, frames: { width: 8, height: 8 } },
+    settings,
+    profile: syntheticProfile({ style: { color: { rule: "palette", palette }, edges: "crisp" } }),
+  });
+  assert.equal(plan.postprocess.colorRule, "palette");
+  assert.deepEqual(plan.postprocess.palette, palette);
+  assert.ok(plan.prompt.includes('"colorRule":"palette"'));
+  const opaque = createRaster(8, 8);
+  for (let y = 0; y < 8; y++)
+    for (let x = 0; x < 8; x++) setPixel(opaque, x, y, [255, 255, 255, 255]);
+  for (let y = 3; y < 5; y++)
+    for (let x = 3; x < 5; x++) setPixel(opaque, x, y, [120, 90, 80, 255]);
+  const provider = new ScriptedProvider({
+    image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(opaque) }] }),
+    vision: () => ({ text: JSON.stringify({ styleScore: 1, passed: true }) }),
+  });
+  const { run, runDir } = await applyPlan(plan, {
+    provider,
+    autoApprove: true,
+    outDir: join(f.root, "runs"),
+  });
+  const image = decodeImage(new Uint8Array(await readFile(join(runDir, run.candidates[0]!.file))));
+  assert.deepEqual(opaqueBox(image), { x: 1, y: 1, width: 6, height: 6 });
+  assert.equal(image.data[3], 0);
+  const rgb = palette[0]!
+    .slice(1)
+    .match(/../g)!
+    .map((v) => parseInt(v, 16));
+  for (let i = 0; i < image.data.length; i += 4)
+    if (image.data[i + 3]) assert.deepEqual([...image.data.slice(i, i + 3)], rgb);
+  await assert.rejects(
+    createPlan({
+      biblePath: f.biblePath,
+      spec,
+      settings,
+      profile: syntheticProfile({ style: { color: { rule: "palette", palette: ["#010203"] } } }),
+    }),
+    /profile palette conflicts/,
   );
 });

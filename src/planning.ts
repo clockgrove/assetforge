@@ -18,6 +18,8 @@ import {
 } from "./image/raster.ts";
 import { resampleTo } from "./image/resample.ts";
 import { applyStyle } from "./image/apply-style.ts";
+import { matteFigure } from "./sheet/matte.ts";
+import { wholeImageFigure } from "./sheet/slice.ts";
 import { resolveStyle } from "./style.ts";
 import { defaultRoutes } from "./routes.ts";
 import type { Route, Routes } from "./routes.ts";
@@ -181,60 +183,17 @@ function settingsOf(options: CreatePlanOptions): RunSettings {
 const NAMED_STYLE =
   /\b(?:in (?:the )?style of|inspired by|after (?:the (?:game|artist|studio) )|(?:game|studio|artist) (?:named|called)|recreat(?:e|ion of)|imitat(?:e|ion of))\b/i;
 const KNOWN_NAMES =
-  /\b(?:zelda|nintendo|disney|pixar|ghibli|minecraft|fortnite|stardew|pokemon|pokémon|elden ring|hollow knight|greg rutkowski|hayao miyazaki|james gurney|banksy|yoshitaka amano|tetsuya nomura|fromsoftware|blizzard|riot games|supergiant)\b/i;
-const DESCRIPTIVE_CAPITALS = new Set(
-  "a an the this that these those draw create generate render show use keep match avoid preserve subject prompt negative reference references style constitution palette rendering mood lighting background one no all only do not positive negative game sprite image character approved identity frame scene purpose context camera outline shading detail soft flat bold thin neutral warm cool muted bright dark cozy mildly eerie isometric painterly cartoon kids light texture proportions realism audience content limits signature features with without final output return exact locked immutable brief spec settings width height model family exploration candidate dimensions composition comply must forbidden rules visual directive art asset plain whole centered uncropped lowercase both json plan allow maintain apply tone young ages teen mature full pixel stylised cel bible version same canonical required additional notes mildly unsettling after storm nighttime night den view three quarter consistent transparent albedo key grounded colours colors count title describe designed an use separation do's don'ts compile supplied return treat preserve presentation tailor run model spec brief constraints immutable do don json don't template compile supplied return treat preserve presentation tailor run model".split(
-    " ",
-  ),
-);
-
-/** Named visual imitation is refused rather than converted to an untraceable euphemism. */
-export function assertOriginalDescription(text: string, allowedNames: string[] = []): void {
-  if (NAMED_STYLE.test(text) || KNOWN_NAMES.test(text))
+  /\b(?:terraria|beeple|zelda|nintendo|disney|pixar|ghibli|minecraft|fortnite|stardew|pokemon|pokémon|elden ring|hollow knight|greg rutkowski|hayao miyazaki|james gurney|banksy|yoshitaka amano|tetsuya nomura|fromsoftware|blizzard|riot games|supergiant)\b/i;
+/** Refuse named visual imitation without restricting ordinary harness prose to a word list. */
+export function assertOriginalDescription(text: string, _allowedNames: string[] = []): void {
+  if (
+    NAMED_STYLE.test(text) ||
+    KNOWN_NAMES.test(text) ||
+    /\b(?:painting|artwork|illustration)\s+by\s+\S+|\b\w+studio\b/i.test(text)
+  )
     throw new InputError(
       "named game, studio or artist styles are forbidden; use plain visual descriptions and image anchors",
     );
-  let remainder = text.replace(/#[\da-f]{6}\b/gi, "colour");
-  for (const name of allowedNames.filter(Boolean).sort((a, b) => b.length - a.length)) {
-    remainder = remainder.replaceAll(name, "identity");
-  }
-  const words = remainder.match(/\b[A-Z][a-zA-Z]*(?:[-'][A-Za-z]+)?\b/g) ?? [];
-  for (const word of words) {
-    if (!DESCRIPTIVE_CAPITALS.has(word.toLowerCase()) && !DESCRIPTIVE_WORDS.has(word.toLowerCase()))
-      throw new InputError(
-        `unrecognised proper name "${word}"; describe original art in plain visual terms`,
-      );
-  }
-}
-
-const DESCRIPTIVE_WORDS = new Set(
-  `a an the this that these those of in on at by to for from with without and or but as is are be being been was were it its their his her them they there here into over under after before during against through beside behind around inside outside within across above below between near far slightly very more less most only all any each every same another other some no not none never always must should can cannot may might keep use show draw create make generate render preserve follow avoid do add remove include exclude change replace
-photograph photographic photography photorealistic photorealism photo photos soft hard sharp smooth rough rounded angular round square triangular circular thin thick bold flat cel cartoon kids child children young ages teen mature friendly cheerful calm curious warm cool somber tense eerie mildly grim unsettling bright dark light neutral pastel vivid muted saturated desaturated saturation contrast value range high low medium minimal sparse dense detail density detailed simple complex clean clear readable original woodland shelter den storm night nighttime daytime dawn dusk morning evening rain rainy wet dry fog foggy mist misty snow snowy winter summer spring autumn leaves leaf branch branches trunk tree trees forest wood wooden stone brick metal metallic fabric cloth fur hair skin glass crystal water fire ember lantern lamp candle flame shadow highlight reflection diffuse ambient directional key rim bounce glow glowing emissive sun sunlight moon moonlight sky cloud clouds wind windy thunder lightning puddle muddy dirt soil grass flower flowers moss vine roots rock rocks gravel sand beach mountain valley hill cave hut cabin house room floor wall ceiling roof door window path road trail bridge fence gate garden field meadow island river lake ocean pond stream waterfall pool coast courtyard castle tower stairs step shelf table chair bed blanket pillow curtain carpet rug basket box crate barrel bottle cup bowl plate pot pan book paper scroll map sign badge icon portrait inventory interface ui menu screen button panel border text lettering typography textless background foreground middle ground silhouette composition perspective camera angle view isometric orthographic three quarter overhead top down side front back left right profile close wide whole full centred centered uncropped single subject scene environment prop character creature animal raccoon rabbit fox bear deer bird owl frog cat dog mouse squirrel badger otter squirrel wolf human person figure face head body torso arm arms hand hands leg legs feet foot tail ears ear eyes eye nose muzzle snout mouth paws paw claws whiskers stripe stripes mask marking markings white black grey gray red orange yellow green blue purple pink brown tan cream beige gold silver copper teal cyan indigo violet maroon navy olive coral peach charcoal ivory colour color colours colors palette outline outlines shading painterly painting painted brushwork brush stroke strokes tactile texture textured grain surfaces surface weathered worn aged polished matte glossy velvet linen wool leather bark plank planks tiles tile cobble woven weave paper pixel pixels pixelated stylised stylized dimensional render realism realistic unreal expressive exaggerated chibi proportions proportion stylization stylisation features signature identity turnaround pose poses resting leaning sitting standing walking waiting quietly running jumping idle walk run jump loop animation frame frames motion cycle sequence grounded weight balance scale dimension size width height count duration timing speed slow fast slower faster tiny small large huge narrow broad long short tall squat stout slim sturdy lightweight heavy soft-edged crisp antialiased transparent transparency translucent opacity alpha opaque binary full-color monochrome limited constrained exact precise exactness exploration variation variations creative restrained subtle gentle dramatic playful whimsical storybook cozy gritty gritty-isometric flat-cartoon graphic violence sexual hateful imagery gore blood nudity explicit adult adults audience content limits safe unsafe horror frightening scary smiling smile frown expression expressions happiness sad sadness fear surprise joy comfort peaceful peace tired weary sleepy asleep awake dawn-lit storm-lit light-lit albedo materials material normal height emission roughness specular neutral-lit after-storm mildly-eerie slightly-unsettling centred character's subject's bible constitution positive negative anchors anchor approved references reference matching matches match original-work look likeness consistent consistency world lore notes purpose context purpose-built neighbouring neighboring assets asset appears appearsIn cheerful warm calm curious somber tense grim eerie conservative follow consistent readable silhouettes feature features plain unlit relightable baked shadows highlights subtle forms form shape shapes form language volume depth proportionally age age-appropriate appropriate depiction depict real rendered humanistic rendered texture-free retain retain all any`.split(
-    /\s+/,
-  ),
-);
-
-function assertDescriptiveVocabulary(text: string, allowedNames: string[]): void {
-  let remainder = text.replace(/#[\da-f]{6}\b/gi, " colour ");
-  for (const name of allowedNames.filter(Boolean).sort((a, b) => b.length - a.length))
-    remainder = remainder.replaceAll(name, "identity");
-  const words = remainder.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g) ?? [];
-  for (const word of words) {
-    const forms = [
-      word,
-      word.replace(/s$/, ""),
-      word.replace(/ing$/, ""),
-      word.replace(/ing$/, "e"),
-      word.replace(/ed$/, ""),
-      word.replace(/ed$/, "e"),
-      word.replace(/ly$/, ""),
-      word.replace(/ies$/, "y"),
-    ];
-    if (!forms.some((form) => DESCRIPTIVE_WORDS.has(form)))
-      throw new InputError(
-        `unrecognised proper name or non-descriptive term "${word}"; use plain visual vocabulary or a bible-approved identity`,
-      );
-  }
 }
 
 function assertConstitutionalContext(text: string, bible: ArtBible): void {
@@ -308,10 +267,14 @@ function prepareBrief(
   )
     throw new InputError("neighbouringAssets must be a string array");
   inspectStrings(input, allowedNames);
-  for (const text of [input.purpose, input.appearsIn, input.context])
+  for (const text of [
+    input.purpose,
+    input.appearsIn,
+    input.context,
+    ...(input.neighbouringAssets ?? []),
+  ])
     if (text !== undefined) {
       assertConstitutionalContext(text, bible);
-      assertDescriptiveVocabulary(text, allowedNames);
     }
   const brief: GenerationBrief = structuredClone(input);
   const clamps: Clamp[] = [];
@@ -486,6 +449,20 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
   const templateVersion =
     /^version:\s*["']?([^\n"']+)/m.exec(template)?.[1]?.trim() ?? templateHash;
   const profile = structuredClone(options.profile ?? DEFAULT_PROFILE);
+  const palette = biblePalette(doc.data);
+  const profileStyle = resolveStyle(profile.style, palette);
+  if (
+    profile.style?.color?.palette?.some(
+      (color) => !palette.some((bibleColor) => bibleColor.toLowerCase() === color.toLowerCase()),
+    )
+  )
+    throw new InputError(
+      "profile palette conflicts with the bible palette; reconcile the profile and bible before planning",
+    );
+  const colorRule =
+    doc.data.colorRule === "palette" || profileStyle.color.rule === "palette" ? "palette" : "full";
+  const effectivePalette = profileStyle.color.palette;
+
   const frame = {
     width: options.spec.frames?.width ?? profile.frames.width,
     height: options.spec.frames?.height ?? profile.frames.height,
@@ -535,7 +512,8 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
     dosAndDonts: doDontSection(doc.prose),
     axes: doc.data.axes,
     tone: doc.data.tone,
-    colorRule: doc.data.colorRule,
+    colorRule,
+    palette: effectivePalette,
     tokens: tokenValues(doc.data.tokens),
     identity: doc.data.identities[subject]
       ? {
@@ -641,10 +619,8 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
           "LLM compiler output is invalid or reports a constitutional violation",
         );
       assertOriginalDescription(parsed.prompt, allowedNames);
-      assertDescriptiveVocabulary(parsed.prompt, allowedNames);
       assertConstitutionalContext(parsed.prompt, doc.data);
       assertOriginalDescription(parsed.negativePrompt, allowedNames);
-      assertDescriptiveVocabulary(parsed.negativePrompt, allowedNames);
       for (const item of parsed.clamps) {
         if (
           !item ||
@@ -670,7 +646,6 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
         : undefined;
       framePrompts?.forEach((p) => {
         assertOriginalDescription(p, allowedNames);
-        assertDescriptiveVocabulary(p, allowedNames);
         assertConstitutionalContext(p, doc.data);
       });
       output = {
@@ -718,8 +693,8 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
     postprocess: {
       frame,
       frameCount,
-      colorRule: doc.data.colorRule,
-      palette: biblePalette(doc.data),
+      colorRule,
+      palette: effectivePalette,
     },
     references,
     compiler: {
@@ -871,7 +846,11 @@ export async function applyPlan(
         plan.postprocess.frame.width * frames.length,
         plan.postprocess.frame.height,
       );
-      const boxes = frames.map((frame) => opaqueBox(frame));
+      // Matte before measuring so an opaque plain background does not become the subject.
+      const cleanedFrames = frames.map(
+        (frame) => matteFigure(wholeImageFigure(frame), style).image,
+      );
+      const boxes = cleanedFrames.map((frame) => opaqueBox(frame));
       if (boxes.some((box) => !box)) {
         run.filtered++;
         continue;
@@ -886,7 +865,7 @@ export async function applyPlan(
         Math.max(1, frameSize.height - 2) / Math.max(...boxes.map((box) => box!.height)),
       );
       for (let f = 0; f < frames.length; f++) {
-        const source = frames[f]!;
+        const source = cleanedFrames[f]!;
         const box = boxes[f]!;
         const cropped = createRaster(box.width, box.height);
         for (let y = 0; y < box.height; y++)

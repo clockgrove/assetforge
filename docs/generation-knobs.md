@@ -71,7 +71,7 @@ The asset spec still describes the requested asset. A separate brief supplies it
 }
 ```
 
-An optional `adjustments` object can request only fields listed in the bible's `adjustable` bounds. A brief cannot rewrite the audience, palette, identity, rendering or content limits. Out-of-range moods or permitted adjustments are clamped and recorded; unsupported constitutional overrides and named-style imitation are refused. LLM output is checked too. Untrusted prose uses a conservative visual vocabulary: ambiguous names or unsupported words are refused, even when lowercase. Reword them in plain visual terms or use image anchors; names of characters declared in the bible remain available. Structural asset identifiers are kept separate from that prose check.
+An optional `adjustments` object can request only fields listed in the bible's `adjustable` bounds. A brief cannot rewrite the audience, palette, identity, rendering or content limits. Out-of-range moods or permitted adjustments are clamped and recorded; unsupported constitutional overrides and named-style imitation are refused. LLM output is checked too. Named-style phrases and recognized game, studio and artist names are refused case-insensitively across brief, spec and compiler prose. Ordinary free-text context is accepted without a fixed vocabulary. Profile palettes must be compatible with the bible; a palette rule in either layer constrains both prompts and postprocessing.
 
 For UI-facing purposes such as icons, portraits and badges, a target repository's `DESIGN.md` `colors` (from front matter or fenced YAML) contributes subordinate interface palette context. The art bible remains authoritative; Assetforge does not extend DESIGN.md with art direction.
 
