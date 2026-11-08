@@ -101,7 +101,6 @@ export function frameDistance(a: Raster, b: Raster, threshold: number): number {
 }
 
 const DEFAULT_SILHOUETTE = { min: 0, max: 0.5 };
-const SEAM_FLOOR = 0.02;
 const fix = (n: number) => Number(n.toFixed(2));
 
 export function checkAnimation(
@@ -236,34 +235,58 @@ export function checkAnimation(
   const centre = (m: AnimationFrameMeasure) =>
     ((m.footprint as [number, number])[0] + (m.footprint as [number, number])[1] + 1) / 2;
   if (template?.footprint === "moving") {
-    // The contacts move by design; what stays put is the cycle as a whole, so the mean
-    // footprint of the strip's first half is checked against its second half's.
-    const half = Math.floor(count / 2);
-    const a = planted.filter((m) => m.frame <= half);
-    const b = planted.filter((m) => m.frame > half);
-    const mean = (ms: AnimationFrameMeasure[]) => ms.reduce((t, m) => t + centre(m), 0) / ms.length;
-    const span = (ms: AnimationFrameMeasure[]) =>
-      ms.length === 1
-        ? `frame ${(ms[0] as AnimationFrameMeasure).frame}`
-        : `frames ${ms.map((m) => m.frame).join(", ")}`;
-    if (a.length === 0 || b.length === 0) {
+    // The contacts move by design, so a frame is held to its own phase: with two or more strides
+    // per cycle, the same frame one stride earlier (frame f against f − count/strides); with one,
+    // the loop's mean footprint. Each frame that strays fails on its own, so the author can see
+    // which frame slid.
+    const strides = template.strides ?? 1;
+    const byFrame = new Map(planted.map((m) => [m.frame, m]));
+    const stride = count / strides;
+    const fails: Array<{ f: number; text: string }> = [];
+    let basis: string;
+    if (strides >= 2 && stride >= 1) {
+      basis = `its phase one stride (${fix(stride)} frames) earlier`;
+      let compared = 0;
+      for (const m of planted) {
+        const s = Math.floor((m.frame - 1) / stride);
+        if (s === 0) continue;
+        const ref = byFrame.get(m.frame - Math.round(s * stride));
+        if (!ref) continue;
+        compared++;
+        const d = Math.abs(centre(m) - centre(ref));
+        if (d > limit) {
+          fails.push({
+            f: m.frame,
+            text: `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(d)} px from frame ${ref.frame}'s ${fix(centre(ref))}, the same phase one stride earlier (limit ${limit})`,
+          });
+        }
+      }
+      if (compared === 0) basis = "";
+    } else {
+      const mean = planted.reduce((t, m) => t + centre(m), 0) / Math.max(1, planted.length);
+      basis = planted.length < 2 ? "" : `the loop's mean footprint centre ${fix(mean)}`;
+      if (basis) {
+        for (const m of planted) {
+          const d = Math.abs(centre(m) - mean);
+          if (d > limit) {
+            fails.push({
+              f: m.frame,
+              text: `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(d)} px from the loop's mean footprint centre ${fix(mean)} (limit ${limit})`,
+            });
+          }
+        }
+      }
+    }
+    if (fails.length === 0) {
       add(
         "footprint-drift",
         true,
-        `the ${template.name} template's contacts move; no planted frame in ${a.length === 0 ? "the first" : "the second"} half of the cycle, footprint drift not applicable`,
-      );
-    } else {
-      const d = Math.abs(mean(a) - mean(b));
-      const ok = d <= limit;
-      add(
-        "footprint-drift",
-        ok,
-        ok
-          ? `the ${template.name} template's contacts move; the mean footprint centre of ${span(a)} (${fix(mean(a))}) and of ${span(b)} (${fix(mean(b))}) are ${fix(d)} px apart (limit ${limit})`
-          : `${span(a)} → ${span(b)}: the mean footprint centre moves ${fix(d)} px over the cycle, from ${fix(mean(a))} to ${fix(mean(b))} (limit ${limit})`,
-        ok ? undefined : [...a, ...b].map((m) => m.frame),
+        basis
+          ? `the ${template.name} template's contacts move; every planted frame's footprint is within ${limit} px of ${basis}`
+          : `the ${template.name} template's contacts move; no two planted frames share a phase, footprint drift not applicable`,
       );
     }
+    for (const x of fails) add("footprint-drift", false, x.text, [x.f]);
   } else {
     const first = planted[0];
     const footFails = first
@@ -327,14 +350,14 @@ export function checkAnimation(
       add("loop-seam", true, `the ${template?.name} template does not loop; no seam to check`);
     } else {
       const seam = frameDistance(frames[count - 1] as Raster, frames[0] as Raster, threshold);
-      const bound = thresholds.loopSeamRatio * Math.max(SEAM_FLOOR, ...dists);
+      const bound = thresholds.loopSeamRatio * Math.max(thresholds.loopSeamFloor, ...dists);
       const ok = seam <= bound;
       add(
         "loop-seam",
         ok,
         ok
-          ? `frame ${count} → frame 1 distance ${fix(seam)} is within ${thresholds.loopSeamRatio} × the largest step (${fix(bound)})`
-          : `frame ${count} → frame 1: distance ${fix(seam)} exceeds ${thresholds.loopSeamRatio} × the largest consecutive step (limit ${fix(bound)})`,
+          ? `frame ${count} → frame 1 distance ${fix(seam)} is within ${thresholds.loopSeamRatio} × the largest step, floor ${thresholds.loopSeamFloor} (${fix(bound)})`
+          : `frame ${count} → frame 1: distance ${fix(seam)} exceeds ${thresholds.loopSeamRatio} × the largest consecutive step, floor ${thresholds.loopSeamFloor} (limit ${fix(bound)})`,
         [count, 1],
       );
     }

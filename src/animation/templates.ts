@@ -13,6 +13,7 @@ export const DEFAULT_THRESHOLDS: AnimationThresholds = {
   anchorDriftPx: 1,
   footprintDriftPx: 2,
   loopSeamRatio: 1.5,
+  loopSeamFloor: 0.02,
   flickerCutoff: 0.7,
 };
 
@@ -44,6 +45,7 @@ export const BUILTIN_TEMPLATES: readonly MotionTemplate[] = [
     contact: "all",
     silhouette: { min: 0.01, max: 0.4 },
     footprint: "moving",
+    strides: 2,
     footprintDriftPx: 6,
   },
   {
@@ -121,10 +123,10 @@ function range(v: unknown, where: string, field: string, lo: number, hi: number)
 export function parseTemplate(value: unknown, index = 0): MotionTemplate {
   if (!isRecord(value)) fail(`#${index + 1}`, "must be an object");
   const name = value["name"];
-  if (typeof name !== "string" || !/^[a-z0-9][a-z0-9_]*$/.test(name)) {
+  if (typeof name !== "string" || !/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(name)) {
     fail(
       `#${index + 1}`,
-      "name must be a lowercase word without '-' (it also matches name-<suffix>)",
+      "name must be lowercase words joined by '-' or '_' (it also matches name-<suffix>)",
     );
   }
   const where = `"${name}"`;
@@ -168,6 +170,10 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
   if (drift !== undefined && (typeof drift !== "number" || !(drift >= 0))) {
     fail(where, "footprintDriftPx must be a number of px, 0 or more");
   }
+  const strides = value["strides"];
+  if (strides !== undefined && (!Number.isInteger(strides) || !((strides as number) >= 1))) {
+    fail(where, "strides must be a whole number, 1 or more");
+  }
   const description = value["description"];
   if (description !== undefined && typeof description !== "string") {
     fail(where, "description must be text");
@@ -182,6 +188,7 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
     contact,
     silhouette,
     ...(footprint !== undefined && { footprint }),
+    ...(strides !== undefined && { strides: strides as number }),
     ...(drift !== undefined && { footprintDriftPx: drift }),
   };
 }

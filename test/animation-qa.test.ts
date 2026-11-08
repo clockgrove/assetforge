@@ -76,6 +76,14 @@ test("a strip that does not close fails loop-seam naming the seam", () => {
   assert.deepEqual(bad[0]!.frames, [8, 1]);
 });
 
+test("the loop-seam floor is a profile threshold and the reason names it", () => {
+  const opts = { count: 8, style: "painterly", motion: "walk", seamBreak: true } as const;
+  const bad = failed(run(opts, "walk"), "loop-seam");
+  assert.match(bad[0]!.reason, /floor 0\.02 \(limit /);
+  const loose = { animation: { thresholds: { loopSeamFloor: 1 } } };
+  assert.deepEqual(failed(run(opts, "walk", loose), "loop-seam"), []);
+});
+
 test("walk-like variation fails the silhouette bound of the idle template", () => {
   const r = run({ count: 8, style: "flat", motion: "walk" }, "idle");
   const bad = failed(r, "silhouette");
@@ -195,7 +203,7 @@ test("footprint drift: a walk whose contacts alternate 40-70 px on the ground li
   assert.equal(footFails(strict).length, 6);
 });
 
-test("footprint drift: a walk that slides over the cycle still fails, naming its frames", () => {
+test("footprint drift: a walk that slides over the cycle fails each slid frame against its phase", () => {
   const sliding = WALK_PAWS.map((x, i) => (i < 4 ? x : x + 10));
   const r = checkAnimation(
     { ...pawStrip(sliding), family: "walk-left" },
@@ -206,12 +214,113 @@ test("footprint drift: a walk that slides over the cycle still fails, naming its
     },
   );
   const bad = footFails(r);
-  assert.equal(bad.length, 1);
+  assert.deepEqual(
+    bad.map((x) => x.frames),
+    [[5], [6], [7], [8]],
+  );
   assert.match(
     bad[0]!.reason,
-    /^frames 1, 2, 3, 4 → frames 5, 6, 7, 8: .* moves 10 px .*\(limit 6\)/,
+    /^frame 5: footprint centre .* is 10 px from frame 1's .*, the same phase one stride earlier \(limit 6\)/,
   );
-  assert.deepEqual(bad[0]!.frames, [1, 2, 3, 4, 5, 6, 7, 8]);
+  // One frame that slips is the only frame named.
+  const one = [...WALK_PAWS];
+  one[6] = 45 + 9;
+  const single = footFails(
+    checkAnimation(
+      { ...pawStrip(one), family: "walk-left" },
+      {
+        template: templateFor("walk", templatesFor()),
+        thresholds: thresholdsFor(),
+        threshold: 128,
+      },
+    ),
+  );
+  assert.deepEqual(
+    single.map((x) => x.frames),
+    [[7]],
+  );
+  assert.match(single[0]!.reason, /^frame 7: .* 9 px from frame 3's/);
+});
+
+/**
+ * An asymmetric hop like Jimothy's crouch-hop (#38): the paw crouches at one x early in the cycle
+ * and lands at another x late, 9 frames, so the cycle does not split into two like halves.
+ */
+test("footprint drift: an asymmetric 9-frame hop is held to the loop's mean, frame by frame", () => {
+  const profile = {
+    animation: {
+      templates: [
+        {
+          name: "crouch-hop",
+          loop: true,
+          frames: { min: 3, max: 16 },
+          beats: [
+            { name: "crouch", at: 0, contact: true },
+            { name: "land", at: 0.8, contact: true },
+          ],
+          contact: "none",
+          silhouette: { min: 0, max: 1 },
+          footprint: "moving",
+          footprintDriftPx: 8,
+        },
+      ],
+    },
+  } as unknown as Parameters<typeof animationQa>[1];
+  const template = templateFor("crouch-hop", templatesFor(profile));
+  assert.equal(template?.name, "crouch-hop");
+  const opts = { template, thresholds: thresholdsFor(profile), threshold: 128 };
+  const hop = [40, 40, 40, 40, 48, 48, 48, 48, 48];
+  assert.deepEqual(footFails(checkAnimation({ ...pawStrip(hop), family: "crouch-hop" }, opts)), []);
+  // The same layout with 8 frames gets the same verdict: no parity or half split.
+  assert.deepEqual(
+    footFails(checkAnimation({ ...pawStrip(hop.slice(0, 8)), family: "crouch-hop" }, opts)),
+    [],
+  );
+  // A hop that slides a few px each frame fails on the frames that strayed, each named.
+  const slide = [30, 33, 36, 39, 42, 45, 48, 51, 54];
+  const bad = footFails(checkAnimation({ ...pawStrip(slide), family: "crouch-hop" }, opts));
+  assert.deepEqual(
+    bad.map((x) => x.frames),
+    [[1], [2], [8], [9]],
+  );
+  assert.match(
+    bad[0]!.reason,
+    /^frame 1: .* 12 px from the loop's mean footprint centre .* \(limit 8\)/,
+  );
+  // The strict reading (no template) fails it against frame 1.
+  assert.ok(
+    footFails(
+      checkAnimation({ ...pawStrip(hop), family: "crouch-hop" }, { ...opts, template: undefined }),
+    ).length > 0,
+  );
+});
+
+test("templates: a hyphenated name serves exactly that family and its suffixes", () => {
+  const own = (name: string) => ({
+    name,
+    loop: true,
+    frames: { min: 2, max: 9 },
+    beats: [],
+    contact: "none",
+    silhouette: { min: 0, max: 1 },
+  });
+  const templates = templatesFor({
+    animation: { templates: [own("sit-groom"), own("sit")] },
+  } as unknown as Parameters<typeof animationQa>[1]);
+  assert.equal(templateFor("sit-groom", templates)?.name, "sit-groom");
+  assert.equal(templateFor("sit-groom-left", templates)?.name, "sit-groom");
+  assert.equal(templateFor("sit-up", templates)?.name, "sit");
+  for (const bad of ["-sit", "sit-", "sit--groom", "Sit"]) {
+    assert.throws(
+      () => templatesFor({ animation: { templates: [own(bad)] } } as never),
+      /name must be lowercase words/,
+      bad,
+    );
+  }
+  assert.throws(
+    () => templatesFor({ animation: { templates: [{ ...own("hop"), strides: 0 }] } } as never),
+    /strides must be a whole number/,
+  );
 });
 
 test("footprint drift: static families keep the strict check against frame 1", () => {
@@ -244,6 +353,7 @@ test("footprint drift: a target template marks its own family's contacts as movi
           contact: "all",
           silhouette: { min: 0, max: 1 },
           footprint: "moving",
+          strides: 2,
         },
       ],
     },

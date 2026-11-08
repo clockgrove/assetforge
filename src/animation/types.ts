@@ -37,10 +37,16 @@ export interface MotionTemplate {
   /**
    * How the footprint behaves. `planted` (the default): the feet stay put, so every planted
    * frame's footprint is checked against the first's. `moving`: the contacts move by design (a
-   * walk's legs alternate, a hop crouches and lands), so the cycle as a whole is checked: the
-   * mean footprint of the strip's first half against its second half's.
+   * walk's legs alternate, a hop crouches and lands), so each planted frame is checked against
+   * its own phase: the same frame of the cycle's first stride when `strides` is 2 or more, else
+   * the loop's mean footprint.
    */
   footprint?: "planted" | "moving";
+  /**
+   * How many times the contact pattern repeats in one cycle (a walk: 2, one stride per leg).
+   * Frames a whole stride apart share a phase. Default 1. Used by `footprint: "moving"`.
+   */
+  strides?: number;
   /** Overrides the footprint drift bound for this family, in px. */
   footprintDriftPx?: number;
 }
@@ -51,10 +57,15 @@ export interface AnimationThresholds {
   groundTolerancePx: number;
   /** How far a frame's baseline or centre of mass may sit from the anchor, in px. Default 1. */
   anchorDriftPx: number;
-  /** How far a planted footprint's centre may move from the first frame's (or, for a moving footprint, one half-cycle's mean from the other's), in px. Default 2. */
+  /** How far a planted footprint's centre may move from the first frame's (or, for a moving footprint, from its own phase's), in px. Default 2. */
   footprintDriftPx: number;
   /** The last→first frame distance may be at most this × the largest consecutive distance. Default 1.5. */
   loopSeamRatio: number;
+  /**
+   * The smallest "largest consecutive distance" the seam bound uses, so a strip that barely
+   * moves (an idle hold) is not failed for a seam step of noise. Default 0.02.
+   */
+  loopSeamFloor: number;
   /** A flicker label at or above this confidence fails the pair. Default 0.7. */
   flickerCutoff: number;
 }

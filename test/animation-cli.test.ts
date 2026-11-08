@@ -251,7 +251,11 @@ test("write-families writes the onion skin and loop preview and reports animatio
   assert.equal(written.code, 0, written.stderr);
   const families = doc(written).families as Array<{
     name: string;
-    animation: { template: string; reasons: unknown[] };
+    animation: {
+      template: string;
+      passed: boolean;
+      reasons: Array<{ check: string; passed: boolean }>;
+    };
     onionPath: string;
     loopPreviewPath: string;
   }>;
@@ -263,7 +267,28 @@ test("write-families writes the onion skin and loop preview and reports animatio
     ],
   );
   for (const f of families) {
-    assert.ok(f.animation.reasons.length > 0);
+    // The synthetic idle and walk strips are clean: every check reports, none fails (the walk
+    // template also bounds its cycle, so the walk adds a timing check).
+    assert.deepEqual(
+      [...new Set(f.animation.reasons.map((r) => r.check))],
+      [
+        "template",
+        ...(f.name === "walk-right" ? ["timing"] : []),
+        "beats",
+        "ground-contact",
+        "anchor-drift",
+        "footprint-drift",
+        "silhouette",
+        "loop-seam",
+      ],
+      f.name,
+    );
+    assert.deepEqual(
+      f.animation.reasons.filter((r) => !r.passed),
+      [],
+      f.name,
+    );
+    assert.equal(f.animation.passed, true, f.name);
     decodePng(new Uint8Array(await readFile(f.onionPath)));
     assert.equal((await readFile(f.loopPreviewPath)).subarray(8, 12).toString(), "WEBP");
   }
@@ -272,7 +297,7 @@ test("write-families writes the onion skin and loop preview and reports animatio
     "animation-qa",
     ...["--import", importDir, "--out", join(root, "qa"), "--no-vision", "--json"],
   ]);
-  assert.ok(qa.code === 0 || qa.code === 5, qa.stderr);
+  assert.equal(qa.code, 0, qa.stderr);
   assert.deepEqual(
     doc(qa).families.map((f: { family: string }) => f.family),
     ["idle", "walk-right"],
