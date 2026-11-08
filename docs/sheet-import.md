@@ -67,6 +67,7 @@ A family's provenance record (`generator: "sheet-import"`) holds:
 
 - the source sheet: path, SHA-256, media type, and the model or tool that made it;
 - the model calls Assetforge made: the sheet generation, if any, and the grouping proposal, with their prompts, request IDs, times and costs;
+- the identity score of the contact sheet against the character's identity lock, when `--lock-bible` was given and the character has a lock (`identity`; see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). In enforce mode a sheet below the threshold is still imported, so the person sees it and why, but `write-families` refuses it;
 - the parameters: style, frames, mirroring, the family's reason, the common scale and the measured jitter;
 - `steps`: the transformation steps from the sheet to the strip, each with its parameters, engine and version, and input and output pixel hashes;
 - one entry per strip frame: its frame number, sheet hash, cell, tool and every transform applied (`crop`, `strip-labels`, `matte`, `binarize` and `quantize` where the style asks, `mirror`, `normalize-scale`, `scale`, `place`).
@@ -79,7 +80,7 @@ Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model
 
 ## Cost
 
-`generate-sheet` makes one `sheet` call (default `openai/gpt-image-2` at 1536x1024, estimated at $0.30) and one `vision` call for the grouping ($0.02). Both are reserved against the cap (default $5) before either is made. `import` makes the one grouping call, unless `--no-propose` is given.
+`generate-sheet` makes one `sheet` call (default `openai/gpt-image-2` at 1536x1024, estimated at $0.30) and one `vision` call for the grouping ($0.02). Both are reserved against the cap (default $5) before either is made. `import` makes the one grouping call, unless `--no-propose` is given. With `--lock-bible` and a locked character, either command adds one `identity` decision call (estimated at $0.001), reserved with the rest.
 
 ## The real Jimothy sheet
 

@@ -20,15 +20,18 @@ Video is not used yet: animation is generated as a whole contact sheet first (ow
 
 Set in `src/routes.ts` and overridable with `--routes <file.json>` (a JSON object of operation → partial route).
 
-| Operation                      | Model                   | Why                                                                                                                   | Estimate per call                                |
-| ------------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `still` (stills and key poses) | `openai/gpt-image-2`    | The issue makes GPT-image the default for stills; it takes reference images. Token-priced ($5/M input, $30/M output). | $0.25 (upper bound at 1024x1024 with references) |
-| `edit` (each animation frame)  | `bfl/flux-kontext-pro`  | A reference-edit model: it edits the key pose it is given. Flat $0.04 per image. Accepts a seed.                      | $0.05                                            |
-| `vision` (QA)                  | `google/gemini-3-flash` | A cheap vision-capable language model.                                                                                | $0.02                                            |
-| `sheet` (a cycle as one sheet) | `openai/gpt-image-2`    | Whole-sheet generation keeps identity across frames (owner decision); it takes references. Requested at 1536x1024.    | $0.30 (upper bound at 1536x1024 with references) |
+| Operation                      | Model                          | Why                                                                                                                                                                 | Estimate per call                                |
+| ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `still` (stills and key poses) | `openai/gpt-image-2`           | The issue makes GPT-image the default for stills; it takes reference images. Token-priced ($5/M input, $30/M output).                                               | $0.25 (upper bound at 1024x1024 with references) |
+| `edit` (each animation frame)  | `bfl/flux-kontext-pro`         | A reference-edit model: it edits the key pose it is given. Flat $0.04 per image. Accepts a seed.                                                                    | $0.05                                            |
+| `vision` (QA)                  | `google/gemini-3-flash`        | A cheap vision-capable language model.                                                                                                                              | $0.02                                            |
+| `sheet` (a cycle as one sheet) | `openai/gpt-image-2`           | Whole-sheet generation keeps identity across frames (owner decision); it takes references. Requested at 1536x1024.                                                  | $0.30 (upper bound at 1536x1024 with references) |
+| `identity` (identity lock)     | `perplexity/pplx-decider-v1.2` | A typed decision model. Best on #27's identity eval with reference images (95%). The alternate is `openai/gpt-6-luna-decisions`. About $0.00001–0.00003 per answer. | $0.001 (deliberate upper bound)                  |
 
 A 6-frame strip edits its author-approved key pose 6 times and makes one QA call: about $0.32 per candidate, so the default 4 candidates reserve about $1.28 of the $5 cap. The key pose comes from an earlier `still` run (about $0.27 per candidate, $1.08 for 4).
 
 A generated sheet makes one `sheet` call and one `vision` call for the grouping proposal: about $0.32, reserved against the $5 cap before either call.
+
+A character with an identity lock adds one `identity` call per candidate (see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). Some decision models reject images under about 300 px a side, and `liquid/d1` rejects image input entirely (#27), so pick an alternate that accepts images.
 
 Each route records its provider terms in provenance. The values name the terms in force on 2026-11-07; check and update them when a route changes.
