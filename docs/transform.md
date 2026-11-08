@@ -77,15 +77,17 @@ Strips written by the sheet import carry the same `steps` in their provenance: t
 
 ## Digital Source Type disclosure
 
-Written assets carry `digitalSourceType` in provenance and the same full URI in XMP's `Iptc4xmpExt:DigitalSourceType` property. The [IPTC Digital Source Type vocabulary](https://cv.iptc.org/newscodes/digitalsourcetype/) supplies the codes:
+Assets with a known source type carry `digitalSourceType` in provenance and the same full URI in XMP's `Iptc4xmpExt:DigitalSourceType` property. An asset whose source type is unknown carries `undeclared` in provenance and no IPTC Digital Source Type value in XMP. The [IPTC Digital Source Type vocabulary](https://cv.iptc.org/newscodes/digitalsourcetype/) supplies the codes:
 
 | Origin and transform history                                                                    | URI                                                                                   |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Model-generated media, including deterministic processing of generated pixels                   | `http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`              |
 | Model edits of human-made media, or a composite combining human-made and model-generated pixels | `http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia` |
-| Imported hand-made media with deterministic transforms only                                     | `http://cv.iptc.org/newscodes/digitalsourcetype/digitalCreation`                      |
+| Explicitly declared hand-made digital media with deterministic transforms only                  | `http://cv.iptc.org/newscodes/digitalsourcetype/digitalCreation`                      |
 
-Deterministic operations preserve an input's embedded disclosure. Untagged local transform inputs default to human digital creations. Joining human and generated inputs produces the composite code; cropping, resizing or converting an already generated image does not make it human-made. References that guide generation without contributing human-made pixels do not by themselves make the result a composite.
+Recorded generation calls establish `trainedAlgorithmicMedia` automatically; model edits of human-made media and composites combining human-made and generated pixels use `compositeWithTrainedAlgorithmicMedia`. Deterministic operations preserve an input's known disclosure: cropping, resizing or converting an already generated image does not make it human-made. References that guide generation without contributing human-made pixels do not by themselves make the result a composite.
+
+Never infer `digitalCreation` from an untagged file or a free-text tool label. Use `--digital-source-type <code>` to declare a source type explicitly; the code or full HTTP URI is validated against the IPTC vocabulary, and provenance records the declaration together with who declared it. Without a known disclosure, a recorded generation call or an explicit declaration, provenance records `undeclared` and the file receives no IPTC Digital Source Type value in XMP. Local staging and previews still work. Publishing or exporting, including writes into a target, handoffs and packages, refuses an undeclared asset with a message naming `--digital-source-type`.
 
 PNG stores an uncompressed XMP packet in an `iTXt` chunk whose keyword is `XML:com.adobe.xmp`. WebP stores it in the standard `XMP ` RIFF chunk. The metadata writer uses the IPTC extension namespace `http://iptc.org/std/Iptc4xmpExt/2008-02-29/`. Writing the disclosure is recorded as an `embed-digital-source-type` provenance step. Its input and output pixel hashes are identical, and the packet contains no timestamp or random identifier, preserving deterministic output bytes.
 
