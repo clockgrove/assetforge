@@ -58,3 +58,9 @@ Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetfor
 - Provenance steps are chained by pixel hashes, so intermediate images are never encoded. Sources and written files also record their file SHA-256. The record holds no time, so reruns are byte-identical.
 - WebP output is lossless VP8L from an in-house encoder, which is deterministic and needs no native dependency. KTX2 waits for the material maps (#14).
 - The sheet import runs on these operations, with byte-identical output.
+
+## Generation constitutions (owner, 2026-11-08; assetforge#28)
+
+Art direction lives in a target-owned Markdown bible with validated YAML front matter, prose rationale and Do's and Don'ts. The `yaml` parser is pinned to 2.9.1 because this format requires YAML; existing JSON profile, spec and recipe formats remain unchanged. Palette, outline, lighting, fog, saturation and value bounds use DTCG 2025.10 typed tokens. Art-specific axes remain in the art schema.
+
+The target-owned Agent Skill links the bible and starting presets. DESIGN.md contributes UI colour context only; Assetforge does not extend its format with art direction. Prompt templates are copied into the target repository on explicit initialization and versioned there. `plan` records compilation and model inputs; `apply` checks their hashes and authorizes generation spend without approving an asset.

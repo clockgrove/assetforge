@@ -128,10 +128,6 @@ function subjectLine(spec: AssetSpec, bible: StyleBible): string {
   return description ? `Subject: ${subject}, ${description}.` : `Subject: ${subject}.`;
 }
 
-const PRESENTATION =
-  "Paint albedo under a neutral key light, without baked directional shadows, highlights or emissive glow. " +
-  "One single subject, whole and uncropped, centred on a plain flat uniform background, no text, no border, no shadow on the ground.";
-
 /** The key pose (or a still): a text-and-reference generation. */
 export function buildStillPrompt(
   spec: AssetSpec,
@@ -149,7 +145,6 @@ export function buildStillPrompt(
     `It will be scaled to a ${grid.frame.width}x${grid.frame.height} px frame, so keep the silhouette readable.`,
     `Reference images, in order: ${[...refs.subject.map((r) => r.role), "perspective sample", "palette swatch"].join(", ")}. Match the subject's identity to the subject references and the camera angle to the perspective sample.`,
     ...styleLines(bible),
-    PRESENTATION,
   ].join("\n");
 }
 
@@ -165,6 +160,5 @@ export function buildFramePrompt(
     subjectLine(spec, bible),
     "Keep the same character, proportions, colours, camera angle, scale and background; change only the pose for this point in the motion.",
     ...styleLines(bible),
-    PRESENTATION,
   ].join("\n");
 }
