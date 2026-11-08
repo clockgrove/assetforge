@@ -176,3 +176,95 @@ test("identity-eval reports accuracy per threshold, the recommendation and agree
   assert.equal(report.qaAgreement.rate, 0.75);
   assert.equal((await readFile(log, "utf8")).trim().split("\n").length, 4);
 });
+
+test("plan --identity-mode enforce, then apply: a strip below the threshold is filtered and the person sees why", async () => {
+  const f = await fixture();
+  const fixtureModule = fileURLToPath(new URL("./fixtures/synthetic.ts", import.meta.url));
+  const rasterModule = fileURLToPath(new URL("../src/image/raster.ts", import.meta.url));
+  const script = join(f.root, "provider.mjs");
+  await writeFile(
+    script,
+    `import { pathToFileURL } from "node:url";
+const { drawSubject } = await import(pathToFileURL(${JSON.stringify(fixtureModule)}));
+const { encodePng } = await import(pathToFileURL(${JSON.stringify(rasterModule)}));
+export default {
+  image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(drawSubject(96)) }] }),
+  vision: (request) => {
+    if (request.prompt.includes('"violations":[]')) throw new Error("no compiler offline");
+    return { text: JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }) };
+  },
+  decide: (_request, index) => ({ answer: { type: "score", score: [1, 4][index] }, confidence: 0.7 }),
+};
+`,
+  );
+  await writeFile(join(f.root, "key.png"), encodePng(createRaster(16, 16)));
+  const spec = join(f.root, "spec.json");
+  await writeFile(
+    spec,
+    JSON.stringify({
+      kind: "sprite-strip",
+      assetId: "stevie-idle",
+      subject: "stevie",
+      animationFamily: "idle",
+      keyPose: "key.png",
+      frames: { count: 2, width: 16, height: 16 },
+    }),
+  );
+  const template = join(f.root, "template.md");
+  await writeFile(template, "# Prompt template v1\n{{constitution}}\n{{spec}}\n");
+  const settings = join(f.root, "settings.json");
+  await writeFile(settings, JSON.stringify({ candidates: 2, capUsd: 5, strictness: 0.5 }));
+  const plan = join(f.root, "plan.json");
+  const planned = await exec(
+    process.execPath,
+    [
+      CLI,
+      "plan",
+      "--spec",
+      spec,
+      "--bible",
+      f.bible,
+      "--profile",
+      join(f.root, "profile.json"),
+      "--settings",
+      settings,
+      "--template",
+      template,
+      "--out",
+      plan,
+      "--identity-mode",
+      "enforce",
+      "--provider-script",
+      script,
+      "--json",
+    ],
+    { env: env("") },
+  );
+  const { plan: saved } = JSON.parse(planned.stdout);
+  assert.equal(saved.identityCheck.mode, "enforce");
+  assert.equal(saved.identityCheck.route.model, "perplexity/pplx-decider-v1.2");
+  const applied = await exec(
+    process.execPath,
+    [
+      CLI,
+      "apply",
+      plan,
+      "--auto-approve",
+      "--out",
+      join(f.root, "runs"),
+      "--provider-script",
+      script,
+    ],
+    { env: env("") },
+  );
+  assert.match(
+    applied.stdout,
+    /candidate 1 filtered: identity-lock: identity 0\.25 < threshold 0\.625 against "stevie" lock stevie-3/,
+  );
+  assert.match(applied.stdout, /identity-lock \[decision\]: identity 1\.00 >= threshold 0\.625/);
+  assert.match(
+    applied.stdout,
+    /identity enforce against "stevie" lock stevie-3 \(threshold 0\.625\): 2 scored, agrees with QA on 1 of 2/,
+  );
+  assert.match(applied.stderr, /identity perplexity\/pplx-decider-v1\.2: .*confidence 0\.70/);
+});
