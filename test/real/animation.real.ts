@@ -36,6 +36,27 @@ const profile: TargetProfile = {
   },
   manifest: { review: { status: "pending" } },
   review: { path: "review.status", pending: "pending" },
+  // Jimothy's crouch-hop matches no built-in template; the target adds one, as data, whose
+  // contacts move (crouch, hop, land), so its footprint drift is checked over the cycle.
+  animation: {
+    templates: [
+      {
+        name: "crouch",
+        description: "crouch, hop and land; the feet leave the ground between contacts",
+        loop: true,
+        frames: { min: 3, max: 16 },
+        beats: [
+          { name: "crouch", at: 0, contact: true },
+          { name: "airborne", at: 0.4 },
+          { name: "land", at: 0.8, contact: true },
+        ],
+        contact: "beats",
+        silhouette: { min: 0.01, max: 0.5 },
+        footprint: "moving",
+        footprintDriftPx: 8,
+      },
+    ],
+  },
 };
 
 test(

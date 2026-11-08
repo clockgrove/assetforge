@@ -43,6 +43,7 @@ export const BUILTIN_TEMPLATES: readonly MotionTemplate[] = [
     ],
     contact: "all",
     silhouette: { min: 0.01, max: 0.4 },
+    footprint: "moving",
     footprintDriftPx: 6,
   },
   {
@@ -82,6 +83,7 @@ export const BUILTIN_TEMPLATES: readonly MotionTemplate[] = [
     ],
     contact: "beats",
     silhouette: { min: 0.01, max: 0.5 },
+    footprint: "moving",
     footprintDriftPx: 8,
   },
   {
@@ -158,6 +160,10 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
     fail(where, 'contact must be "all", "beats" or "none"');
   }
   const silhouette = range(value["silhouette"], where, "silhouette", 0, 1);
+  const footprint = value["footprint"];
+  if (footprint !== undefined && footprint !== "planted" && footprint !== "moving") {
+    fail(where, 'footprint must be "planted" or "moving"');
+  }
   const drift = value["footprintDriftPx"];
   if (drift !== undefined && (typeof drift !== "number" || !(drift >= 0))) {
     fail(where, "footprintDriftPx must be a number of px, 0 or more");
@@ -175,6 +181,7 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
     beats,
     contact,
     silhouette,
+    ...(footprint !== undefined && { footprint }),
     ...(drift !== undefined && { footprintDriftPx: drift }),
   };
 }

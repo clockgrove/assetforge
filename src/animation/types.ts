@@ -34,6 +34,13 @@ export interface MotionTemplate {
   contact: "all" | "beats" | "none";
   /** Allowed silhouette change between consecutive frames, as 1 − IoU of their alpha masks. */
   silhouette: { min: number; max: number };
+  /**
+   * How the footprint behaves. `planted` (the default): the feet stay put, so every planted
+   * frame's footprint is checked against the first's. `moving`: the contacts move by design (a
+   * walk's legs alternate, a hop crouches and lands), so the cycle as a whole is checked: the
+   * mean footprint of the strip's first half against its second half's.
+   */
+  footprint?: "planted" | "moving";
   /** Overrides the footprint drift bound for this family, in px. */
   footprintDriftPx?: number;
 }
@@ -44,7 +51,7 @@ export interface AnimationThresholds {
   groundTolerancePx: number;
   /** How far a frame's baseline or centre of mass may sit from the anchor, in px. Default 1. */
   anchorDriftPx: number;
-  /** How far the footprint's centre may move from the first frame's, in px. Default 2. */
+  /** How far a planted footprint's centre may move from the first frame's (or, for a moving footprint, one half-cycle's mean from the other's), in px. Default 2. */
   footprintDriftPx: number;
   /** The last→first frame distance may be at most this × the largest consecutive distance. Default 1.5. */
   loopSeamRatio: number;

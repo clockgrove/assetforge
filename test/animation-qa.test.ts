@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { checkAnimation, animationQa } from "../src/animation/qa.ts";
 import { templateFor, templatesFor, thresholdsFor } from "../src/animation/templates.ts";
 import { InputError } from "../src/errors.ts";
+import { createRaster, setPixel } from "../src/image/raster.ts";
 import type { ResolvedStyle } from "../src/style.ts";
 import { syntheticStrip } from "./fixtures/strip.ts";
 import type { StripOptions } from "./fixtures/strip.ts";
@@ -143,5 +144,123 @@ test("templatesFor rejects an invalid template", () => {
   assert.throws(
     () => templatesFor({ animation: { templates: [{ name: "bad" } as never] } }),
     InputError,
+  );
+});
+
+/**
+ * A strip shaped like Jimothy's real walk (#38): a body over the anchor and two paws, one planted
+ * on the ground line and one lifted, the planted paw jumping 40–60 px between frames as the legs
+ * alternate. `planted[k]` is the planted paw's left x in frame k + 1.
+ */
+function pawStrip(planted: number[]) {
+  const width = 160;
+  const height = 80;
+  const anchor = { x: 80, y: 70 };
+  const frames = planted.map((px) => {
+    const r = createRaster(width, height);
+    const paint = (x0: number, y0: number, x1: number, y1: number) => {
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) setPixel(r, x, y, [90, 80, 70, 255]);
+    };
+    paint(50, 30, 109, 60);
+    paint(px, 61, px + 7, 70); // planted paw, on the ground line
+    const lifted = px < 80 ? px + 50 : px - 50;
+    paint(lifted, 61, lifted + 7, 65); // lifted paw, off the ground
+    return r;
+  });
+  return { frames, frame: { width, height }, anchor };
+}
+
+const WALK_PAWS = [30, 90, 45, 100, 30, 90, 45, 100];
+const footFails = (r: ReturnType<typeof checkAnimation>) =>
+  r.reasons.filter((x) => x.check === "footprint-drift" && !x.passed);
+
+test("footprint drift: a walk whose contacts alternate 40-70 px on the ground line passes", () => {
+  const input = { ...pawStrip(WALK_PAWS), family: "walk-right" };
+  const profile = {};
+  const r = checkAnimation(input, {
+    template: templateFor("walk-right", templatesFor(profile)),
+    thresholds: thresholdsFor(profile),
+    threshold: 128,
+  });
+  assert.deepEqual(footFails(r), []);
+  const reason = r.reasons.find((x) => x.check === "footprint-drift");
+  assert.match(reason!.reason, /contacts move/);
+  // The same strip under the strict, planted reading fails every frame away from frame 1's paw.
+  const strict = checkAnimation(input, {
+    template: { ...templateFor("walk", templatesFor())!, footprint: "planted" },
+    thresholds: thresholdsFor(),
+    threshold: 128,
+  });
+  assert.equal(footFails(strict).length, 6);
+});
+
+test("footprint drift: a walk that slides over the cycle still fails, naming its frames", () => {
+  const sliding = WALK_PAWS.map((x, i) => (i < 4 ? x : x + 10));
+  const r = checkAnimation(
+    { ...pawStrip(sliding), family: "walk-left" },
+    {
+      template: templateFor("walk-left", templatesFor()),
+      thresholds: thresholdsFor(),
+      threshold: 128,
+    },
+  );
+  const bad = footFails(r);
+  assert.equal(bad.length, 1);
+  assert.match(
+    bad[0]!.reason,
+    /^frames 1, 2, 3, 4 → frames 5, 6, 7, 8: .* moves 10 px .*\(limit 6\)/,
+  );
+  assert.deepEqual(bad[0]!.frames, [1, 2, 3, 4, 5, 6, 7, 8]);
+});
+
+test("footprint drift: static families keep the strict check against frame 1", () => {
+  const shuffled = [40, 40, 40, 44, 40, 40];
+  for (const family of ["idle", "sit-groom"]) {
+    const r = checkAnimation(
+      { ...pawStrip(shuffled), family },
+      {
+        template: templateFor(family, templatesFor()),
+        thresholds: thresholdsFor(),
+        threshold: 128,
+      },
+    );
+    const bad = footFails(r);
+    assert.equal(bad.length, 1, family);
+    assert.match(bad[0]!.reason, /^frame 4: footprint centre .* 4 px from frame 1's .*\(limit 2\)/);
+  }
+});
+
+test("footprint drift: a target template marks its own family's contacts as moving", () => {
+  const hop = [40, 40, 52, 30, 40, 40, 52, 30];
+  const profile = {
+    animation: {
+      templates: [
+        {
+          name: "crouch",
+          loop: true,
+          frames: { min: 3, max: 16 },
+          beats: [{ name: "crouch", at: 0, contact: true }],
+          contact: "all",
+          silhouette: { min: 0, max: 1 },
+          footprint: "moving",
+        },
+      ],
+    },
+  } as unknown as Parameters<typeof animationQa>[1];
+  const template = templateFor("crouch-hop", templatesFor(profile));
+  assert.equal(template?.footprint, "moving");
+  const opts = { thresholds: thresholdsFor(profile), threshold: 128 };
+  const input = { ...pawStrip(hop), family: "crouch-hop" };
+  assert.deepEqual(footFails(checkAnimation(input, { ...opts, template })), []);
+  assert.ok(footFails(checkAnimation(input, { ...opts, template: undefined })).length > 0);
+  assert.throws(
+    () =>
+      templatesFor({
+        animation: {
+          templates: [{ ...(profile!.animation!.templates![0] as object), footprint: "sliding" }],
+        },
+      } as never),
+    /footprint must be "planted" or "moving"/,
   );
 });

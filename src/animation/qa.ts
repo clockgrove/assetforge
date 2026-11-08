@@ -235,24 +235,57 @@ export function checkAnimation(
   );
   const centre = (m: AnimationFrameMeasure) =>
     ((m.footprint as [number, number])[0] + (m.footprint as [number, number])[1] + 1) / 2;
-  const first = planted[0];
-  const footFails = first ? planted.filter((m) => Math.abs(centre(m) - centre(first)) > limit) : [];
-  if (footFails.length === 0) {
-    add(
-      "footprint-drift",
-      true,
-      first
-        ? `footprints stay within ${limit} px of frame ${first.frame}'s`
-        : "no frame rests on the ground line; footprint drift not applicable",
-    );
-  }
-  for (const m of footFails) {
-    add(
-      "footprint-drift",
-      false,
-      `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(Math.abs(centre(m) - centre(first as AnimationFrameMeasure)))} px from frame ${(first as AnimationFrameMeasure).frame}'s ${fix(centre(first as AnimationFrameMeasure))} (limit ${limit})`,
-      [m.frame],
-    );
+  if (template?.footprint === "moving") {
+    // The contacts move by design; what stays put is the cycle as a whole, so the mean
+    // footprint of the strip's first half is checked against its second half's.
+    const half = Math.floor(count / 2);
+    const a = planted.filter((m) => m.frame <= half);
+    const b = planted.filter((m) => m.frame > half);
+    const mean = (ms: AnimationFrameMeasure[]) => ms.reduce((t, m) => t + centre(m), 0) / ms.length;
+    const span = (ms: AnimationFrameMeasure[]) =>
+      ms.length === 1
+        ? `frame ${(ms[0] as AnimationFrameMeasure).frame}`
+        : `frames ${ms.map((m) => m.frame).join(", ")}`;
+    if (a.length === 0 || b.length === 0) {
+      add(
+        "footprint-drift",
+        true,
+        `the ${template.name} template's contacts move; no planted frame in ${a.length === 0 ? "the first" : "the second"} half of the cycle, footprint drift not applicable`,
+      );
+    } else {
+      const d = Math.abs(mean(a) - mean(b));
+      const ok = d <= limit;
+      add(
+        "footprint-drift",
+        ok,
+        ok
+          ? `the ${template.name} template's contacts move; the mean footprint centre of ${span(a)} (${fix(mean(a))}) and of ${span(b)} (${fix(mean(b))}) are ${fix(d)} px apart (limit ${limit})`
+          : `${span(a)} → ${span(b)}: the mean footprint centre moves ${fix(d)} px over the cycle, from ${fix(mean(a))} to ${fix(mean(b))} (limit ${limit})`,
+        ok ? undefined : [...a, ...b].map((m) => m.frame),
+      );
+    }
+  } else {
+    const first = planted[0];
+    const footFails = first
+      ? planted.filter((m) => Math.abs(centre(m) - centre(first)) > limit)
+      : [];
+    if (footFails.length === 0) {
+      add(
+        "footprint-drift",
+        true,
+        first
+          ? `footprints stay within ${limit} px of frame ${first.frame}'s`
+          : "no frame rests on the ground line; footprint drift not applicable",
+      );
+    }
+    for (const m of footFails) {
+      add(
+        "footprint-drift",
+        false,
+        `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(Math.abs(centre(m) - centre(first as AnimationFrameMeasure)))} px from frame ${(first as AnimationFrameMeasure).frame}'s ${fix(centre(first as AnimationFrameMeasure))} (limit ${limit})`,
+        [m.frame],
+      );
+    }
   }
 
   // silhouette and loop seam
