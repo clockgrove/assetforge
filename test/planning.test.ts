@@ -5,8 +5,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { BIBLE_PRESETS, serializeBible } from "../src/bible.ts";
 import { createPlan, applyPlan, savePlan, assertOriginalDescription } from "../src/planning.ts";
+import { defaultRoutes } from "../src/routes.ts";
+import { syntheticProfile } from "./fixtures/synthetic.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
-import { createRaster, encodePng, decodeImage, setPixel } from "../src/image/raster.ts";
+import { createRaster, encodePng, decodeImage, opaqueBox, setPixel } from "../src/image/raster.ts";
 
 const temporaryRoots: string[] = [];
 after(async () => {
@@ -487,8 +489,10 @@ test("malformed compiler and QA JSON refuse safely before staging a candidate", 
     );
   }
   const plan = await createPlan({ biblePath: f.biblePath, spec, settings });
+  const visible = createRaster(4, 4);
+  setPixel(visible, 1, 1, [120, 90, 80, 255]);
   const provider = new ScriptedProvider({
-    image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(createRaster(4, 4)) }] }),
+    image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(visible) }] }),
     vision: () => ({ text: "null" }),
   });
   const { run } = await applyPlan(plan, {
@@ -498,4 +502,76 @@ test("malformed compiler and QA JSON refuse safely before staging a candidate", 
   });
   assert.equal(run.candidates.length, 0);
   assert.equal(run.filtered, 1);
+  assert.equal(provider.calls.filter((call) => call.kind === "vision").length, 1);
+});
+
+test("apply fits the visible subject and honors the spec anchor", async () => {
+  const f = await fixture();
+  const provider = scripted();
+  const plan = await createPlan({
+    biblePath: f.biblePath,
+    spec: { ...spec, frames: { width: 8, height: 8 }, anchor: { x: 4, y: 6 } },
+    settings,
+    provider,
+    profile: syntheticProfile({ style: { edges: "crisp" } }),
+  });
+  const { run, runDir } = await applyPlan(plan, {
+    provider,
+    autoApprove: true,
+    outDir: join(f.root, "runs"),
+  });
+  const candidate = run.candidates[0]!;
+  const image = decodeImage(new Uint8Array(await readFile(join(runDir, candidate.file))));
+  assert.deepEqual(opaqueBox(image), { x: 1, y: 0, width: 6, height: 6 });
+  assert.deepEqual(candidate.fields["anchor"], { x: 4, y: 6 });
+  assert.deepEqual(candidate.fields["bounds"], { x: 1, y: 0, width: 6, height: 6 });
+  await assert.rejects(
+    createPlan({ biblePath: f.biblePath, spec: { ...spec, anchor: { x: -1, y: 0 } }, settings }),
+    /anchor/,
+  );
+});
+
+test("recorded model routes, seed sequence and exploration settings reach the exact calls", async () => {
+  const f = await fixture();
+  const provider = scripted();
+  const plan = await createPlan({
+    biblePath: f.biblePath,
+    spec,
+    settings: {
+      candidates: 2,
+      capUsd: 2,
+      seed: 42,
+      strictness: 0.9,
+      exploration: 0.25,
+      modelRoute: { ...defaultRoutes.still, model: "scripted/image", supportsSeed: true },
+      llmRoute: { ...defaultRoutes.vision, model: "scripted/compiler" },
+      qaRoute: { ...defaultRoutes.vision, model: "scripted/qa" },
+    },
+    provider,
+  });
+  assert.match(plan.prompt, /exploration within constitutional bounds: 0.25/);
+  const { run } = await applyPlan(plan, {
+    provider,
+    autoApprove: true,
+    outDir: join(f.root, "runs"),
+  });
+  assert.equal(run.candidates.length, 2);
+  const images = provider.calls.filter((call) => call.kind === "image");
+  assert.deepEqual(
+    images.map((call) => call.request.seed),
+    [42, 43],
+  );
+  assert.deepEqual(
+    images.map((call) => call.request.model),
+    ["scripted/image", "scripted/image"],
+  );
+  const textCalls = provider.calls.filter((call) => call.kind === "vision");
+  assert.deepEqual(
+    textCalls.map((call) => call.request.model),
+    ["scripted/compiler", "scripted/qa", "scripted/qa"],
+  );
+  await assert.rejects(
+    createPlan({ biblePath: f.biblePath, spec, settings: { seed: 1 }, provider }),
+    /does not support/,
+  );
 });

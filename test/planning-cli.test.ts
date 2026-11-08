@@ -117,6 +117,31 @@ test("CLI initializes a skill, describes axes and compiles a plan without image 
   assert.doesNotMatch(await readFile(f.events, "utf8"), /"kind":"image"/);
 });
 
+test("CLI without an available LLM records a usable template fallback without generation", async () => {
+  const f = await setup();
+  const result = await cli([
+    "plan",
+    "--spec",
+    f.spec,
+    "--profile",
+    f.profile,
+    "--bible",
+    f.biblePath,
+    "--settings",
+    f.settings,
+    "--out",
+    f.plan,
+    "--json",
+  ]);
+  assert.equal(result.code, 0, result.stderr);
+  const { plan } = JSON.parse(result.stdout);
+  assert.equal(plan.compiler.mode, "template-fallback");
+  assert.equal(plan.compiler.templateVersion, "1");
+  assert.match(plan.prompt, /lighting key/);
+  assert.doesNotMatch(plan.prompt, /Return (?:ONLY )?JSON/i);
+  await assert.rejects(readFile(f.events), { code: "ENOENT" });
+});
+
 test("CLI apply requires explicit approval, auto-approve generates, stale template refuses", async () => {
   const f = await setup();
   const planned = await cli(["plan", ...f.args]);

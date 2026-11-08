@@ -8,7 +8,14 @@ import { biblePalette, loadBible, loadDesignColors, doDontSection } from "./bibl
 import type { ArtBible, BibleDocument } from "./bible.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
 import { loadReference, paletteSwatch, sha256, subjectOf } from "./request.ts";
-import { decodeImage, encodePng, createRaster, getPixel, setPixel } from "./image/raster.ts";
+import {
+  decodeImage,
+  encodePng,
+  createRaster,
+  getPixel,
+  opaqueBox,
+  setPixel,
+} from "./image/raster.ts";
 import { resampleTo } from "./image/resample.ts";
 import { applyStyle } from "./image/apply-style.ts";
 import { resolveStyle } from "./style.ts";
@@ -502,6 +509,16 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
       Math.max(frame.width, frame.height) > profile.frames.maxEdge)
   )
     throw new InputError("invalid planned frame dimensions or count");
+  if (
+    options.spec.anchor &&
+    (!Number.isFinite(options.spec.anchor.x) ||
+      !Number.isFinite(options.spec.anchor.y) ||
+      options.spec.anchor.x < 0 ||
+      options.spec.anchor.x > frame.width ||
+      options.spec.anchor.y < 0 ||
+      options.spec.anchor.y > frame.height)
+  )
+    throw new InputError("anchor must lie within the planned frame");
   const loaded = await referencesFor(doc, options.spec, resolve(options.specDir ?? doc.dir));
   // loadReference keeps the supplied path; plans persist absolute filesystem paths.
   const references = loaded.references.map((r) =>
@@ -854,42 +871,38 @@ export async function applyPlan(
         plan.postprocess.frame.width * frames.length,
         plan.postprocess.frame.height,
       );
+      const boxes = frames.map((frame) => opaqueBox(frame));
+      if (boxes.some((box) => !box)) {
+        run.filtered++;
+        continue;
+      }
+      const frameSize = plan.postprocess.frame;
+      const anchor = plan.spec.anchor ?? {
+        x: Math.floor(frameSize.width / 2),
+        y: frameSize.height - 1,
+      };
+      const scale = Math.min(
+        Math.max(1, frameSize.width - 2) / Math.max(...boxes.map((box) => box!.width)),
+        Math.max(1, frameSize.height - 2) / Math.max(...boxes.map((box) => box!.height)),
+      );
       for (let f = 0; f < frames.length; f++) {
         const source = frames[f]!;
-        const scale = Math.min(
-          Math.max(1, plan.postprocess.frame.width - 2) / source.width,
-          Math.max(1, plan.postprocess.frame.height - 2) / source.height,
-        );
+        const box = boxes[f]!;
+        const cropped = createRaster(box.width, box.height);
+        for (let y = 0; y < box.height; y++)
+          for (let x = 0; x < box.width; x++)
+            setPixel(cropped, x, y, getPixel(source, box.x + x, box.y + y));
+        const width = Math.min(frameSize.width, Math.max(1, Math.round(box.width * scale)));
+        const height = Math.min(frameSize.height, Math.max(1, Math.round(box.height * scale)));
         const normalized = applyStyle(
-          resampleTo(
-            source,
-            scale,
-            {
-              x: Math.max(
-                0,
-                Math.min(
-                  plan.postprocess.frame.width - source.width * scale,
-                  (plan.spec.anchor?.x ?? Math.floor(plan.postprocess.frame.width / 2)) -
-                    (source.width * scale) / 2,
-                ),
-              ),
-              y: Math.max(
-                0,
-                Math.min(
-                  plan.postprocess.frame.height - source.height * scale,
-                  (plan.spec.anchor?.y ?? plan.postprocess.frame.height - 1) -
-                    source.height * scale,
-                ),
-              ),
-            },
-            plan.postprocess.frame,
-            style.edges,
-          ),
+          resampleTo(cropped, scale, { x: 0, y: 0 }, { width, height }, style.edges),
           style,
         );
-        for (let y = 0; y < normalized.height; y++)
-          for (let x = 0; x < normalized.width; x++)
-            setPixel(strip, f * normalized.width + x, y, getPixel(normalized, x, y));
+        const ox = Math.min(frameSize.width - width, Math.max(0, Math.round(anchor.x - width / 2)));
+        const oy = Math.min(frameSize.height - height, Math.max(0, Math.round(anchor.y - height)));
+        for (let y = 0; y < height; y++)
+          for (let x = 0; x < width; x++)
+            setPixel(strip, f * frameSize.width + ox + x, oy + y, getPixel(normalized, x, y));
       }
       const image = { mediaType: "image/png", bytes: encodePng(strip) };
       const candidateRef: LoadedReference = {
@@ -936,6 +949,7 @@ export async function applyPlan(
           brief: plan.brief,
           originalBrief: plan.originalBrief,
           imagePrompts: plan.imagePrompts,
+          postprocess: plan.postprocess,
           template: plan.template,
           identity: plan.identity,
           settings: plan.settings,
@@ -985,6 +999,7 @@ export async function applyPlan(
             y: plan.postprocess.frame.height - 1,
           },
           palette: plan.postprocess.palette,
+          bounds: opaqueBox(strip),
         },
         provenance,
       });
