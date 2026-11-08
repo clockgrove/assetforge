@@ -337,10 +337,23 @@ test("the full chain on a sheet is deterministic: same input, recipe and engines
   assert.equal(a.record.outputs.length, 8);
   assert.deepEqual(
     a.record.steps.map((s) => s.op),
-    ["slice", "matte", "register", "trim", "pad", "scale", "renditions", "convert"],
+    [
+      "slice",
+      "matte",
+      "register",
+      "trim",
+      "pad",
+      "scale",
+      "renditions",
+      "convert",
+      ...Array(8).fill("embed-digital-source-type"),
+    ],
   );
   for (const s of a.record.steps) {
-    assert.equal(s.engine.name, "assetforge-raster");
+    assert.equal(
+      s.engine.name,
+      s.op === "embed-digital-source-type" ? "assetforge-xmp" : "assetforge-raster",
+    );
     assert.ok(s.inputs.length > 0 && s.outputs.length > 0);
   }
   assert.equal(a.record.sources[0]?.mediaType, "image/png");
@@ -428,7 +441,7 @@ test("the sheet import records its transformation steps, and each strip's proven
   });
   assert.deepEqual(
     record.steps?.map((s) => s.op),
-    ["slice", "matte"],
+    ["slice", "matte", ...Array(record.frames.length + 1).fill("embed-digital-source-type")],
   );
   assert.deepEqual(record.steps?.[0]?.inputs, [pixelHash(sheet.raster)]);
   const target = join(root, "target");
@@ -452,12 +465,29 @@ test("the sheet import records its transformation steps, and each strip's proven
   // The non-mirrored family records no flip; the mirrored one records its own flip only.
   assert.deepEqual(
     (await stepsOf(0)).map((s) => s.op),
-    ["slice", "matte", "register", "apply-style", "join"],
+    [
+      "slice",
+      "matte",
+      ...Array(record.frames.length + 1).fill("embed-digital-source-type"),
+      "register",
+      "apply-style",
+      "join",
+      "embed-digital-source-type",
+    ],
   );
   const mirrored = await stepsOf(1);
   assert.deepEqual(
     mirrored.map((s) => s.op),
-    ["slice", "matte", "flip", "register", "apply-style", "join"],
+    [
+      "slice",
+      "matte",
+      ...Array(record.frames.length + 1).fill("embed-digital-source-type"),
+      "flip",
+      "register",
+      "apply-style",
+      "join",
+      "embed-digital-source-type",
+    ],
   );
   assert.equal(mirrored.filter((s) => s.op === "flip").length, 1);
 });

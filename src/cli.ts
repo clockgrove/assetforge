@@ -7,6 +7,8 @@ import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
+import { DIGITAL_SOURCE_TYPES } from "./metadata.ts";
+import type { DigitalSourceType } from "./metadata.ts";
 import { InputError, ProviderError } from "./errors.ts";
 import { VercelGateway } from "./gateway/vercel.ts";
 import { ScriptedProvider } from "./gateway/scripted.ts";
@@ -354,7 +356,7 @@ const importCommand: Command = {
                         [--bible <bible.json>] [--subject <name>] [--hints idle,walk-right,...]
                         [--grid <columns>] [--components] [--no-propose] [--cap ${DEFAULT_CAP_USD}]
                         [--routes <routes.json>] [--imports .assetforge/imports]
-                        [--provider-script <module>] [--json]
+                        [--digital-source-type <IPTC code or URI>] [--provider-script <module>] [--json]
 
 Slices a contact sheet (from any tool; --tool names it, for example "ChatGPT image
 generation"), removes the background to the profile's style, and has a vision model propose
@@ -366,6 +368,7 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
     profile: { type: "string" },
     asset: { type: "string" },
     tool: { type: "string" },
+    "digital-source-type": { type: "string" },
     bible: { type: "string" },
     subject: { type: "string" },
     hints: { type: "string" },
@@ -391,6 +394,15 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
     const subjectOption = values["subject"] as string | undefined;
     const subject = subjectOption ?? asset;
     const sheet = await readBytes(sheetPath, "sheet");
+    const sourceCode = values["digital-source-type"] as string | undefined;
+    const digitalSourceType =
+      sourceCode === undefined
+        ? undefined
+        : Object.values(DIGITAL_SOURCE_TYPES).find(
+            (value) => value === sourceCode || value.endsWith(`/${sourceCode}`),
+          );
+    if (sourceCode !== undefined && !digitalSourceType)
+      throw new InputError(`invalid --digital-source-type: ${sourceCode}`);
     let propose: ImportOptions["propose"];
     if (!values["no-propose"]) {
       const routes = await loadRoutes(values["routes"] as string | undefined);
@@ -411,6 +423,9 @@ to "confirmed" before write-families. See docs/sheet-import.md.`,
       sheet,
       sheetPath,
       tool: o["tool"] as string,
+      ...(digitalSourceType !== undefined && {
+        digitalSourceType: digitalSourceType as DigitalSourceType,
+      }),
       assetId: asset,
       ...(subjectOption !== undefined && { subject: subjectOption }),
       profile: profile.value,

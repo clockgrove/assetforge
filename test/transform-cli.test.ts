@@ -63,7 +63,8 @@ test("op matte makes the background transparent and records one raster-engine st
   const prov = JSON.parse(await readFile(`${out}.provenance.json`, "utf8")) as {
     steps: { op: string; engine: { name: string } }[];
   };
-  assert.equal(prov.steps.length, 1);
+  assert.equal(prov.steps.length, 2);
+  assert.equal(prov.steps[1]?.op, "embed-digital-source-type");
   assert.equal(prov.steps[0]?.engine.name, "assetforge-raster");
 });
 
@@ -93,9 +94,13 @@ test("recipe runs trim, pad, renditions and convert to webp, byte-identically tw
     }
     outputs.push(files);
     const prov = JSON.parse(await readFile(join(out, "provenance.json"), "utf8")) as {
-      steps: unknown[];
+      steps: { op: string }[];
     };
-    assert.equal(prov.steps.length, 4);
+    assert.equal(prov.steps.length, 6);
+    assert.deepEqual(
+      prov.steps.slice(4).map((s) => s.op),
+      ["embed-digital-source-type", "embed-digital-source-type"],
+    );
   }
   for (let i = 0; i < 2; i++) {
     assert.deepEqual(outputs[0]?.[i], outputs[1]?.[i]);

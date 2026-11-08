@@ -1,4 +1,5 @@
 /** Core data types. Everything game-specific reaches Assetforge as one of these, as data. */
+import type { DigitalSourceType } from "./metadata.ts";
 import type { MaterialProfile } from "./material/profile.ts";
 import type { TransformStep } from "./transform/types.ts";
 
@@ -164,6 +165,7 @@ export interface SheetSource {
 }
 
 export interface Provenance {
+  digitalSourceType?: DigitalSourceType;
   generator: string;
   route: string;
   models: string[];

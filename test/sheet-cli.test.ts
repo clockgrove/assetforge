@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { DIGITAL_SOURCE_TYPES } from "../src/metadata.ts";
 import type { Grouping } from "../src/sheet/types.ts";
 import { syntheticSheet } from "./fixtures/sheet.ts";
 import { syntheticProfile } from "./fixtures/synthetic.ts";
@@ -30,19 +31,55 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
   await writeFile(join(root, "profile.json"), JSON.stringify(profile));
   const env = { ...process.env, AI_GATEWAY_API_KEY: "" };
 
+  await assert.rejects(
+    exec(
+      process.execPath,
+      [
+        CLI,
+        "import",
+        "--sheet",
+        join(root, "sheet.png"),
+        "--profile",
+        join(root, "profile.json"),
+        "--asset",
+        "stevie",
+        "--tool",
+        "hand drawn",
+        "--no-propose",
+        "--digital-source-type",
+        "unknown",
+      ],
+      { env },
+    ),
+    /invalid --digital-source-type/,
+  );
+
   const imported = await exec(
     process.execPath,
     [
       CLI,
       "import",
       ...["--sheet", join(root, "sheet.png"), "--profile", join(root, "profile.json")],
-      ...["--asset", "stevie", "--tool", "hand drawn", "--no-propose"],
+      ...[
+        "--asset",
+        "stevie",
+        "--tool",
+        "hand drawn",
+        "--no-propose",
+        "--digital-source-type",
+        "digitalCreation",
+      ],
       ...["--imports", join(root, "imports"), "--json"],
     ],
     { env },
   );
-  const record = JSON.parse(imported.stdout) as { importDir: string; frames: unknown[] };
+  const record = JSON.parse(imported.stdout) as {
+    importDir: string;
+    frames: unknown[];
+    digitalSourceType: string;
+  };
   assert.equal(record.frames.length, 16);
+  assert.equal(record.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
   const groupingPath = join(record.importDir, "grouping.json");
   const proposal = JSON.parse(await readFile(groupingPath, "utf8")) as Grouping;
   assert.equal(proposal.status, "proposed");
@@ -78,4 +115,5 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
     await readFile(join(target, "assets/manifests/stevie/walk-left.json"), "utf8"),
   );
   assert.equal(manifest.review.status, "pending");
+  assert.equal(manifest.provenance.generated.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
 });

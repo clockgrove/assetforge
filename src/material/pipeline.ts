@@ -1,10 +1,18 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Caller } from "../calls.ts";
+import {
+  DIGITAL_SOURCE_TYPES,
+  combineDigitalSourceTypes,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+  metadataStep,
+} from "../metadata.ts";
+import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
 import { decodeImage, encodePng } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
-import { sha256 } from "../request.ts";
+import { sha256, sniffMediaType } from "../request.ts";
 import type { AssetSpec, LoadedReference, QaResult, Reason, TargetProfile } from "../types.ts";
 import { CORE_METHODS, temporalChecks, validateMaterialMap } from "./core.ts";
 import type { MaterialChannel } from "./core.ts";
@@ -12,7 +20,7 @@ import type { MaterialChannel } from "./core.ts";
 export type { MaterialProfile } from "./profile.ts";
 import { resolveMaterialProfile } from "./profile.ts";
 import { targetCommand } from "./engine.ts";
-import { runRecipeAsync } from "../transform/run.ts";
+import { pixelHash, runRecipeAsync } from "../transform/run.ts";
 import type { TransformStep, ImageItem } from "../transform/types.ts";
 export interface MaterialDerivation {
   maps: Partial<
@@ -31,6 +39,7 @@ export interface MaterialDerivation {
 }
 
 export interface MaterialOutput {
+  digitalSourceType: DigitalSourceType;
   channel: MaterialChannel | "albedo";
   scale: number;
   path: string;
@@ -93,18 +102,22 @@ export async function runMaterials(options: {
   const config = resolveMaterialProfile(profile.style?.materials);
   const steps: TransformStep[] = [];
   const commandResults: unknown[] = [];
+  const origins = new WeakMap<Raster, DigitalSourceType>();
   const recipeItem = (raster: Raster, name: string): ImageItem => ({
     name,
     raster,
     mediaType: "image/png",
     meta: {},
+    digitalSourceType: origins.get(raster) ?? DIGITAL_SOURCE_TYPES.human,
   });
   const recipe = async (op: string, params: Record<string, unknown>, raster: Raster) => {
     const result = await runRecipeAsync({ steps: [{ op, params }] }, [recipeItem(raster, op)], {
       materialCall: call,
     });
     steps.push(...result.steps);
-    return result.items[0]!.raster;
+    const item = result.items[0]!;
+    origins.set(item.raster, item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human);
+    return item.raster;
   };
   if (!derivation || !derivation.maps)
     throw new InputError("material derivation maps are required");
@@ -117,6 +130,10 @@ export async function runMaterials(options: {
     throw new InputError("invalid material frame grid");
   const albedoBytes = new Uint8Array(await readFile(options.albedoPath));
   const albedo = decodeImage(albedoBytes);
+  origins.set(
+    albedo,
+    readDigitalSourceType(albedoBytes, sniffMediaType(albedoBytes)) ?? DIGITAL_SOURCE_TYPES.human,
+  );
   const native = albedo.height / grid.height;
   if (
     !Number.isInteger(native) ||
@@ -303,9 +320,12 @@ export async function runMaterials(options: {
           if (checks.some((r) => !r.passed)) return writeReport();
         }
         const path = join(outDir, `${channel}@${scale}x.png`);
-        const bytes = encodePng(rendition);
+        const digitalSourceType = origins.get(rendition) ?? DIGITAL_SOURCE_TYPES.human;
+        const bytes = embedDigitalSourceType(encodePng(rendition), "image/png", digitalSourceType);
+        steps.push(metadataStep(digitalSourceType, [pixelHash(rendition)]));
         await writeFile(path, bytes);
         const output = {
+          digitalSourceType,
           channel,
           scale,
           path,
@@ -393,13 +413,20 @@ export async function runMaterials(options: {
         options.profileDir ?? options.baseDir,
       );
       commandResults.push(execution);
-      const bytes = new Uint8Array(await readFile(path));
-      const raster = decodeImage(bytes);
+      const sourceBytes = new Uint8Array(await readFile(path));
+      const raster = decodeImage(sourceBytes);
+      const digitalSourceType = combineDigitalSourceTypes(outputs.map((o) => o.digitalSourceType));
+      const bytes = embedDigitalSourceType(sourceBytes, "image/png", digitalSourceType);
+      await writeFile(path, bytes);
+      const step = metadataStep(digitalSourceType, [pixelHash(raster)]);
+      steps.push(step);
       if (raster.width < 1 || raster.height < 1)
         throw new InputError("target preview returned an empty image");
       previews.push(imageReference(bytes, `target render ${scene}`, path));
       sidecars.set(`${path}.provenance.json`, {
         ...common,
+        digitalSourceType,
+        steps: [...steps],
         path,
         sha256: sha256(bytes),
         preview: {

@@ -7,6 +7,8 @@ import { Budget } from "../src/budget.ts";
 import { Caller } from "../src/calls.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import { createRaster, decodeImage, encodePng, getPixel, setPixel } from "../src/image/raster.ts";
+import { DIGITAL_SOURCE_TYPES, readDigitalSourceType } from "../src/metadata.ts";
+import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import type { TargetProfile } from "../src/types.ts";
 import { runMaterials } from "../src/material/pipeline.ts";
@@ -145,6 +147,16 @@ test("material pipeline emits aligned native 1x/2x maps, provenance and lit revi
   const result = await runMaterials(f.options);
   assert.equal(result.passed, true);
   assert.equal(result.outputs.length, 12);
+  for (const output of result.outputs) {
+    const bytes = await readFile(output.path);
+    assert.equal(readDigitalSourceType(bytes, output.mediaType), DIGITAL_SOURCE_TYPES.human);
+    assert.equal(output.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(output.sha256, sha256(bytes));
+    const provenance = JSON.parse(await readFile(`${output.path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(provenance.steps.at(-1).op, "embed-digital-source-type");
+    assert.deepEqual(provenance.steps.at(-1).inputs, provenance.steps.at(-1).outputs);
+  }
   const normal = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", "normal@1x.png"))));
   assert.equal(normal.width, 4);
   assert.equal(normal.height, 2);
@@ -183,7 +195,14 @@ test("material pipeline emits aligned native 1x/2x maps, provenance and lit revi
     ["dusk-rain", [48, 60, 72, 255]],
     ["night", [16, 20, 24, 255]],
   ] as const) {
-    const lit = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", `${scene}.png`))));
+    const path = join(f.dir, "out", `${scene}.png`);
+    const bytes = await readFile(path);
+    assert.equal(readDigitalSourceType(bytes, "image/png"), DIGITAL_SOURCE_TYPES.human);
+    const provenance = JSON.parse(await readFile(`${path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(provenance.sha256, sha256(bytes));
+    assert.equal(provenance.steps.at(-1).op, "embed-digital-source-type");
+    const lit = decodeImage(new Uint8Array(bytes));
     assert.deepEqual(getPixel(lit, 1, 1), expected);
   }
 });
@@ -215,6 +234,15 @@ test("model-assisted maps reserve spend and record actual model calls", async ()
   assert.equal(report.calls[0].model, "depth");
   assert.equal(report.calls[0].operation, "material-height");
   assert.equal(report.calls.length, 2);
+  for (const name of ["height@1x", "normal@2x", "dusk-rain", "night"]) {
+    const path = join(f.dir, "out", `${name}.png`);
+    assert.equal(
+      readDigitalSourceType(await readFile(path), "image/png"),
+      DIGITAL_SOURCE_TYPES.composite,
+    );
+    const provenance = JSON.parse(await readFile(`${path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.composite);
+  }
 });
 
 test("fake-only KTX2 compressor exercises external container validation per rendition", async () => {

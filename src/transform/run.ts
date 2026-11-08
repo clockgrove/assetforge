@@ -7,6 +7,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
+import {
+  DIGITAL_SOURCE_TYPES,
+  combineDigitalSourceTypes,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+  metadataStep,
+} from "../metadata.ts";
+import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
 import type { Raster } from "../image/raster.ts";
 import { sha256, sniffMediaType } from "../request.ts";
@@ -98,13 +106,24 @@ export function runOperation(
   let out: ImageItem[];
   if (spec.scope === "all") {
     const result = impl(items, params, context);
-    out = result.items;
+    out = result.items.map((item) => ({
+      ...item,
+      digitalSourceType:
+        item.digitalSourceType ??
+        combineDigitalSourceTypes(
+          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human),
+        ),
+    }));
     if (result.report) reports.push(result.report);
   } else {
     out = items.flatMap((item) => {
       const result = impl([item], params, context);
       if (result.report) reports.push(result.report);
-      return result.items;
+      return result.items.map((output) => ({
+        ...output,
+        digitalSourceType:
+          output.digitalSourceType ?? item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
+      }));
     });
   }
   const report =
@@ -189,6 +208,7 @@ export function runRecipe(
 
 /** A source file as recorded in a transform provenance record. */
 export interface SourceFile {
+  digitalSourceType: DigitalSourceType;
   name: string;
   path: string;
   sha256: string;
@@ -199,6 +219,7 @@ export interface SourceFile {
 }
 
 export interface OutputFile {
+  digitalSourceType: DigitalSourceType;
   name: string;
   path: string;
   sha256: string;
@@ -266,12 +287,19 @@ export async function transformFiles(
       sha256: sha256(bytes),
       mediaType,
       pixels: pixelHash(raster),
+      digitalSourceType: readDigitalSourceType(bytes, mediaType) ?? DIGITAL_SOURCE_TYPES.human,
       decodedBy: { name: decoder.name, version: decoder.version },
     });
     // An item keeps its source's media type when an engine can encode it; otherwise (JPEG today)
     // it is written as PNG unless a `convert` step says otherwise.
     const encodable = engines.some((e) => e.encoders[mediaType] !== undefined);
-    items.push({ name, raster, mediaType: encodable ? mediaType : "image/png", meta: {} });
+    items.push({
+      name,
+      raster,
+      mediaType: encodable ? mediaType : "image/png",
+      meta: {},
+      digitalSourceType: readDigitalSourceType(bytes, mediaType) ?? DIGITAL_SOURCE_TYPES.human,
+    });
   }
 
   const style = options.style ?? resolveStyle(undefined);
@@ -313,11 +341,18 @@ export async function transformFiles(
   await mkdir(dir, { recursive: true });
   const outputs: OutputFile[] = [];
   for (const { item, engine, encoder, path } of planned) {
-    const bytes = encoder.encode(item.raster);
+    const digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human;
+    const bytes = embedDigitalSourceType(
+      encoder.encode(item.raster),
+      item.mediaType,
+      digitalSourceType,
+    );
+    steps.push(metadataStep(digitalSourceType, [pixelHash(item.raster)]));
     await writeFile(path, bytes);
     const meta = jsonMeta(item.meta);
     outputs.push({
       name: item.name,
+      digitalSourceType,
       path,
       sha256: sha256(bytes),
       mediaType: item.mediaType,

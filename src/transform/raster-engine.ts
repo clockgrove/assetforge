@@ -4,6 +4,7 @@
  * a pure function of its input pixels and parameters.
  */
 import { createHash } from "node:crypto";
+import { combineDigitalSourceTypes, DIGITAL_SOURCE_TYPES } from "../metadata.ts";
 import { InputError } from "../errors.ts";
 import { applyStyle } from "../image/apply-style.ts";
 import { createRaster, decodeImage, encodePng, toHex } from "../image/raster.ts";
@@ -19,7 +20,7 @@ import type { ImageEngine, ImageItem, OperationImpl } from "./types.ts";
 
 /** A new item from `item` with new pixels; the slice figure no longer lines up, so it is dropped. */
 function derive(item: ImageItem, raster: Raster, meta: Record<string, unknown> = {}): ImageItem {
-  return { name: item.name, raster, mediaType: item.mediaType, meta: { ...item.meta, ...meta } };
+  return { ...item, raster, figure: undefined, meta: { ...item.meta, ...meta } };
 }
 
 /** Copies `box` out of `src`; pixels outside the source are transparent. */
@@ -149,6 +150,7 @@ const slice: OperationImpl = ([item], p) => {
   const items = sliced.figures.map((figure): ImageItem => ({
     name: `${it.name}-f${String(figure.id).padStart(3, "0")}`,
     raster: figure.crop,
+    digitalSourceType: it.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human,
     mediaType: it.mediaType,
     meta: {
       frame: figure.id,
@@ -278,7 +280,15 @@ const join: OperationImpl = (items, p) => {
     (p["name"] as string | undefined) ?? `${first.name}-${rows === 1 ? "strip" : "sheet"}`;
   return {
     items: [
-      { name, raster: out, mediaType: first.mediaType, meta: { cell, columns, rows, placed } },
+      {
+        name,
+        raster: out,
+        mediaType: first.mediaType,
+        digitalSourceType: combineDigitalSourceTypes(
+          items.map((i) => i.digitalSourceType ?? DIGITAL_SOURCE_TYPES.human),
+        ),
+        meta: { cell, columns, rows, placed },
+      },
     ],
   };
 };

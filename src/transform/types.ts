@@ -4,6 +4,7 @@
  * recipe names operations, never an engine's code. Every run of an operation appends one
  * provenance step.
  */
+import type { DigitalSourceType } from "../metadata.ts";
 import type { Raster } from "../image/raster.ts";
 import type { SlicedFigure } from "../sheet/types.ts";
 import type { ResolvedStyle } from "../style.ts";
@@ -12,6 +13,7 @@ import type { ParamSchema } from "./schema.ts";
 
 /** One image flowing through a recipe. */
 export interface ImageItem {
+  digitalSourceType?: DigitalSourceType;
   /** Names the output file: the source's base name, then suffixes such as `-f001` or `@2x`. */
   name: string;
   raster: Raster;

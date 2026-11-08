@@ -1,13 +1,22 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import {
+  DIGITAL_SOURCE_TYPES,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+  metadataStep,
+} from "./metadata.ts";
+import type { DigitalSourceType } from "./metadata.ts";
+import { decodeImage } from "./image/raster.ts";
+import { pixelHash } from "./transform/run.ts";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
 import { parseJsonFile } from "./json.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
 import type { Generator, PlannedCall } from "./generators/generator.ts";
-import { sha256 } from "./request.ts";
+import { sha256, sniffMediaType } from "./request.ts";
 import type { Routes } from "./routes.ts";
 import type {
   AssetSpec,
@@ -224,25 +233,42 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
       }
       const id = `c${index + 1}`;
       const file = `${id}.${generated.output.extension}`;
-      await writeFile(join(runDir, file), generated.output.bytes);
-      const seeded = call.records.some((r) => r.seed !== undefined);
+      let digitalSourceType: DigitalSourceType = DIGITAL_SOURCE_TYPES.generated;
+      if (spec.keyPose && call.records.some((record) => record.operation === "edit")) {
+        const source = new Uint8Array(await readFile(resolve(options.specDir, spec.keyPose)));
+        const sourceType = readDigitalSourceType(source, sniffMediaType(source));
+        if (sourceType !== DIGITAL_SOURCE_TYPES.generated)
+          digitalSourceType = DIGITAL_SOURCE_TYPES.composite;
+      }
+      const bytes = embedDigitalSourceType(
+        generated.output.bytes,
+        generated.output.mediaType,
+        digitalSourceType,
+      );
+      const provenance = provenanceOf(
+        generator,
+        call.records,
+        generated.prompt,
+        generated.parameters,
+        bible,
+        profile,
+        call.records.some((r) => r.seed !== undefined) ? seed : undefined,
+      );
+      provenance.digitalSourceType = digitalSourceType;
+      const pixelHashes = ["image/png", "image/jpeg"].includes(generated.output.mediaType)
+        ? [pixelHash(decodeImage(generated.output.bytes))]
+        : [];
+      provenance.steps = [metadataStep(digitalSourceType, pixelHashes)];
+      await writeFile(join(runDir, file), bytes);
       run.candidates.push({
         id,
         file,
         mediaType: generated.output.mediaType,
         extension: generated.output.extension,
-        sha256: sha256(generated.output.bytes),
+        sha256: sha256(bytes),
         reasons: generated.qa.reasons,
         fields: generated.output.fields,
-        provenance: provenanceOf(
-          generator,
-          call.records,
-          generated.prompt,
-          generated.parameters,
-          bible,
-          profile,
-          seeded ? seed : undefined,
-        ),
+        provenance,
       });
       log(`candidate ${index + 1}/${requested}: passed QA`);
     } catch (error) {
