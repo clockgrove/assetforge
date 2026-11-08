@@ -75,6 +75,32 @@ A pixel hash is the SHA-256 of `rgba8 <width>x<height>\n` followed by the RGBA b
 
 Strips written by the sheet import carry the same `steps` in their provenance: the import's `slice` and `matte`, then the write's `flip` (a mirrored family's own flip only), `register`, `apply-style` and `join`. This is a new optional field in the provenance each strip's manifest receives in the target.
 
+## Digital Source Type disclosure
+
+Assets with a known source type carry `digitalSourceType` in provenance and the same full URI in XMP's `Iptc4xmpExt:DigitalSourceType` property. An asset whose source type is unknown carries `undeclared` in provenance and no IPTC Digital Source Type value in XMP. The [IPTC Digital Source Type vocabulary](https://cv.iptc.org/newscodes/digitalsourcetype/) supplies the codes:
+
+| Origin and transform history                                                                    | URI                                                                                   |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Model-generated media, including deterministic processing of generated pixels                   | `http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`              |
+| Model edits of human-made media, or a composite combining human-made and model-generated pixels | `http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia` |
+| Explicitly declared hand-made digital media with deterministic transforms only                  | `http://cv.iptc.org/newscodes/digitalsourcetype/digitalCreation`                      |
+
+Recorded generation calls establish `trainedAlgorithmicMedia` automatically; model edits of human-made media and composites combining human-made and generated pixels use `compositeWithTrainedAlgorithmicMedia`. Deterministic operations preserve an input's known disclosure: cropping, resizing or converting an already generated image does not make it human-made. References that guide generation without contributing human-made pixels do not by themselves make the result a composite.
+
+Never infer `digitalCreation` from an untagged file or a free-text tool label. Use `--digital-source-type <code>` to declare a source type explicitly; the code or full HTTP URI is validated against the IPTC vocabulary, and provenance records the declaration together with who declared it. Without a known disclosure, a recorded generation call or an explicit declaration, provenance records `undeclared` and the file receives no IPTC Digital Source Type value in XMP. Local staging and previews still work. Publishing or exporting, including writes into a target, handoffs and packages, refuses an undeclared asset with a message naming `--digital-source-type`.
+
+PNG stores an uncompressed XMP packet in an `iTXt` chunk whose keyword is `XML:com.adobe.xmp`. WebP stores it in the standard `XMP ` RIFF chunk. The metadata writer uses the IPTC extension namespace `http://iptc.org/std/Iptc4xmpExt/2008-02-29/`. Writing the disclosure is recorded as an `embed-digital-source-type` provenance step. Its input and output pixel hashes are identical, and the packet contains no timestamp or random identifier, preserving deterministic output bytes.
+
+Bounds, dimensions and transformation content identity come from decoded RGBA pixels. The `pixels` hash described above excludes container metadata, so adding XMP leaves that identity unchanged. File `sha256` values deliberately hash the complete written file, including XMP; manifest file hashes are calculated after embedding, so they still verify the bytes delivered to a target.
+
+The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetforge. Clockgrove's public `validateSource` implementation can also be run separately against tagged outputs through that profile boundary.
+
+The metadata adapter also supports JSON glTF through [Khronos `KHR_xmp_json_ld`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld), with the Digital Source Type URI in a document-level XMP packet. There is no glTF generator in the current pipeline; a future 3D writer must pass its output through that adapter. KTX2 outputs retain disclosure in their provenance sidecars.
+
+### Later: signed Content Credentials
+
+Digital Source Type is an unsigned disclosure, not a C2PA signature. Per the owner's 2026-11-07 decision, signed C2PA Content Credentials are later work. PNG, JPEG, WebP and WAV can embed C2PA manifests; glTF and KTX2 need a sidecar `.c2pa` file. This change does not add those manifests or sidecars.
+
 ## Engines
 
 An engine adapter (`ImageEngine` in `src/transform/types.ts`) has a name, a version, the operations it implements, its encoders by media type, and a decoder. The in-house engine, `assetforge-raster`, is Assetforge's own TypeScript raster code. It decodes PNG and JPEG, and encodes PNG and lossless WebP (VP8L). Its version is bumped whenever any operation's output bytes change.

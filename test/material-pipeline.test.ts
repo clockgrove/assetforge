@@ -7,6 +7,12 @@ import { Budget } from "../src/budget.ts";
 import { Caller } from "../src/calls.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import { createRaster, decodeImage, encodePng, getPixel, setPixel } from "../src/image/raster.ts";
+import {
+  DIGITAL_SOURCE_TYPES,
+  readDigitalSourceType,
+  embedDigitalSourceType,
+} from "../src/metadata.ts";
+import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import type { TargetProfile } from "../src/types.ts";
 import { runMaterials } from "../src/material/pipeline.ts";
@@ -23,9 +29,18 @@ async function setup(options: { failLit?: boolean; compression?: boolean; model?
       setPixel(height, x, y, [128, 128, 128, 255]);
       setPixel(zero, x, y, [0, 0, 0, 255]);
     }
-  await writeFile(join(dir, "albedo.png"), encodePng(albedo));
-  await writeFile(join(dir, "height.png"), encodePng(height));
-  await writeFile(join(dir, "zero.png"), encodePng(zero));
+  await writeFile(
+    join(dir, "albedo.png"),
+    embedDigitalSourceType(encodePng(albedo), "image/png", DIGITAL_SOURCE_TYPES.human),
+  );
+  await writeFile(
+    join(dir, "height.png"),
+    embedDigitalSourceType(encodePng(height), "image/png", DIGITAL_SOURCE_TYPES.human),
+  );
+  await writeFile(
+    join(dir, "zero.png"),
+    embedDigitalSourceType(encodePng(zero), "image/png", DIGITAL_SOURCE_TYPES.human),
+  );
   // Synthetic Lambert rig proves normal-driven rendering; model judgement remains scripted.
   const renderer = join(dir, "renderer.mjs");
   await writeFile(
@@ -145,6 +160,16 @@ test("material pipeline emits aligned native 1x/2x maps, provenance and lit revi
   const result = await runMaterials(f.options);
   assert.equal(result.passed, true);
   assert.equal(result.outputs.length, 12);
+  for (const output of result.outputs) {
+    const bytes = await readFile(output.path);
+    assert.equal(readDigitalSourceType(bytes, output.mediaType), DIGITAL_SOURCE_TYPES.human);
+    assert.equal(output.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(output.sha256, sha256(bytes));
+    const provenance = JSON.parse(await readFile(`${output.path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(provenance.steps.at(-1).op, "embed-digital-source-type");
+    assert.deepEqual(provenance.steps.at(-1).inputs, provenance.steps.at(-1).outputs);
+  }
   const normal = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", "normal@1x.png"))));
   assert.equal(normal.width, 4);
   assert.equal(normal.height, 2);
@@ -183,7 +208,14 @@ test("material pipeline emits aligned native 1x/2x maps, provenance and lit revi
     ["dusk-rain", [48, 60, 72, 255]],
     ["night", [16, 20, 24, 255]],
   ] as const) {
-    const lit = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", `${scene}.png`))));
+    const path = join(f.dir, "out", `${scene}.png`);
+    const bytes = await readFile(path);
+    assert.equal(readDigitalSourceType(bytes, "image/png"), DIGITAL_SOURCE_TYPES.human);
+    const provenance = JSON.parse(await readFile(`${path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
+    assert.equal(provenance.sha256, sha256(bytes));
+    assert.equal(provenance.steps.at(-1).op, "embed-digital-source-type");
+    const lit = decodeImage(new Uint8Array(bytes));
     assert.deepEqual(getPixel(lit, 1, 1), expected);
   }
 });
@@ -215,6 +247,15 @@ test("model-assisted maps reserve spend and record actual model calls", async ()
   assert.equal(report.calls[0].model, "depth");
   assert.equal(report.calls[0].operation, "material-height");
   assert.equal(report.calls.length, 2);
+  for (const name of ["height@1x", "normal@2x", "dusk-rain", "night"]) {
+    const path = join(f.dir, "out", `${name}.png`);
+    assert.equal(
+      readDigitalSourceType(await readFile(path), "image/png"),
+      DIGITAL_SOURCE_TYPES.composite,
+    );
+    const provenance = JSON.parse(await readFile(`${path}.provenance.json`, "utf8"));
+    assert.equal(provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.composite);
+  }
 });
 
 test("fake-only KTX2 compressor exercises external container validation per rendition", async () => {
@@ -244,7 +285,10 @@ test("fractional 3x native downsampling preserves frame grid and preview failure
   await writeFile(join(f.dir, "height.png"), encodePng(source));
   const zero = createRaster(12, 6);
   for (let y = 0; y < 6; y++) for (let x = 0; x < 12; x++) setPixel(zero, x, y, [0, 0, 0, 255]);
-  await writeFile(join(f.dir, "zero.png"), encodePng(zero));
+  await writeFile(
+    join(f.dir, "zero.png"),
+    embedDigitalSourceType(encodePng(zero), "image/png", DIGITAL_SOURCE_TYPES.human),
+  );
   let result = await runMaterials(f.options);
   assert.equal(result.passed, true);
   const map = decodeImage(new Uint8Array(await readFile(join(f.dir, "out", "height@2x.png"))));
@@ -330,4 +374,31 @@ test("rendition normal renormalization fails QA before out-of-range delivery or 
   assert.equal(f.provider.calls.length, 0);
   const report = JSON.parse(await readFile(result.reportPath, "utf8"));
   assert.equal(report.qa.passed, false);
+});
+
+test("undeclared material PNG previews remain local while package compression refuses until declaration", async () => {
+  const f = await setup();
+  const untagged = createRaster(8, 4);
+  for (let y = 0; y < 4; y++)
+    for (let x = 0; x < 8; x++) setPixel(untagged, x, y, [100, 100, 100, 255]);
+  await writeFile(f.options.albedoPath, encodePng(untagged));
+  await writeFile(join(f.dir, "height.png"), encodePng(untagged));
+  const staged = await runMaterials(f.options);
+  assert.equal(staged.outputs[0]!.digitalSourceType, "undeclared");
+  assert.equal(
+    readDigitalSourceType(await readFile(staged.outputs[0]!.path), "image/png"),
+    undefined,
+  );
+  const compressed = await setup({ compression: true });
+  f.config.compression = compressed.config.compression;
+  await assert.rejects(runMaterials(f.options), /undeclared.*--digital-source-type/);
+  const exported = await runMaterials({
+    ...f.options,
+    digitalSourceType: DIGITAL_SOURCE_TYPES.human,
+  });
+  assert.ok(exported.outputs.some((output) => output.mediaType === "image/ktx2"));
+  const provenance = JSON.parse(
+    await readFile(`${exported.outputs[0]!.path}.provenance.json`, "utf8"),
+  );
+  assert.equal(provenance.sourceDeclaration.value, DIGITAL_SOURCE_TYPES.human);
 });

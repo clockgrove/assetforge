@@ -59,7 +59,10 @@ async function setup() {
   const plan = join(dir, "plan.json");
   const script = join(dir, "provider.mjs");
   const events = join(dir, "events.jsonl");
-  await writeFile(spec, JSON.stringify({ kind: "still", assetId: "icon", subject: "icon" }));
+  await writeFile(
+    spec,
+    JSON.stringify({ kind: "still", assetId: "icon", subject: "icon", animationFamily: "still" }),
+  );
   await writeFile(profile, JSON.stringify(syntheticProfile()));
   await writeFile(settings, JSON.stringify({ candidates: 1, capUsd: 2, strictness: 0.5 }));
   await writeFile(
@@ -155,6 +158,24 @@ test("CLI apply requires explicit approval, auto-approve generates, stale templa
   assert.equal(applied.code, 0, applied.stderr);
   assert.match(await readFile(f.events, "utf8"), /"kind":"image"/);
   assert.ok((await readdir(out)).length > 0);
+  const { run, runDir } = JSON.parse(applied.stdout);
+  const candidate = run.candidates[0];
+  const { DIGITAL_SOURCE_TYPES, readDigitalSourceType } = await import("../src/metadata.ts");
+  assert.equal(candidate.provenance.digitalSourceType, DIGITAL_SOURCE_TYPES.generated);
+  assert.equal(
+    readDigitalSourceType(await readFile(join(runDir, candidate.file)), "image/png"),
+    DIGITAL_SOURCE_TYPES.generated,
+  );
+  const { pick } = await import("../src/handoff.ts");
+  const picked = await pick({
+    runDir,
+    candidateId: candidate.id,
+    targetDir: join(f.dir, "target"),
+  });
+  assert.equal(
+    readDigitalSourceType(await readFile(picked.mediaPath), "image/png"),
+    DIGITAL_SOURCE_TYPES.generated,
+  );
   await writeFile(
     f.templatePath,
     `${await readFile(f.templatePath, "utf8")}\nChanged after planning.\n`,

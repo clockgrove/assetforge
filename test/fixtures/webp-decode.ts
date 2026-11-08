@@ -103,12 +103,18 @@ export function decodeWebpLossless(bytes: Uint8Array): Raster {
       ((bytes[o + 2] ?? 0) << 16) |
       ((bytes[o + 3] ?? 0) << 24)) >>>
     0;
-  if (tag(0) !== "RIFF" || tag(8) !== "WEBP" || tag(12) !== "VP8L") {
-    throw new Error("Not a simple lossless WebP file");
-  }
+  if (tag(0) !== "RIFF" || tag(8) !== "WEBP") throw new Error("Not a WebP file");
   if (u32(4) + 8 !== bytes.length) throw new Error("RIFF size mismatch");
-  const size = u32(16);
-  const br = new BitReader(bytes.subarray(20, 20 + size));
+  let offset = 12;
+  while (offset + 8 <= bytes.length && tag(offset) !== "VP8L") {
+    const size = u32(offset + 4);
+    if (offset + 8 + size > bytes.length) throw new Error("Truncated WebP chunk");
+    offset += 8 + size + (size % 2);
+  }
+  if (tag(offset) !== "VP8L") throw new Error("No lossless WebP image");
+  const size = u32(offset + 4);
+  if (offset + 8 + size > bytes.length) throw new Error("Truncated VP8L chunk");
+  const br = new BitReader(bytes.subarray(offset + 8, offset + 8 + size));
   if (br.read(8) !== 0x2f) throw new Error("Bad VP8L signature");
   const width = br.read(14) + 1;
   const height = br.read(14) + 1;

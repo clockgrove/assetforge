@@ -2,9 +2,16 @@ import { execFile } from "node:child_process";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
+import {
+  DIGITAL_SOURCE_TYPES,
+  requireDeclared,
+  combineDigitalSourceTypes,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+} from "../metadata.ts";
 import { InputError } from "../errors.ts";
 import { decodeImage, encodePng } from "../image/raster.ts";
-import { sha256 } from "../request.ts";
+import { sha256, sniffMediaType } from "../request.ts";
 import type {
   ImageEngine,
   ImageItem,
@@ -80,6 +87,7 @@ export const materialEngine: ImageEngine = {
             const method = params["method"] as string;
             if (!(params["version"] as string).trim())
               throw new InputError("material method version required");
+            let digitalSourceType = item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared;
             let raster;
             let inputHash: string;
             if (method === "height-derived-normal") {
@@ -93,6 +101,12 @@ export const materialEngine: ImageEngine = {
                 if (!params["path"])
                   throw new InputError(`missing extraction source path for ${channel}`);
                 bytes = new Uint8Array(await readFile(params["path"] as string));
+                digitalSourceType = combineDigitalSourceTypes([
+                  digitalSourceType,
+                  readDigitalSourceType(bytes, sniffMediaType(bytes)) ??
+                    context.digitalSourceType ??
+                    DIGITAL_SOURCE_TYPES.undeclared,
+                ]);
               } else {
                 if (!context.materialCall)
                   throw new InputError("model-assisted material recipe requires a budgeted Caller");
@@ -111,6 +125,10 @@ export const materialEngine: ImageEngine = {
                   ],
                 );
                 bytes = result.bytes;
+                digitalSourceType =
+                  digitalSourceType === DIGITAL_SOURCE_TYPES.generated
+                    ? DIGITAL_SOURCE_TYPES.generated
+                    : DIGITAL_SOURCE_TYPES.composite;
               }
               inputHash = sha256(bytes);
               const source = decodeImage(bytes);
@@ -122,7 +140,7 @@ export const materialEngine: ImageEngine = {
                     });
             }
             return {
-              items: [{ ...item, raster, meta: { ...item.meta, channel } }],
+              items: [{ ...item, raster, digitalSourceType, meta: { ...item.meta, channel } }],
               report: { method, version: params["version"], inputHash },
             };
           },
@@ -148,11 +166,19 @@ export const materialEngine: ImageEngine = {
       "material-encode",
       async (items: ImageItem[], params: Record<string, unknown>): Promise<OperationResult> => {
         const item = items[0]!;
+        requireDeclared(item.digitalSourceType);
         const input = params["input"] as string,
           output = params["output"] as string;
         if (resolve(input) === resolve(output))
           throw new InputError("encode input and output must differ");
-        await writeFile(input, encodePng(item.raster));
+        await writeFile(
+          input,
+          embedDigitalSourceType(
+            encodePng(item.raster),
+            "image/png",
+            item.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
+          ),
+        );
         const result = await targetCommand(
           params["command"] as string[],
           { input, output },

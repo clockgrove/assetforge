@@ -2,6 +2,15 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
+import {
+  combineDigitalSourceTypes,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+  metadataStep,
+  requireDeclared,
+} from "./metadata.ts";
+import { decodeImage } from "./image/raster.ts";
+import { pixelHash } from "./transform/run.ts";
 import { InputError } from "./errors.ts";
 import { readRun, writeRun } from "./loop.ts";
 import type { StagedCandidate } from "./loop.ts";
@@ -79,7 +88,29 @@ export interface TargetWriteResult {
  * writes any review value other than pending.
  */
 export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResult> {
-  const { profile, spec, output } = write;
+  const { profile, spec } = write;
+  if (write.provenance.digitalSourceType === "undeclared") requireDeclared("undeclared");
+  const known = [
+    write.provenance.digitalSourceType,
+    readDigitalSourceType(write.output.bytes, write.output.mediaType),
+  ].filter((value) => value !== undefined);
+  const digitalSourceType = known.length ? combineDigitalSourceTypes(known) : "undeclared";
+  requireDeclared(digitalSourceType);
+  const output = {
+    ...write.output,
+    bytes: embedDigitalSourceType(write.output.bytes, write.output.mediaType, digitalSourceType),
+  };
+  const provenance = { ...write.provenance, digitalSourceType };
+  const last = provenance.steps?.at(-1);
+  if (
+    last?.op !== "embed-digital-source-type" ||
+    last.params["digitalSourceType"] !== digitalSourceType
+  ) {
+    const hashes = ["image/png", "image/jpeg"].includes(output.mediaType)
+      ? [pixelHash(decodeImage(output.bytes))]
+      : [];
+    provenance.steps = [...(provenance.steps ?? []), metadataStep(digitalSourceType, hashes)];
+  }
   const targetDir = resolve(write.targetDir);
   const context: Record<string, unknown> = {
     spec: { ...spec.fields, ...spec },
@@ -96,7 +127,7 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
       extension: output.extension,
       sha256: sha256(output.bytes),
     },
-    provenance: write.provenance,
+    provenance,
     run: write.run,
   };
   const mediaRel = renderString(profile.layout.media, context);
@@ -124,7 +155,7 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
     [manifestPath, `${JSON.stringify(manifest, null, 2)}\n`],
   ];
   if (provenancePath) {
-    writes.push([provenancePath, `${JSON.stringify(write.provenance, null, 2)}\n`]);
+    writes.push([provenancePath, `${JSON.stringify(provenance, null, 2)}\n`]);
   }
   for (const [path, content] of writes) {
     await mkdir(dirname(path), { recursive: true });

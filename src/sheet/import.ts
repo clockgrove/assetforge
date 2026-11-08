@@ -3,6 +3,15 @@
  * or hand work) becomes cleaned frames and a grouping proposal; an author-confirmed grouping then
  * becomes one strip, manifest and provenance per family in the target, with review pending.
  */
+import {
+  DIGITAL_SOURCE_TYPES,
+  embedDigitalSourceType,
+  readDigitalSourceType,
+  metadataStep,
+  sourceDeclaration,
+  requireDeclared,
+} from "../metadata.ts";
+import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -22,7 +31,7 @@ import {
 } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
 import { applyStyle } from "../image/apply-style.ts";
-import { runOperation, runRecipe } from "../transform/run.ts";
+import { pixelHash, runOperation, runRecipe } from "../transform/run.ts";
 import type { ImageItem, Recipe, TransformStep } from "../transform/types.ts";
 import { sha256, sniffMediaType } from "../request.ts";
 import { resolveStyle } from "../style.ts";
@@ -78,6 +87,8 @@ export interface ImportedFrame {
 }
 
 export interface ImportRecord {
+  digitalSourceType?: DigitalSourceType;
+  sourceDeclaration?: import("../metadata.ts").SourceDeclaration;
   importId: string;
   createdAt: string;
   assetId: string;
@@ -106,6 +117,7 @@ export interface ImportRecord {
 }
 
 export interface ImportOptions {
+  digitalSourceType?: DigitalSourceType;
   sheet: Uint8Array;
   /** Recorded as the sheet's path in provenance. */
   sheetPath: string;
@@ -243,7 +255,21 @@ export async function importSheet(
       },
     );
   }
-  const sheetItem: ImageItem = { name: "sheet", raster, mediaType: "image/png", meta: {} };
+  const embedded = readDigitalSourceType(options.sheet, sniffMediaType(options.sheet));
+  const declaration =
+    options.digitalSourceType === undefined
+      ? undefined
+      : sourceDeclaration(options.digitalSourceType);
+  const digitalSourceType = options.generation?.calls.some((c) => c.operation !== "vision")
+    ? DIGITAL_SOURCE_TYPES.generated
+    : (embedded ?? declaration?.value ?? DIGITAL_SOURCE_TYPES.undeclared);
+  const sheetItem: ImageItem = {
+    name: "sheet",
+    raster,
+    mediaType: "image/png",
+    meta: {},
+    digitalSourceType,
+  };
   const ran = runRecipe(sheetImportRecipe(options.slice), [sheetItem], { style });
   const slicing = ran.steps[0]?.report as {
     mode: "grid" | "components";
@@ -267,7 +293,10 @@ export async function importSheet(
       checks: Reason[];
     };
     const file = frameFile(meta.frame);
-    await writeFile(join(importDir, file), encodePng(item.raster));
+    await writeFile(
+      join(importDir, file),
+      embedDigitalSourceType(encodePng(item.raster), "image/png", digitalSourceType),
+    );
     cleaned.push(item);
     frames.push({
       id: meta.frame,
@@ -285,16 +314,17 @@ export async function importSheet(
   const preview = runOperation(cleaned, { op: "register", params: { frame, anchor } }, { style });
   const styled = runOperation(preview.items, { op: "apply-style" }, { style });
   const ids = frames.map((f) => f.id);
-  const contact = encodePng(
-    contactSheet(
-      styled.items.map((i) => i.raster),
-      ids,
-      frame,
-    ),
+  const contactRaster = contactSheet(
+    styled.items.map((i) => i.raster),
+    ids,
+    frame,
   );
+  const contact = embedDigitalSourceType(encodePng(contactRaster), "image/png", digitalSourceType);
   await writeFile(join(importDir, CONTACT_FILE), contact);
 
   const record: ImportRecord = {
+    digitalSourceType,
+    ...(declaration && { sourceDeclaration: declaration }),
     importId,
     createdAt: now().toISOString(),
     assetId: options.assetId,
@@ -317,7 +347,11 @@ export async function importSheet(
       background: slicing.background,
     },
     frames,
-    steps: ran.steps,
+    steps: [
+      ...ran.steps,
+      ...cleaned.map((item) => metadataStep(digitalSourceType, [pixelHash(item.raster)])),
+      metadataStep(digitalSourceType, [pixelHash(contactRaster)]),
+    ],
     ...(options.generation !== undefined && { generation: options.generation }),
     calls: [],
   };
@@ -418,10 +452,19 @@ export async function writeFamilies(
   }
 
   const images = new Map<number, Raster>();
+  const frameOrigins = new Map<number, DigitalSourceType>();
   for (const id of used) {
     const f = byId.get(id) as ImportedFrame;
-    images.set(id, decodeImage(new Uint8Array(await readFile(join(options.importDir, f.file)))));
+    const bytes = new Uint8Array(await readFile(join(options.importDir, f.file)));
+    images.set(id, decodeImage(bytes));
+    frameOrigins.set(
+      id,
+      readDigitalSourceType(bytes, "image/png") ??
+        record.digitalSourceType ??
+        DIGITAL_SOURCE_TYPES.undeclared,
+    );
   }
+  for (const origin of frameOrigins.values()) requireDeclared(origin);
   const style = record.style;
   const figures: ImageItem[] = [];
   const families: string[] = [];
@@ -432,6 +475,8 @@ export async function writeFamilies(
       raster: images.get(id) as Raster,
       mediaType: "image/png",
       meta: {},
+      digitalSourceType:
+        frameOrigins.get(id) ?? record.digitalSourceType ?? DIGITAL_SOURCE_TYPES.undeclared,
     }));
     if (p.mirrored) {
       const flipped = runOperation(items, { op: "flip" }, { style });
@@ -554,7 +599,11 @@ export async function writeFamilies(
       });
     });
     if (!union) throw new InputError(`family ${s.family.name} has no visible pixel`);
-    const bytes = encodePng(strip);
+    const digitalSourceType =
+      joined.items[0]?.digitalSourceType ??
+      record.digitalSourceType ??
+      DIGITAL_SOURCE_TYPES.undeclared;
+    const bytes = embedDigitalSourceType(encodePng(strip), "image/png", digitalSourceType);
 
     const spec: AssetSpec = {
       kind: "sprite-strip",
@@ -573,6 +622,8 @@ export async function writeFamilies(
       record.generation?.prompt ??
       `Imported from a contact sheet made with ${record.sheet.tool}; that tool's own prompt is not recorded.`;
     const provenance: Provenance = {
+      digitalSourceType,
+      ...(record.sourceDeclaration && { sourceDeclaration: record.sourceDeclaration }),
       generator: "sheet-import",
       route: unique(calls.map((c) => c.route)).join(" + ") || `import:${record.sheet.tool}`,
       models: unique([
@@ -608,7 +659,11 @@ export async function writeFamilies(
       calls,
       sheet: record.sheet,
       frames: frameProvenance,
-      steps: [...(record.steps ?? []), ...familySteps],
+      steps: [
+        ...(record.steps ?? []),
+        ...familySteps,
+        metadataStep(digitalSourceType, [pixelHash(strip)]),
+      ],
     };
     const result = await writeToTarget({
       profile: record.profile,

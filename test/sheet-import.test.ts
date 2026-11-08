@@ -97,6 +97,7 @@ test("an imported sheet is sliced, cleaned to soft alpha, grouped by proposal, a
 
   // 1. It finds every figure and cleans it; the labels are stripped.
   const { record, importDir, grouping } = await importSheet({
+    digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
     sheet: sheet.png,
     sheetPath: "sheets/jimothy-like.png",
     tool: "ChatGPT image generation",
@@ -245,6 +246,7 @@ test("a family over the jitter bound is refused, and nothing is written", async 
   const sheet = syntheticSheet();
   const { importsDir, targetDir } = await dirs();
   const { importDir } = await importSheet({
+    digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
     sheet: sheet.png,
     sheetPath: "sheet.png",
     tool: "hand drawn",
@@ -268,6 +270,7 @@ test("a gridless sheet imports by connected components, and a pixel-art profile 
   const sheet = syntheticSheet({ layout: "scatter" });
   const { importsDir, targetDir } = await dirs();
   const { record, importDir } = await importSheet({
+    digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
     sheet: sheet.png,
     sheetPath: "scatter.png",
     tool: "hand drawn",
