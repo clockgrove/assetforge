@@ -5,7 +5,7 @@ This plan breaks [the PRD](PRD.md) into waves. Each wave has:
 - an **exit**, measured on real output, that gates the next wave;
 - the Objectives that deliver it.
 
-There are no dates; a wave starts when the one before has met its exit. Objectives are filed as GitHub issues and run through Factory. Each states a goal, outcomes and context, and leaves the implementation to the worker. Clockgrove's side of each wave is a Clockgrove Objective.
+There are no dates; a wave starts when the one before has met its exit. Objectives are filed as GitHub issues and run through Factory. Each states a goal, outcomes and context, and leaves the implementation to the worker. Each wave's target-side work is an Objective in the target's repository: clockgrove/raccoon-world for Raccoon World's art, clockgrove/clockgrove for platform support.
 
 ## Wave 0: the first loop
 
@@ -13,7 +13,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 **Objectives:**
 - assetforge#1, the generic generation loop. Its tooling is chosen and recorded there.
-- clockgrove/clockgrove#27, Clockgrove's side: style bible, target profile, validator support.
+- clockgrove/raccoon-world#2, Raccoon World's side: style bible, identity locks, target profile and the first set. Clockgrove's validator support for external worlds is clockgrove/clockgrove#61.
 
 **Exit:** a `shelter` strip of Stevie made by Assetforge:
 - the target validator accepts it on the first try;
@@ -30,7 +30,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 - Media transformation core for images (PRD §5.11): slice and join sheets, crop, trim, pad and scale, background removal and alpha cleanup, baseline registration, renditions and format conversion. Deterministic, provenance-appending, chained as recipes, and usable from the CLI on any image. The sheet import is built on it.
 - Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
 - Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.
-- Clockgrove: the first set approved and in the golden scene (the rest of #27).
+- Raccoon World: the first set approved and committed to clockgrove/raccoon-world (raccoon-world#2).
 
 **Exit:**
 - Stevie's six families approved and showing in the live yard.
@@ -63,16 +63,16 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Exit:**
 - One Raccoon World campaign of at least 30 assets, picked entirely in PRs.
 - Its actual cost within 20% of the forecast.
-- One Factory Objective in Clockgrove that stages assets through the agent interface.
+- One Factory Objective in clockgrove/raccoon-world that stages assets through the agent interface.
 
 ## Wave 4: the full 2D set
 
 **Outcome:** everything Wave 8 §10.2 of Clockgrove needs in 2D, as lit materials. PRD §5.5 and the 2D generators of §5.8.
 
 **Objectives:**
-- Material maps by default: normal and height/depth, emissive and roughness/wetness, wind/flow; 1× and 2× renditions and KTX2; temporal stability bounds; lit-preview QA against the target's light rig.
+- Material maps by default: normal and height/depth, emissive and roughness/wetness, wind/flow; 1× and 2× renditions, and KTX2 for targets without their own texture build (Clockgrove encodes KTX2 from its packed atlases instead, clockgrove/clockgrove#66); temporal stability bounds; lit-preview QA against the target's light rig.
 - Generators for effects, tiles and terrain, icon families, and portraits with expressions.
-- Clockgrove: night and rain lighting use the maps (follows #21).
+- Clockgrove: night and rain lighting use the maps (clockgrove/clockgrove#66).
 
 **Exit:**
 - The Wave 8 §10.2 2D asset list is produced and approved.
@@ -109,7 +109,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 **Outcome:** proof that Assetforge is generic. PRD principle 1 and §3.
 
 **Objectives:**
-- A second target with no code change and a different style profile (flat cartoon or pixel art). Clockgrove's non-raccoon `mirror-room` test pack is the first candidate.
+- A second target with no code change and a different style profile (flat cartoon or pixel art). Clockgrove's fixture world (`worlds/fixture`) is the first candidate.
 - Documentation for adopters: writing a target profile and a style bible, and running campaigns.
 
 **Exit:**
