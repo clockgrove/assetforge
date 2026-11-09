@@ -7,7 +7,7 @@
 import type { Raster } from "../image/raster.ts";
 import type { ResolvedStyle } from "../style.ts";
 import type { Point, TargetProfile } from "../types.ts";
-import { templateFor, templatesFor, thresholdsFor } from "./templates.ts";
+import { gaitFor, templateFor, templatesFor, thresholdsFor, withGait } from "./templates.ts";
 import { measureThreshold } from "./strip.ts";
 import type {
   AnimationFrameMeasure,
@@ -70,6 +70,34 @@ export function measureStrip(
   });
 }
 
+/**
+ * The centre x of the pixels at or above the threshold in the bottom `band` (0..1) of the figure's
+ * height, up from its baseline: where the feet near the ground are, taken together.
+ */
+export function bandCentre(r: Raster, baseline: number, band: number, threshold: number): number {
+  let top = -1;
+  for (let y = 0; y <= baseline && top < 0; y++) {
+    for (let x = 0; x < r.width; x++) {
+      if (alphaAt(r, y * r.width + x) >= threshold) {
+        top = y;
+        break;
+      }
+    }
+  }
+  const rows = Math.max(1, Math.round(band * (baseline - top + 1)));
+  let n = 0;
+  let sx = 0;
+  for (let y = baseline - rows + 1; y <= baseline; y++) {
+    for (let x = 0; x < r.width; x++) {
+      if (alphaAt(r, y * r.width + x) >= threshold) {
+        n++;
+        sx += x + 0.5;
+      }
+    }
+  }
+  return n > 0 ? sx / n : 0;
+}
+
 /** 1 − IoU of the two alpha masks; 0 when both are empty. */
 export function silhouetteChange(a: Raster, b: Raster, threshold: number): number {
   let both = 0;
@@ -105,9 +133,17 @@ const fix = (n: number) => Number(n.toFixed(2));
 
 export function checkAnimation(
   input: StripInput,
-  options: { template?: MotionTemplate; thresholds: AnimationThresholds; threshold: number },
+  options: {
+    template?: MotionTemplate;
+    thresholds: AnimationThresholds;
+    threshold: number;
+    /** The declared gait; picks the template's rule under `gaits`. */
+    gait?: string;
+  },
 ): AnimationReport {
-  const { template, thresholds, threshold } = options;
+  const { thresholds, threshold, gait } = options;
+  const gaited = options.template ? withGait(options.template, gait) : undefined;
+  const template = gaited?.template;
   const { frames, anchor, family } = input;
   const count = frames.length;
   const measures = measureStrip(frames, anchor, threshold);
@@ -232,8 +268,31 @@ export function checkAnimation(
   const planted = measures.filter(
     (m) => m.footprint && Math.abs(m.baseline - anchor.y) <= thresholds.groundTolerancePx,
   );
+  const band = template?.footprintBand;
+  const bandCentres = new Map(
+    band === undefined
+      ? []
+      : planted.map((m) => [
+          m.frame,
+          bandCentre(frames[m.frame - 1] as Raster, m.baseline, band, threshold),
+        ]),
+  );
   const centre = (m: AnimationFrameMeasure) =>
+    bandCentres.get(m.frame) ??
     ((m.footprint as [number, number])[0] + (m.footprint as [number, number])[1] + 1) / 2;
+  // Which rule measured the footprint, for the reason: the gait's (or why the template's own
+  // applies to a declared gait it does not list), and the band when one is set.
+  const ruleNote = [
+    gait === undefined || !template?.gaits
+      ? ""
+      : gaited?.applied
+        ? `gait ${gait}`
+        : `the ${template.name} template has no rule for gait ${gait}, so its own applies`,
+    band === undefined ? "" : `footprint over the bottom ${fix(band * 100)}% of the figure`,
+  ]
+    .filter((x) => x !== "")
+    .join("; ");
+  const noted = (text: string) => (ruleNote ? `${text} (${ruleNote})` : text);
   if (template?.footprint === "moving") {
     // The contacts move by design, so a frame is held to its own phase: with two or more strides
     // per cycle, the same frame one stride earlier (frame f against f − count/strides); with one,
@@ -281,12 +340,14 @@ export function checkAnimation(
       add(
         "footprint-drift",
         true,
-        basis
-          ? `the ${template.name} template's contacts move; every planted frame's footprint is within ${limit} px of ${basis}`
-          : `the ${template.name} template's contacts move; no two planted frames share a phase, footprint drift not applicable`,
+        noted(
+          basis
+            ? `the ${template.name} template's contacts move; every planted frame's footprint is within ${limit} px of ${basis}`
+            : `the ${template.name} template's contacts move; no two planted frames share a phase, footprint drift not applicable`,
+        ),
       );
     }
-    for (const x of fails) add("footprint-drift", false, x.text, [x.f]);
+    for (const x of fails) add("footprint-drift", false, noted(x.text), [x.f]);
   } else {
     const first = planted[0];
     const footFails = first
@@ -296,16 +357,20 @@ export function checkAnimation(
       add(
         "footprint-drift",
         true,
-        first
-          ? `footprints stay within ${limit} px of frame ${first.frame}'s`
-          : "no frame rests on the ground line; footprint drift not applicable",
+        noted(
+          first
+            ? `footprints stay within ${limit} px of frame ${first.frame}'s`
+            : "no frame rests on the ground line; footprint drift not applicable",
+        ),
       );
     }
     for (const m of footFails) {
       add(
         "footprint-drift",
         false,
-        `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(Math.abs(centre(m) - centre(first as AnimationFrameMeasure)))} px from frame ${(first as AnimationFrameMeasure).frame}'s ${fix(centre(first as AnimationFrameMeasure))} (limit ${limit})`,
+        noted(
+          `frame ${m.frame}: footprint centre ${fix(centre(m))} is ${fix(Math.abs(centre(m) - centre(first as AnimationFrameMeasure)))} px from frame ${(first as AnimationFrameMeasure).frame}'s ${fix(centre(first as AnimationFrameMeasure))} (limit ${limit})`,
+        ),
         [m.frame],
       );
     }
@@ -366,6 +431,7 @@ export function checkAnimation(
   return {
     family,
     ...(template && { template: template.name }),
+    ...(gait !== undefined && { gait }),
     frameCount: count,
     passed: reasons.every((r) => r.passed),
     reasons,
@@ -375,15 +441,20 @@ export function checkAnimation(
   };
 }
 
-/** The strip checked against the profile's templates and thresholds and the style's alpha cut. */
+/**
+ * The strip checked against the profile's templates and thresholds and the style's alpha cut,
+ * under the input's gait (from the asset spec), else the profile's `animation.gait`.
+ */
 export function animationQa(
   input: StripInput,
   profile: Pick<TargetProfile, "animation">,
   style: ResolvedStyle,
 ): AnimationReport {
+  const gait = gaitFor(profile, input.gait);
   return checkAnimation(input, {
     template: templateFor(input.family, templatesFor(profile)),
     thresholds: thresholdsFor(profile),
     threshold: measureThreshold(style),
+    ...(gait !== undefined && { gait }),
   });
 }

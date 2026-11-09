@@ -5,12 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { splitStrip } from "../src/animation/strip.ts";
+import { joinStrip, splitStrip } from "../src/animation/strip.ts";
 import { decodePng, encodePng } from "../src/image/raster.ts";
 import type { Grouping } from "../src/sheet/types.ts";
 import type { TargetProfile } from "../src/types.ts";
 import { syntheticSheet } from "./fixtures/sheet.ts";
-import { syntheticStrip } from "./fixtures/strip.ts";
+import { quadrupedWalk, syntheticStrip } from "./fixtures/strip.ts";
 import { syntheticProfile } from "./fixtures/synthetic.ts";
 
 const CLI = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
@@ -323,4 +323,41 @@ test("write-families writes the onion skin and loop preview and reports animatio
     doc(qa).families.map((f: { family: string }) => f.family),
     ["idle", "walk-right"],
   );
+});
+
+test("animation-qa: --spec declares the gait; a four-legged walk passes under it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "assetforge-anim-gait-"));
+  const walk = quadrupedWalk(8);
+  await writeFile(join(root, "walk-right.png"), encodePng(joinStrip(walk.frames)));
+  await writeFile(
+    join(root, "profile.json"),
+    JSON.stringify({
+      ...syntheticProfile(),
+      frames: { ...walk.frame, durationMs: 100 },
+      animation: { thresholds: { anchorDriftPx: 2 } },
+    }),
+  );
+  await writeFile(
+    join(root, "spec.json"),
+    JSON.stringify({ kind: "sprite-strip", assetId: "testcoon", gait: "quadruped" }),
+  );
+  const args = [
+    "animation-qa",
+    ...["--strip", join(root, "walk-right.png"), "--family", "walk-right"],
+    ...["--profile", join(root, "profile.json"), "--out", join(root, "qa")],
+    ...["--anchor", "80,70", "--no-vision", "--json"],
+  ];
+  // No gait declared: the two-legged rule fails the four-legged walk.
+  const without = await cli(args);
+  assert.equal(without.code, 5, without.stderr);
+  const failed = doc(without).families[0].reasons.filter((x: { passed: boolean }) => !x.passed);
+  assert.deepEqual(
+    [...new Set(failed.map((x: { check: string }) => x.check))],
+    ["footprint-drift"],
+  );
+  const withSpec = await cli([...args, "--spec", join(root, "spec.json")]);
+  assert.equal(withSpec.code, 0, withSpec.stdout + withSpec.stderr);
+  const family = doc(withSpec).families[0];
+  assert.equal(family.gait, "quadruped");
+  assert.equal(family.passed, true);
 });

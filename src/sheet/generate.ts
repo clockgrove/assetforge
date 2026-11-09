@@ -133,6 +133,7 @@ export async function generateSheet(
     tool: routes.sheet.model,
     assetId: spec.assetId,
     ...(spec.subject !== undefined && { subject: spec.subject }),
+    ...(spec.gait !== undefined && { gait: spec.gait }),
     profile,
     bible: { version: bible.version, palette: bible.palette },
     importsDir: options.importsDir,

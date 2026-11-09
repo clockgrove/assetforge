@@ -84,6 +84,8 @@ export interface StripQaOptions {
   anchor?: Point;
   /** Defaults to the profile's frame duration, else 120 ms. */
   durationMs?: number;
+  /** The subject's gait from its asset spec; defaults to the profile's `animation.gait`. */
+  gait?: string;
   /** Where the report, the previews and the flicker log are written. */
   outDir: string;
   /** Embedded in the previews when known. */
@@ -116,7 +118,18 @@ export async function qaStrip(options: StripQaOptions): Promise<StripQaResult> {
   const frames = splitStrip(options.strip, frame);
   // Validate templates and thresholds before any spend.
   thresholdsFor(profile);
-  const base = animationQa({ frames, frame, anchor, family, durationMs }, profile, style);
+  const base = animationQa(
+    {
+      frames,
+      frame,
+      anchor,
+      family,
+      durationMs,
+      ...(options.gait !== undefined && { gait: options.gait }),
+    },
+    profile,
+    style,
+  );
   const loop = familyLoops(family, profile);
 
   let decisions: FlickerDecision[] = [];
@@ -173,7 +186,9 @@ export async function qaStrip(options: StripQaOptions): Promise<StripQaResult> {
 export function formatReport(report: StripQaResult["report"]): string[] {
   const failed = report.reasons.filter((r) => !r.passed);
   const lines = [
-    `${report.family}: ${report.frameCount} frames, template ${report.template ?? "none"}, ` +
+    `${report.family}: ${report.frameCount} frames, template ${report.template ?? "none"}` +
+      (report.gait !== undefined ? `, gait ${report.gait}` : "") +
+      ", " +
       (report.passed ? "all checks passed" : `${failed.length} check(s) failed`) +
       (report.identityFlicker === "skipped" ? " (identity flicker not checked)" : ""),
   ];

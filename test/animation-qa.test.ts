@@ -5,7 +5,7 @@ import { templateFor, templatesFor, thresholdsFor } from "../src/animation/templ
 import { InputError } from "../src/errors.ts";
 import { createRaster, setPixel } from "../src/image/raster.ts";
 import type { ResolvedStyle } from "../src/style.ts";
-import { syntheticStrip } from "./fixtures/strip.ts";
+import { quadrupedWalk, syntheticStrip } from "./fixtures/strip.ts";
 import type { StripOptions } from "./fixtures/strip.ts";
 
 const STYLES = ["painterly", "flat", "pixel"] as const;
@@ -372,5 +372,69 @@ test("footprint drift: a target template marks its own family's contacts as movi
         },
       } as never),
     /footprint must be "planted" or "moving"/,
+  );
+});
+
+const quadFails = (input: ReturnType<typeof quadrupedWalk>, profile = {}, gait?: string) =>
+  footFails(
+    animationQa(
+      { ...input, family: "walk-right", ...(gait !== undefined && { gait }) },
+      profile,
+      style("flat"),
+    ),
+  );
+
+test("gait: a four-legged walk fails the two-stride rule and passes under gait quadruped", () => {
+  const walk = quadrupedWalk(8);
+  // No gait declared: today's two-legged rule, which a four-legged walk fails (#45).
+  assert.deepEqual(
+    quadFails(walk).map((x) => x.frames),
+    [[5], [6], [7], [8]],
+  );
+  // The profile declares the gait: the walk template's quadruped rule applies and it passes.
+  const profile = { animation: { gait: "quadruped" } };
+  const r = animationQa({ ...walk, family: "walk-right" }, profile, style("flat"));
+  assert.deepEqual(footFails(r), []);
+  assert.equal(r.gait, "quadruped");
+  assert.match(
+    r.reasons.find((x) => x.check === "footprint-drift")!.reason,
+    /within 12 px of the loop's mean footprint centre .* \(gait quadruped; footprint over the bottom 30% of the figure\)$/,
+  );
+  // The asset spec's gait wins over the profile's.
+  assert.equal(quadFails(walk, profile, "biped").length, 4);
+  assert.deepEqual(quadFails(walk, {}, "quadruped"), []);
+});
+
+test("gait: a four-legged walk whose legs slide in one frame fails that frame", () => {
+  const bad = quadFails(quadrupedWalk(8, { 6: 30 }), {}, "quadruped");
+  assert.deepEqual(
+    bad.map((x) => x.frames),
+    [[6]],
+  );
+  assert.match(
+    bad[0]!.reason,
+    /^frame 6: footprint centre .* px from the loop's mean footprint centre .* \(limit 12\) \(gait quadruped/,
+  );
+});
+
+test("gait: a gait the template does not list keeps the template's own rule and says so", () => {
+  const bad = quadFails(quadrupedWalk(8), {}, "biped");
+  assert.equal(bad.length, 4);
+  assert.match(
+    bad[0]!.reason,
+    /\(the walk template has no rule for gait biped, so its own applies\)$/,
+  );
+  // A template without gait rules (idle) is unaffected by the gait and does not mention it.
+  const idle = animationQa(
+    { ...quadrupedWalk(4), family: "idle" },
+    { animation: { gait: "quadruped" } },
+    style("flat"),
+  );
+  assert.doesNotMatch(idle.reasons.find((x) => x.check === "footprint-drift")!.reason, /gait/);
+  // A gait name that is not a lowercase word is refused before any check runs.
+  assert.throws(
+    () =>
+      animationQa({ ...quadrupedWalk(4), family: "walk", gait: "Four Legs" }, {}, style("flat")),
+    (e: unknown) => e instanceof InputError && /invalid gait/.test(e.message),
   );
 });

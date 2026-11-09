@@ -35,6 +35,8 @@ export interface StripTarget {
   style: ResolvedStyle;
   profile: TargetProfile;
   subject: string;
+  /** The subject's gait from its asset spec; the profile's `animation.gait` applies when unset. */
+  gait?: string;
 }
 
 /** QA measures alpha only, so a palette rule needs no palette here. */
@@ -94,6 +96,7 @@ export async function importTargets(importDir: string): Promise<StripTarget[]> {
     style: record.style,
     profile: record.profile,
     subject: record.subject ?? record.assetId,
+    ...(record.gait !== undefined && { gait: record.gait }),
   }));
 }
 
@@ -104,6 +107,7 @@ export function stripTarget(options: {
   profile: TargetProfile;
   subject?: string;
   anchor?: Point;
+  gait?: string;
 }): StripTarget {
   const frame = profileFrame(options.profile);
   return {
@@ -117,6 +121,7 @@ export function stripTarget(options: {
     style: qaStyle(options.profile),
     profile: options.profile,
     subject: options.subject ?? options.family,
+    ...(options.gait !== undefined && { gait: options.gait }),
   };
 }
 
@@ -195,6 +200,7 @@ export async function runAnimationQa(options: {
         frame: t.frame,
         anchor: t.anchor,
         ...(t.durationMs !== undefined && { durationMs: t.durationMs }),
+        ...(t.gait !== undefined && { gait: t.gait }),
         outDir: options.outDir,
         ...(origin !== undefined && { digitalSourceType: origin }),
         ...(call && {
@@ -335,6 +341,7 @@ export async function runFixFrame(options: {
     frame: target.frame,
     anchor: target.anchor,
     ...(target.durationMs !== undefined && { durationMs: target.durationMs }),
+    ...(target.gait !== undefined && { gait: target.gait }),
     outDir: options.outDir,
     ...(origin2 !== undefined && { digitalSourceType: origin2 }),
   });
