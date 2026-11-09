@@ -122,6 +122,10 @@ export const OPERATIONS: OperationSpec[] = [
           },
           required: ["columns"],
         },
+        count: int(
+          "figures the sheet must hold (a spec's frames.count); another number fails the slice, naming the cells behind it",
+          1,
+        ),
         components: {
           type: "boolean",
           default: false,

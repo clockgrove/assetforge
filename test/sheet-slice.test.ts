@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRaster } from "../src/image/raster.ts";
 import type { Raster } from "../src/image/raster.ts";
-import { sliceSheet } from "../src/sheet/slice.ts";
+import { SliceError, sliceSheet } from "../src/sheet/slice.ts";
 import type { SliceResult } from "../src/sheet/types.ts";
 import { syntheticSheet } from "./fixtures/sheet.ts";
 import type { SyntheticSheet } from "./fixtures/sheet.ts";
@@ -157,4 +157,110 @@ test("a sheet with a transparent background slices too", () => {
   assert.equal(result.mode, "grid");
   checkOrder(result, sheet);
   checkMasks(result, sheet);
+});
+
+/** A flat sheet of hard-edged ellipse figures, each with an optional tail bar to its right. */
+function ellipseSheet(
+  width: number,
+  height: number,
+  figures: Array<{ cx: number; cy: number; rx: number; ry: number; tailTo?: number }>,
+): Raster {
+  const raster = createRaster(width, height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const inside = figures.some(
+        (f) =>
+          ((x - f.cx) / f.rx) ** 2 + ((y - f.cy) / f.ry) ** 2 <= 1 ||
+          (f.tailTo !== undefined && x >= f.cx && x < f.tailTo && Math.abs(y - f.cy) <= 3),
+      );
+      raster.data.set(inside ? [70, 60, 50, 255] : [230, 228, 226, 255], (y * width + x) * 4);
+    }
+  }
+  return raster;
+}
+
+function maskArea(mask: Uint8Array): number {
+  return mask.reduce((sum, v) => sum + v, 0);
+}
+
+test("a detected grid keeps the smallest figure whose tail reaches past its cell", () => {
+  // 3 × 2 cells of 64 px. Figure 1 is the smallest, and its tail ends 3 px into the next cell's
+  // gutter, as a painted tail does on a real sheet. Segmenting the cell again cut the tail off at
+  // the cell's edge, so the figure came out under the sheet's smallest figure area, the cutoff
+  // that sheet-wide segmentation had set from this same figure, and it was dropped without a word.
+  type Figure = { cx: number; cy: number; rx: number; ry: number; tailTo?: number };
+  const cells = [0, 1, 2, 3, 4, 5].map((k): Figure => ({
+    cx: (k % 3) * 64 + 32,
+    cy: Math.floor(k / 3) * 64 + 32,
+    rx: 20,
+    ry: 12,
+  }));
+  cells[0] = { cx: 40, cy: 32, rx: 16, ry: 10, tailTo: 67 };
+  const result = sliceSheet(ellipseSheet(192, 128, cells));
+  assert.equal(result.mode, "grid");
+  assert.deepEqual(
+    result.figures.map((f) => [f.cell.row, f.cell.column]),
+    [
+      [0, 0],
+      [0, 1],
+      [0, 2],
+      [1, 0],
+      [1, 1],
+      [1, 2],
+    ],
+  );
+  const first = result.figures[0] as SliceResult["figures"][number];
+  // The whole tail is in the crop and the mask, past the cell's edge at x = 64.
+  assert.ok(first.box.x + first.box.width >= 67);
+  const tailTip = (32 - first.box.y) * first.box.width + (66 - first.box.x);
+  assert.equal(first.mask[tailTip], 1);
+  // Nothing of the neighbour enters it.
+  assert.equal(maskArea(first.mask) < maskArea((result.figures[1] as typeof first).mask), true);
+});
+
+test("a sheet that does not hold the count asked for is refused, naming the empty cell", () => {
+  const sheet = syntheticSheet();
+  // Paint out figure 11 (row 2, column 3), leaving its number label.
+  const raster = createRaster(sheet.raster.width, sheet.raster.height);
+  raster.data.set(sheet.raster.data);
+  const gone = sheet.figures[10] as SyntheticSheet["figures"][number];
+  for (let y = gone.cellBox.y + 12; y < gone.cellBox.y + gone.cellBox.height; y++) {
+    for (let x = gone.cellBox.x; x < gone.cellBox.x + gone.cellBox.width; x++) {
+      raster.data.set([...sheet.background, 255], (y * raster.width + x) * 4);
+    }
+  }
+  assert.equal(sliceSheet(sheet.raster, { count: 16 }).figures.length, 16);
+  assert.throws(
+    () => sliceSheet(raster, { count: 16 }),
+    (error: unknown) => {
+      assert.ok(error instanceof SliceError);
+      assert.equal(error.found, 15);
+      assert.equal(error.expected, 16);
+      assert.equal(error.problems.length, 1);
+      assert.match(error.problems[0] as string, /row 2, column 3: its largest part is \d+ px/);
+      assert.match(error.message, /found 15 figures on the sheet where 16 are asked for/);
+      return true;
+    },
+  );
+  // Without a count the same sheet still slices, into 15 frames.
+  assert.equal(sliceSheet(raster).figures.length, 15);
+});
+
+test("touching figures that merged into one are named when too few are found", () => {
+  // Five figures in a row, the last two touching: four components, no clean grid.
+  const figures = [20, 70, 120, 170, 202].map((cx) => ({ cx, cy: 30, rx: 16, ry: 12 }));
+  const raster = ellipseSheet(240, 60, figures);
+  assert.throws(
+    () => sliceSheet(raster, { components: true, count: 5 }),
+    (error: unknown) => {
+      assert.ok(error instanceof SliceError);
+      assert.equal(error.found, 4);
+      assert.deepEqual(error.problems.length, 1);
+      assert.match(
+        error.problems[0] as string,
+        /figure 4 \(row 1, column 4\) is \d\.\d× the median figure's area: touching figures may have merged/,
+      );
+      return true;
+    },
+  );
 });

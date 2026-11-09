@@ -3,6 +3,7 @@
  * locating connected components, and keeps labels, specks, neighbours and background out of every
  * figure's mask.
  */
+import { InputError } from "../errors.ts";
 import type { Raster } from "../image/raster.ts";
 import type { Box, Point, Rgb, Size, Transform } from "../types.ts";
 import type { SliceOptions, SliceResult, SlicedFigure } from "./types.ts";
@@ -23,6 +24,38 @@ interface Found {
 const EXCLUDE_FRINGE = 2;
 /** Ratio between neighbouring areas (largest first) that separates figures from labels. */
 const SIZE_DROP = 3;
+
+/** A figure this many times the median figure's area may be touching figures merged into one. */
+const MERGED_RATIO = 1.75;
+/** A figure at most this fraction of the median figure's area may be part of a figure. */
+const SPLIT_RATIO = 0.5;
+
+/**
+ * Slicing could not find the figures the sheet must hold: the count differs from the one asked
+ * for. `problems` names each cell or figure that explains the difference, and why.
+ */
+export class SliceError extends InputError {
+  readonly found: number;
+  readonly expected: number;
+  readonly problems: string[];
+  /** Where the refused sheet was kept, when it was a generated one. */
+  kept?: string;
+  /** What the run had spent when the slice was refused, when a model made the sheet. */
+  spentUsd?: number;
+  constructor(found: number, expected: number, problems: string[]) {
+    super(
+      `slicing found ${found} figure${found === 1 ? "" : "s"} on the sheet where ${expected} ` +
+        `${expected === 1 ? "is" : "are"} asked for: ` +
+        (problems.length > 0
+          ? problems.join("; ")
+          : "no single cell or figure explains the difference"),
+    );
+    this.name = "SliceError";
+    this.found = found;
+    this.expected = expected;
+    this.problems = problems;
+  }
+}
 
 function median(values: number[]): number {
   if (values.length === 0) return 0;
@@ -327,6 +360,8 @@ function build(
   bg: Background,
   hasAlpha: boolean,
   tolerance: number,
+  /** The background that other foreground in the crop (labels, specks, neighbours) is found against. */
+  segment: Background,
 ): Omit<SlicedFigure, "id" | "cell"> {
   const extent = unionBox(found.parts.map((p) => p.box));
   const box = clipBox(
@@ -352,7 +387,7 @@ function build(
     { op: "strip-labels", removed: found.removed },
   ];
   const mask = cropMask(found.parts, box, sheet.width);
-  const fg = foreground(sheet, hasAlpha, bg, tolerance, box);
+  const fg = foreground(sheet, hasAlpha, segment, tolerance, box);
   return {
     box,
     crop,
@@ -363,75 +398,160 @@ function build(
   };
 }
 
-export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResult {
-  const tolerance = options.tolerance ?? 40;
-  const labelFraction = options.labelFraction ?? 0.04;
-  const padding = options.padding ?? 4;
-  const whole: Box = { x: 0, y: 0, width: sheet.width, height: sheet.height };
-  const hasAlpha = sheet.data.some((_, i) => i % 4 === 3 && sheet.data[i] !== 255);
-  const sheetBg = estimate(sheet, hasAlpha, boxBorder(sheet, whole));
+/** What every slicing mode shares: the sheet, the options and the sheet-wide segmentation. */
+interface Context {
+  sheet: Raster;
+  whole: Box;
+  hasAlpha: boolean;
+  tolerance: number;
+  labelFraction: number;
+  padding: number;
+  sheetBg: Background;
+  sheetComponents: Component[];
+  cutoff: number;
+}
 
-  const sheetComponents = components(
-    foreground(sheet, hasAlpha, sheetBg, tolerance, whole),
+/** A sliced sheet, plus why each grid cell without a figure has none. */
+interface Sliced extends SliceResult {
+  empty: Map<string, string>;
+}
+
+const cellKey = (row: number, column: number): string => `${row},${column}`;
+
+function cellBoxOf(grid: GridSpec, row: number, column: number, whole: Box): Box {
+  return clipBox(
+    {
+      x: grid.origin.x + column * grid.cell.width,
+      y: grid.origin.y + row * grid.cell.height,
+      ...grid.cell,
+    },
     whole,
-    sheet.width,
   );
-  const cutoff = figureCutoff(sheetComponents, labelFraction);
+}
 
-  let grid: GridSpec | undefined;
-  if (options.grid) {
-    const cellWidth = options.grid.cellWidth ?? Math.floor(sheet.width / options.grid.columns);
-    const cellHeight = options.grid.cellHeight ?? cellWidth;
-    const origin = options.grid.origin ?? { x: 0, y: 0 };
-    grid = {
-      columns: options.grid.columns,
-      rows: options.grid.rows ?? Math.ceil((sheet.height - origin.y) / cellHeight),
-      cell: { width: cellWidth, height: cellHeight },
-      origin,
-    };
-  } else if (!options.components) {
-    grid = detectGrid(
-      sheet,
-      sheetComponents.filter((c) => c.pixels.length >= cutoff),
-    );
+/** Why a cell holds no figure, from its largest component (if any) and the figure size. */
+function emptyReason(largest: number, cutoff: number, tolerance: number): string {
+  if (largest === 0) {
+    return `nothing in it differs from the background by more than the colour tolerance (${tolerance})`;
   }
+  return `its largest part is ${largest} px, under the ${cutoff} px a figure needs`;
+}
 
-  const figures: SlicedFigure[] = [];
-  if (grid) {
-    for (let row = 0; row < grid.rows; row++) {
-      for (let column = 0; column < grid.columns; column++) {
-        const cell = clipBox(
-          {
-            x: grid.origin.x + column * grid.cell.width,
-            y: grid.origin.y + row * grid.cell.height,
-            ...grid.cell,
-          },
-          whole,
-        );
-        if (cell.width === 0 || cell.height === 0) continue;
-        const bg = estimate(sheet, hasAlpha, boxBorder(sheet, cell));
-        const parts = components(
-          foreground(sheet, hasAlpha, bg, tolerance, cell),
-          cell,
-          sheet.width,
-        );
-        const { figures: big, merged } = assign(parts, cutoff);
-        const main = big.sort((a, b) => b.pixels.length - a.pixels.length)[0];
-        if (!main) continue;
-        // Anything else in the cell that is figure-sized is dropped, as another figure is not ours.
-        const own = [main, ...(merged.get(main) as Component[])];
-        const removed = parts.length - own.length;
-        figures.push({
-          id: 0,
-          cell: { row, column, box: cell },
-          ...build(sheet, { parts: own, removed }, cell, cell, padding, bg, hasAlpha, tolerance),
-        });
-      }
+/**
+ * A grid the caller gave: each cell is segmented on its own, against its own border's colour, so
+ * figures that touch across a cell edge come apart. Which parts are figures is decided on these
+ * same per-cell parts, never on the sheet-wide ones, whose areas differ.
+ */
+function sliceGivenGrid(ctx: Context, grid: GridSpec): Sliced {
+  const { sheet, whole, hasAlpha, tolerance, padding } = ctx;
+  const cells: Array<{
+    row: number;
+    column: number;
+    box: Box;
+    bg: Background;
+    parts: Component[];
+  }> = [];
+  for (let row = 0; row < grid.rows; row++) {
+    for (let column = 0; column < grid.columns; column++) {
+      const box = cellBoxOf(grid, row, column, whole);
+      if (box.width === 0 || box.height === 0) continue;
+      const bg = estimate(sheet, hasAlpha, boxBorder(sheet, box));
+      const parts = components(foreground(sheet, hasAlpha, bg, tolerance, box), box, sheet.width);
+      cells.push({ row, column, box, bg, parts });
     }
-    figures.forEach((f, i) => (f.id = i + 1));
-    return { mode: "grid", grid, background: sheetBg.colour, figures };
   }
+  const cutoff = figureCutoff(
+    cells.flatMap((c) => c.parts),
+    ctx.labelFraction,
+  );
+  const figures: SlicedFigure[] = [];
+  const empty = new Map<string, string>();
+  for (const { row, column, box, bg, parts } of cells) {
+    const { figures: big, merged } = assign(parts, cutoff);
+    const main = big.sort((a, b) => b.pixels.length - a.pixels.length)[0];
+    if (!main) {
+      const largest = Math.max(0, ...parts.map((p) => p.pixels.length));
+      empty.set(cellKey(row, column), emptyReason(largest, cutoff, tolerance));
+      continue;
+    }
+    // Anything else in the cell that is figure-sized is dropped, as another figure is not ours.
+    const own = [main, ...(merged.get(main) as Component[])];
+    const removed = parts.length - own.length;
+    figures.push({
+      id: 0,
+      cell: { row, column, box },
+      ...build(sheet, { parts: own, removed }, box, box, padding, bg, hasAlpha, tolerance, bg),
+    });
+  }
+  figures.forEach((f, i) => (f.id = i + 1));
+  return { mode: "grid", grid, background: ctx.sheetBg.colour, figures, empty };
+}
 
+/**
+ * A grid detected from the figures: the figures are the sheet-wide components the grid was
+ * detected from, so no figure is lost to a second segmentation. The grid gives each its cell and
+ * reading order; its crop is not clipped to the cell, so a tail reaching past the cell's edge into
+ * the gutter is kept whole, and anything else in the crop is excluded from it.
+ */
+function sliceDetectedGrid(ctx: Context, grid: GridSpec): Sliced {
+  const { sheet, whole, hasAlpha, tolerance, padding, sheetBg, sheetComponents, cutoff } = ctx;
+  const cellOf = (b: Box): { row: number; column: number } => {
+    const c = centre(b);
+    return {
+      row: Math.floor((c.y - grid.origin.y) / grid.cell.height),
+      column: Math.floor((c.x - grid.origin.x) / grid.cell.width),
+    };
+  };
+  const { figures: big, merged, dropped } = assign(sheetComponents, cutoff);
+  const placed = big.map((f) => {
+    const { row, column } = cellOf(f.box);
+    const removed = dropped.filter((d) => {
+      const at = cellOf(d.box);
+      return at.row === row && at.column === column;
+    }).length;
+    return { row, column, parts: [f, ...(merged.get(f) as Component[])], removed };
+  });
+  placed.sort((a, b) => a.row - b.row || a.column - b.column);
+  const figures: SlicedFigure[] = placed.map((p) => {
+    const box = cellBoxOf(grid, p.row, p.column, whole);
+    const bg = estimate(sheet, hasAlpha, boxBorder(sheet, box));
+    return {
+      id: 0,
+      cell: { row: p.row, column: p.column, box },
+      ...build(
+        sheet,
+        { parts: p.parts, removed: p.removed },
+        whole,
+        box,
+        padding,
+        bg,
+        hasAlpha,
+        tolerance,
+        sheetBg,
+      ),
+    };
+  });
+  figures.forEach((f, i) => (f.id = i + 1));
+  const taken = new Set(placed.map((p) => cellKey(p.row, p.column)));
+  const empty = new Map<string, string>();
+  for (let row = 0; row < grid.rows; row++) {
+    for (let column = 0; column < grid.columns; column++) {
+      if (taken.has(cellKey(row, column))) continue;
+      const inCell = sheetComponents.filter((c) => {
+        const at = cellOf(c.box);
+        return at.row === row && at.column === column;
+      });
+      const largest = Math.max(0, ...inCell.map((c) => c.pixels.length));
+      empty.set(cellKey(row, column), emptyReason(largest, cutoff, tolerance));
+    }
+  }
+  return { mode: "grid", grid, background: sheetBg.colour, figures, empty };
+}
+
+/** No grid: each figure is located on its own and numbered in reading order. */
+function sliceComponents(ctx: Context): Sliced {
+  const { sheet, whole, hasAlpha, tolerance, padding, sheetComponents, cutoff } = ctx;
+  const figures: SlicedFigure[] = [];
   const { figures: big, merged, dropped } = assign(sheetComponents, cutoff);
   const ownership = new Map<Component, number>(big.map((f) => [f, 0]));
   for (const d of dropped) {
@@ -483,12 +603,118 @@ export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResu
         p.bg,
         hasAlpha,
         tolerance,
+        p.bg,
       );
       figures.push({ id: 0, cell: { row: rowIndex, column, box: built.box }, ...built });
     });
   });
   figures.forEach((f, i) => (f.id = i + 1));
-  return { mode: "components", background: sheetBg.colour, figures };
+  return { mode: "components", background: ctx.sheetBg.colour, figures, empty: new Map() };
+}
+
+function where(f: SlicedFigure): string {
+  return `figure ${f.id} (row ${f.cell.row + 1}, column ${f.cell.column + 1})`;
+}
+
+/**
+ * Why the count differs from the one asked for: on a grid, each cell among the first `count` in
+ * reading order that holds no figure and why; on any sheet, a figure far above the median figure's
+ * area (touching figures merged) when too few were found, or far below it (a figure that came
+ * apart, or a large label) when too many were.
+ */
+function explain(sliced: Sliced, count: number): string[] {
+  const problems: string[] = [];
+  const { grid, figures } = sliced;
+  if (grid && figures.length < count) {
+    for (let k = 0; k < Math.min(count, grid.rows * grid.columns); k++) {
+      const row = Math.floor(k / grid.columns);
+      const column = k % grid.columns;
+      const reason = sliced.empty.get(cellKey(row, column));
+      if (reason !== undefined) {
+        problems.push(`no figure in the cell at row ${row + 1}, column ${column + 1}: ${reason}`);
+      }
+    }
+    if (count > grid.rows * grid.columns) {
+      problems.push(
+        `the ${grid.columns} × ${grid.rows} grid has only ${grid.rows * grid.columns} cells`,
+      );
+    }
+  }
+  const areas = figures.map((f) => f.mask.reduce((sum, v) => sum + v, 0));
+  const typical = median(areas);
+  figures.forEach((f, i) => {
+    const ratio = (areas[i] as number) / typical;
+    if (figures.length < count && ratio >= MERGED_RATIO) {
+      problems.push(
+        `${where(f)} is ${ratio.toFixed(1)}× the median figure's area: touching figures may have merged into it`,
+      );
+    }
+    if (figures.length > count && ratio <= SPLIT_RATIO) {
+      problems.push(
+        `${where(f)} is ${ratio.toFixed(2)}× the median figure's area: it may be part of a figure that came apart, or a large label`,
+      );
+    }
+  });
+  return problems;
+}
+
+/**
+ * Slices a sheet into its figures. With `options.count`, a sheet that does not hold exactly that
+ * many figures is refused with a SliceError that names the cells or figures behind the
+ * difference, so a short or long strip is never returned silently.
+ */
+export function sliceSheet(sheet: Raster, options: SliceOptions = {}): SliceResult {
+  const tolerance = options.tolerance ?? 40;
+  const whole: Box = { x: 0, y: 0, width: sheet.width, height: sheet.height };
+  const hasAlpha = sheet.data.some((_, i) => i % 4 === 3 && sheet.data[i] !== 255);
+  const sheetBg = estimate(sheet, hasAlpha, boxBorder(sheet, whole));
+  const sheetComponents = components(
+    foreground(sheet, hasAlpha, sheetBg, tolerance, whole),
+    whole,
+    sheet.width,
+  );
+  const labelFraction = options.labelFraction ?? 0.04;
+  const ctx: Context = {
+    sheet,
+    whole,
+    hasAlpha,
+    tolerance,
+    labelFraction,
+    padding: options.padding ?? 4,
+    sheetBg,
+    sheetComponents,
+    cutoff: figureCutoff(sheetComponents, labelFraction),
+  };
+
+  let sliced: Sliced;
+  if (options.grid) {
+    const cellWidth = options.grid.cellWidth ?? Math.floor(sheet.width / options.grid.columns);
+    const cellHeight = options.grid.cellHeight ?? cellWidth;
+    const origin = options.grid.origin ?? { x: 0, y: 0 };
+    sliced = sliceGivenGrid(ctx, {
+      columns: options.grid.columns,
+      rows: options.grid.rows ?? Math.ceil((sheet.height - origin.y) / cellHeight),
+      cell: { width: cellWidth, height: cellHeight },
+      origin,
+    });
+  } else {
+    const grid = options.components
+      ? undefined
+      : detectGrid(
+          sheet,
+          sheetComponents.filter((c) => c.pixels.length >= ctx.cutoff),
+        );
+    sliced = grid ? sliceDetectedGrid(ctx, grid) : sliceComponents(ctx);
+  }
+  if (options.count !== undefined && sliced.figures.length !== options.count) {
+    throw new SliceError(sliced.figures.length, options.count, explain(sliced, options.count));
+  }
+  return {
+    mode: sliced.mode,
+    ...(sliced.grid !== undefined && { grid: sliced.grid }),
+    background: sliced.background,
+    figures: sliced.figures,
+  };
 }
 
 /**
