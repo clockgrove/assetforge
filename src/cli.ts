@@ -660,7 +660,9 @@ Agents never confirm a grouping.`,
       );
       if (f.result.provenancePath) lines.push(`  wrote ${f.result.provenancePath}`);
       lines.push(
-        ...formatReport({ ...f.animation, identityFlicker: "skipped" }).map((l) => `  ${l}`),
+        ...formatReport({ ...f.animation, identityFlicker: "skipped", holes: "skipped" }).map(
+          (l) => `  ${l}`,
+        ),
       );
       lines.push(`  onion skin ${f.onionPath}`, `  loop preview ${f.loopPreviewPath}`);
       if (f.result.validator) {
@@ -758,9 +760,11 @@ const animationQaCommand: Command = {
 
 Checks each strip against its family's motion template (beats, timing, contact frames,
 silhouette variation) and runs loop and continuity QA on pixels (loop seam, ground line,
-anchor and footprint drift). Identity flicker between consecutive frames is the one vision
-check: one flicker call per pair within the cost cap in USD, each label and confidence
-appended to flicker.jsonl; --no-vision skips it. Writes <family>.qa.json, the onion-skin
+anchor and footprint drift, a colour halo at the edge). Two checks need vision, within the
+cost cap in USD: identity flicker, one call per pair of consecutive frames, each label and
+confidence appended to flicker.jsonl; and holes, one call per frame with a see-through area
+inside the figure's outline, which the model judges a hole or a natural opening between
+parts. --no-vision skips both. Writes <family>.qa.json, the onion-skin
 sheet <family>.onion.png and the looping preview <family>.webp into --out.
 --import checks every family write-families wrote from that import.
 --spec reads the asset spec's gait (and its subject, unless --subject is given); the gait
@@ -816,8 +820,11 @@ Exits 5 when any check fails; every failed check names its frame.`,
       if (values["provider-script"]) await loadScript(values["provider-script"] as string);
       const plan = await planAnimationQa(targets, routes, capUsd, vision);
       const human = [
-        `dry run: ${targets.length} strip(s), ${plan.calls} planned flicker call(s), nothing spent`,
-        ...plan.perFamily.map((f) => `  ${f.family}: ${f.calls} call(s)  ${plan.model}`),
+        `dry run: ${targets.length} strip(s), ${plan.calls} planned vision call(s), nothing spent`,
+        ...plan.perFamily.map(
+          (f) =>
+            `  ${f.family}: ${f.flickerCalls} flicker call(s)  ${plan.model}; ${f.holeCalls} holes call(s)  ${plan.holesModel}`,
+        ),
         `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
@@ -848,7 +855,12 @@ Exits 5 when any check fails; every failed check names its frame.`,
     const fields = {
       outDir,
       spentUsd,
-      families: results.map((r) => ({ ...r.report, decisions: r.decisions, files: r.files })),
+      families: results.map((r) => ({
+        ...r.report,
+        decisions: r.decisions,
+        holeDecisions: r.holeDecisions,
+        files: r.files,
+      })),
     };
     const human = lines.join("\n");
     const failed = results.filter((r) => !r.report.passed).map((r) => r.report.family);

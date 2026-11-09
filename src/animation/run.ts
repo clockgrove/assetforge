@@ -1,7 +1,7 @@
 /**
  * Animation QA of one strip, end to end: the deterministic pixel checks against the family's
- * motion template, the optional identity-flicker vision check, and the onion-skin sheet and
- * looping preview the person picking looks at.
+ * motion template, the optional identity-flicker and holes vision checks, and the onion-skin sheet
+ * and looping preview the person picking looks at.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,11 +14,12 @@ import type { DigitalSourceType } from "../metadata.ts";
 import type { ResolvedStyle } from "../style.ts";
 import type { Point, Size, TargetProfile } from "../types.ts";
 import { appendDecisionLog, checkFlicker } from "./flicker.ts";
+import { checkHoles } from "./holes.ts";
 import { loopPreview, onionSkinSheet, PREVIEW_MEDIA_TYPES } from "./preview.ts";
 import { animationQa } from "./qa.ts";
-import { splitStrip } from "./strip.ts";
+import { measureThreshold, splitStrip } from "./strip.ts";
 import { templateFor, templatesFor, thresholdsFor } from "./templates.ts";
-import type { AnimationReport, FlickerDecision } from "./types.ts";
+import type { AnimationReport, FlickerDecision, HoleDecision } from "./types.ts";
 
 export const DEFAULT_DURATION_MS = 120;
 export const FLICKER_LOG = "flicker.jsonl";
@@ -90,13 +91,20 @@ export interface StripQaOptions {
   outDir: string;
   /** Embedded in the previews when known. */
   digitalSourceType?: DigitalSourceType;
-  /** Runs the identity-flicker check through this caller; omitted, the check is skipped. */
-  flicker?: { call: Caller; subject: string; subjectDescription?: string; now?: () => Date };
+  /**
+   * Runs the vision checks (identity flicker, and holes on frames with see-through areas inside
+   * the outline) through this caller; omitted, both are skipped.
+   */
+  vision?: { call: Caller; subject: string; subjectDescription?: string; now?: () => Date };
 }
 
 export interface StripQaResult {
-  report: AnimationReport & { identityFlicker: "checked" | "skipped" };
+  report: AnimationReport & {
+    identityFlicker: "checked" | "skipped";
+    holes: "checked" | "skipped";
+  };
   decisions: FlickerDecision[];
+  holeDecisions: HoleDecision[];
   files: { report: string; onion: string; preview: string; flickerLog?: string };
 }
 
@@ -133,27 +141,40 @@ export async function qaStrip(options: StripQaOptions): Promise<StripQaResult> {
   const loop = familyLoops(family, profile);
 
   let decisions: FlickerDecision[] = [];
-  let report: StripQaResult["report"] = { ...base, identityFlicker: "skipped" };
-  if (options.flicker) {
+  let holeDecisions: HoleDecision[] = [];
+  let report: StripQaResult["report"] = { ...base, identityFlicker: "skipped", holes: "skipped" };
+  if (options.vision) {
     const flicker = await checkFlicker({
       frames,
       family,
-      subject: options.flicker.subject,
-      ...(options.flicker.subjectDescription !== undefined && {
-        subjectDescription: options.flicker.subjectDescription,
+      subject: options.vision.subject,
+      ...(options.vision.subjectDescription !== undefined && {
+        subjectDescription: options.vision.subjectDescription,
       }),
       loop,
       cutoff: base.thresholds.flickerCutoff,
-      call: options.flicker.call,
-      ...(options.flicker.now !== undefined && { now: options.flicker.now }),
+      call: options.vision.call,
+      ...(options.vision.now !== undefined && { now: options.vision.now }),
     });
     decisions = flicker.decisions;
-    const reasons = [...base.reasons, ...flicker.reasons];
+    const holes = await checkHoles({
+      frames,
+      family,
+      subject: options.vision.subject,
+      threshold: measureThreshold(style),
+      minPx: base.thresholds.holeMinPx,
+      cutoff: base.thresholds.holeCutoff,
+      call: options.vision.call,
+      ...(options.vision.now !== undefined && { now: options.vision.now }),
+    });
+    holeDecisions = holes.decisions;
+    const reasons = [...base.reasons, ...flicker.reasons, ...holes.reasons];
     report = {
       ...base,
       reasons,
       passed: reasons.every((r) => r.passed),
       identityFlicker: "checked",
+      holes: "checked",
     };
   }
 
@@ -174,12 +195,15 @@ export async function qaStrip(options: StripQaOptions): Promise<StripQaResult> {
   };
   await writeFile(files.onion, previews.onion);
   await writeFile(files.preview, previews.preview);
-  await writeFile(files.report, `${JSON.stringify({ ...report, decisions }, null, 2)}\n`);
+  await writeFile(
+    files.report,
+    `${JSON.stringify({ ...report, decisions, holeDecisions }, null, 2)}\n`,
+  );
   if (decisions.length > 0) {
     files.flickerLog = join(options.outDir, FLICKER_LOG);
     await appendDecisionLog(files.flickerLog, decisions);
   }
-  return { report, decisions, files };
+  return { report, decisions, holeDecisions, files };
 }
 
 /** The human lines of a report: the verdict, then each failed check (each names its frames). */
@@ -190,7 +214,7 @@ export function formatReport(report: StripQaResult["report"]): string[] {
       (report.gait !== undefined ? `, gait ${report.gait}` : "") +
       ", " +
       (report.passed ? "all checks passed" : `${failed.length} check(s) failed`) +
-      (report.identityFlicker === "skipped" ? " (identity flicker not checked)" : ""),
+      (report.identityFlicker === "skipped" ? " (identity flicker and holes not checked)" : ""),
   ];
   for (const r of failed) lines.push(`  ${r.check} [${r.source}]: ${r.reason}`);
   return lines;

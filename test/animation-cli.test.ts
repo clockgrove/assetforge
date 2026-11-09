@@ -89,7 +89,15 @@ for (const [name, style, drawn] of STYLES) {
     assert.equal(line.confidence, 0.91);
     assert.equal(line.cutoff, 0.7);
     assert.equal(typeof line.model, "string");
-    assert.equal(d.spentUsd, 0.08);
+    // Frames whose legs cross enclose a see-through area: one holes call each, judged openings.
+    assert.equal(family.holes, "checked");
+    assert.ok(family.holeDecisions.length > 0);
+    for (const h of family.holeDecisions) {
+      assert.equal(h.label, "openings");
+      assert.equal(h.flagged, false);
+      assert.ok(h.areas.length > 0);
+    }
+    assert.equal(d.spentUsd.toFixed(3), (0.08 + 0.003 * family.holeDecisions.length).toFixed(3));
     const onion = decodePng(new Uint8Array(await readFile(join(out, "walk-right.onion.png"))));
     assert.ok(onion.width > 64 && onion.height > 64);
     const webp = await readFile(join(out, "walk-right.webp"));
@@ -132,8 +140,11 @@ test("animation-qa: --dry-run forecasts the flicker calls and refuses over the c
   ];
   const ok = await cli(args);
   assert.equal(ok.code, 0, ok.stderr);
-  assert.equal(doc(ok).plan.calls, 8);
-  assert.equal(doc(ok).plan.estimateUsd.toFixed(2), "0.16");
+  const plan = doc(ok).plan;
+  assert.equal(plan.perFamily[0].flickerCalls, 8);
+  assert.ok(plan.perFamily[0].holeCalls > 0, "the crossing legs enclose see-through areas");
+  assert.equal(plan.calls, 8 + plan.perFamily[0].holeCalls);
+  assert.equal(plan.estimateUsd.toFixed(2), (0.16 + 0.01 * plan.perFamily[0].holeCalls).toFixed(2));
   const over = await cli([...args, "--cap", "0.1"]);
   assert.equal(over.code, 3);
   assert.equal(doc(over).error.code, "cap_refused");
@@ -301,6 +312,7 @@ test("write-families writes the onion skin and loop preview and reports animatio
         "footprint-drift",
         "silhouette",
         "loop-seam",
+        "edge-halo",
       ],
       f.name,
     );

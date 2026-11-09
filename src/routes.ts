@@ -27,6 +27,8 @@ export interface Routes {
   identity: Route;
   /** Identity-flicker judgement between consecutive animation frames. */
   flicker: Route;
+  /** Whether a see-through area inside an animation frame's outline is a hole or an opening. */
+  holes: Route;
   [operation: string]: Route;
 }
 
@@ -72,6 +74,14 @@ export const defaultRoutes: Routes = {
     estimatedCostUsd: 0.02,
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  // Holes: one enlarged frame with its enclosed see-through areas marked. About $0.003 a call
+  // (#51's proof); the estimate is an upper bound.
+  holes: {
+    model: "google/gemini-3-flash",
+    estimatedCostUsd: 0.01,
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-09)",
   },
 };
 

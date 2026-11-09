@@ -15,6 +15,9 @@ export const DEFAULT_THRESHOLDS: AnimationThresholds = {
   loopSeamRatio: 1.5,
   loopSeamFloor: 0.02,
   flickerCutoff: 0.7,
+  edgeHaloShare: 0.22,
+  holeMinPx: 3,
+  holeCutoff: 0.7,
 };
 
 export const BUILTIN_TEMPLATES: readonly MotionTemplate[] = [
@@ -310,8 +313,8 @@ export function thresholdsFor(profile?: Pick<TargetProfile, "animation">): Anima
     if (typeof value !== "number" || !(value >= 0)) {
       throw new InputError(`animation threshold ${key} must be a number, 0 or more`);
     }
-    if (key === "flickerCutoff" && value > 1) {
-      throw new InputError("animation threshold flickerCutoff must be within 0..1");
+    if ((key === "flickerCutoff" || key === "holeCutoff" || key === "edgeHaloShare") && value > 1) {
+      throw new InputError(`animation threshold ${key} must be within 0..1`);
     }
     merged[key as keyof AnimationThresholds] = value;
   }

@@ -85,6 +85,16 @@ export interface AnimationThresholds {
   loopSeamFloor: number;
   /** A flicker label at or above this confidence fails the pair. Default 0.7. */
   flickerCutoff: number;
+  /**
+   * The share of a frame's soft edge pixels (0 < alpha < 255) whose colour is far from every
+   * opaque colour near them, counting transparent pixels that keep a colour too, above which the
+   * frame has a colour halo. Default 0.22.
+   */
+  edgeHaloShare: number;
+  /** The smallest see-through area inside the figure's outline, in px, that the holes check judges. Default 3. */
+  holeMinPx: number;
+  /** A "hole" verdict at or above this confidence fails the frame. Default 0.7. */
+  holeCutoff: number;
 }
 
 /** The target profile's optional `animation` field. */
@@ -158,6 +168,25 @@ export interface FlickerDecision {
   confidence: number;
   cutoff: number;
   /** True when the pair fails: label flicker at or above the cutoff, or unreadable. */
+  flagged: boolean;
+  reason: string;
+  costUsd: number;
+  at: string;
+}
+
+/** One logged holes decision (one vision call on a frame with enclosed see-through areas). */
+export interface HoleDecision {
+  /** The 1-based frame judged. */
+  frame: number;
+  /** The see-through areas inside its outline that were marked for the model. */
+  areas: Array<{ area: number; x: number; y: number; width: number; height: number }>;
+  model: string;
+  requestId: string;
+  /** `holes`: at least one area is a hole in the figure; `openings`: every area is a natural gap. */
+  label: "holes" | "openings" | "unreadable";
+  confidence: number;
+  cutoff: number;
+  /** True when the frame fails: holes at or above the cutoff, or unreadable. */
   flagged: boolean;
   reason: string;
   costUsd: number;

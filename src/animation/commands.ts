@@ -22,6 +22,9 @@ import type { Point, Provenance, Size, TargetProfile } from "../types.ts";
 import { DEFAULT_FIX_CAP_USD, fixBaseProvenance, fixFrame, planFix } from "./fix.ts";
 import type { FrameFix } from "./fix.ts";
 import { planFlicker } from "./flicker.ts";
+import { planHoles } from "./holes.ts";
+import { measureThreshold, splitStrip } from "./strip.ts";
+import { thresholdsFor } from "./templates.ts";
 import { defaultAnchor, familyLoops, profileFrame, qaStrip } from "./run.ts";
 import type { StripQaResult } from "./run.ts";
 
@@ -127,14 +130,19 @@ export function stripTarget(options: {
 
 export interface QaPlan {
   calls: number;
-  perFamily: Array<{ family: string; calls: number }>;
+  perFamily: Array<{ family: string; calls: number; flickerCalls: number; holeCalls: number }>;
   model: string;
+  /** The holes route's model (one call per frame with a see-through area inside its outline). */
+  holesModel: string;
   estimateUsd: number;
   capUsd: number;
   withinCap: boolean;
 }
 
-/** The identity-flicker calls a QA run would make; reads each strip only for its frame count. */
+/**
+ * The vision calls a QA run would make: identity flicker per frame pair, and holes per frame
+ * with a see-through area inside its outline (found on pixels, so the plan is exact).
+ */
 export async function planAnimationQa(
   targets: StripTarget[],
   routes: Routes,
@@ -146,16 +154,29 @@ export async function planAnimationQa(
   for (const t of targets) {
     const { raster } = await readStrip(t.path);
     const count = Math.floor(raster.width / t.frame.width);
-    const plan = vision
+    const flicker = vision
       ? planFlicker(count, familyLoops(t.family, t.profile), routes)
       : { calls: 0, estimatedCostUsd: 0 };
-    perFamily.push({ family: t.family, calls: plan.calls });
-    estimateUsd += plan.estimatedCostUsd;
+    const holes = vision
+      ? planHoles(
+          splitStrip(raster, t.frame),
+          { threshold: measureThreshold(t.style), minPx: thresholdsFor(t.profile).holeMinPx },
+          routes,
+        )
+      : { calls: 0, estimatedCostUsd: 0 };
+    perFamily.push({
+      family: t.family,
+      calls: flicker.calls + holes.calls,
+      flickerCalls: flicker.calls,
+      holeCalls: holes.calls,
+    });
+    estimateUsd += flicker.estimatedCostUsd + holes.estimatedCostUsd;
   }
   return {
     calls: perFamily.reduce((s, f) => s + f.calls, 0),
     perFamily,
     model: routes.flicker.model,
+    holesModel: routes.holes.model,
     estimateUsd,
     capUsd,
     withinCap: estimateUsd <= capUsd + 1e-9,
@@ -163,8 +184,8 @@ export async function planAnimationQa(
 }
 
 /**
- * Runs animation QA on each strip. With a provider, the identity-flicker calls of every strip are
- * reserved against the cap before the first one is made.
+ * Runs animation QA on each strip. With a provider, the identity-flicker and holes calls of every
+ * strip are reserved against the cap before the first one is made.
  */
 export async function runAnimationQa(options: {
   targets: StripTarget[];
@@ -178,7 +199,7 @@ export async function runAnimationQa(options: {
   const plan = await planAnimationQa(options.targets, options.routes, options.capUsd, vision);
   const budget = new Budget(options.capUsd);
   // Refuse up front when the whole run would not fit, before any provider call.
-  budget.settle(budget.reserve(plan.estimateUsd, "the identity-flicker calls"), 0);
+  budget.settle(budget.reserve(plan.estimateUsd, "the identity-flicker and holes calls"), 0);
   const call = options.provider
     ? new Caller({
         provider: options.provider.provider,
@@ -204,7 +225,7 @@ export async function runAnimationQa(options: {
         outDir: options.outDir,
         ...(origin !== undefined && { digitalSourceType: origin }),
         ...(call && {
-          flicker: {
+          vision: {
             call,
             subject: t.subject,
             ...(options.now !== undefined && { now: options.now }),

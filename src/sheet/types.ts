@@ -83,7 +83,7 @@ export interface MatteQuality {
   /** Visible pixels (alpha > 0). */
   visiblePixels: number;
   /**
-   * Opaque interior pixels (alpha 255, not on the edge) within tolerance of the background colour:
+   * Opaque interior pixels (alpha 255, not on the edge) that are the background colour itself:
    * leftover background inside the figure. 0 for source-alpha sheets, whose background is alpha.
    */
   backgroundPixels: number;
