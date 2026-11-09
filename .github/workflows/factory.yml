@@ -14,8 +14,14 @@ on:
       harness: { description: "Override FACTORY_HARNESS for this run (claude | codex | copilot)", required: false }
   issues: # a new Objective dispatches at once (labelled at creation, or labelled later); the cron is only the sweep
     types: [opened, labeled]
-  pull_request: # fires because the App (not the job token) applies factory:review, a human marks a Question draft ready, or a Factory PR merged (siblings may be stale now)
-    types: [labeled, ready_for_review, closed]
+  pull_request: # fires because the App (not the job token) applies factory:review, a human marks a Question draft ready, a Factory PR merged (siblings may be stale now), or the merge queue dropped one (the dispatcher re-enqueues it once, then Blocks)
+    types: [labeled, ready_for_review, closed, dequeued]
+  check_suite: # CI from a GitHub App outside Actions finished on a factory/ branch: a stage waiting on it resumes, or the dispatcher's merge pass runs
+    types: [completed]
+  workflow_run: # CI on Actions finished (GitHub sends no check_suite event for a suite Actions made)
+    workflows:
+      - CI
+    types: [completed]
 env:
   FACTORY_HARNESS: claude # claude | codex | copilot
   FACTORY_MODEL: claude-opus-5-5
@@ -42,23 +48,49 @@ permissions: # the job token reads code and Actions; every write goes through th
   # id-token: write         # Claude workload identity federation only
 jobs:
   dispatch:
-    # Ticks: the cron, a manual run, a new Objective's label, or the review job's last step (a worker slot freed).
+    # Ticks: the cron, a manual run, a new Objective's label, the review job's last step (a worker slot freed), a merged
+    # Factory PR, the merge queue dropping one (only GitHub and people with write access dequeue), the queue watch, and,
+    # without a sandbox, CI finishing on a factory/ branch (the merge pass merges a PR whose checks just went green; with
+    # a sandbox the gate job takes those events and ticks this job itself).
     if: >-
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'repository_dispatch' && github.event.action == 'factory-tick') ||
       (github.event_name == 'issues' && (github.event.label.name == 'factory:objective' || (github.event.action == 'opened' && contains(join(github.event.issue.labels.*.name, ','), 'factory:objective')))) ||
-      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.head_ref, 'factory/'))
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true && startsWith(github.head_ref, 'factory/')) ||
+      (github.event_name == 'pull_request' && github.event.action == 'dequeued' && startsWith(github.head_ref, 'factory/') && github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name == 'check_suite' && startsWith(github.event.check_suite.head_branch, 'factory/')) ||
+      (github.event_name == 'workflow_run' && startsWith(github.event.workflow_run.head_branch, 'factory/') && github.event.workflow_run.head_repository.full_name == github.repository)
     concurrency: { group: factory-dispatch, cancel-in-progress: false } # ticks run one at a time
     runs-on: ubuntu-latest
-    outputs: { issues: "${{ steps.f.outputs.issues }}", count: "${{ steps.f.outputs.count }}" }
+    outputs: { issues: "${{ steps.f.outputs.issues }}", count: "${{ steps.f.outputs.count }}", queue_watch: "${{ steps.f.outputs.queue_watch }}" }
     steps:
-      - uses: clockgrove/factory@v0.7.114
+      - uses: clockgrove/factory@v0.7.121
         id: f
         with: { mode: dispatch, issue: "${{ inputs.issue }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
+  queue-watch:
+    # A PR the merge pass left in the merge queue with no check run on its queue commit yet: this job reads that commit
+    # every 30 s and exits once a check starts, which is within a minute on a healthy queue. A commit that starts none
+    # in 10 minutes ticks the dispatcher, whose merge pass takes the PR out and puts it back once, then Blocks, rather
+    # than waiting out the ruleset's check timeout or GitHub's cron. One watch runs at a time; a newer one waits.
+    name: queue watch
+    needs: dispatch
+    if: needs.dispatch.outputs.queue_watch != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: { contents: read, actions: write } # actions: write only for the dispatcher tick
+    concurrency: { group: factory-queue-watch, cancel-in-progress: false }
+    steps:
+      - uses: clockgrove/factory@v0.7.121
+        id: w
+        with: { mode: watch, pr: "${{ needs.dispatch.outputs.queue_watch }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
+      - name: Dispatch tick (a queue commit started no check run)
+        if: steps.w.outputs.tick == 'true'
+        env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}" } # no checkout here: gh names the repository from GH_REPO
+        run: gh workflow run factory.yml
   work:
     needs: dispatch
     if: needs.dispatch.outputs.count != '' && needs.dispatch.outputs.count != '0'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 240
     strategy: { max-parallel: 2, fail-fast: false, matrix: { issue: "${{ fromJSON(needs.dispatch.outputs.issues) }}" } }
     permissions: { contents: read, issues: write, actions: write } # actions: write for the tick at the end and triage's rerun of failed CI jobs
@@ -66,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.114
+      - uses: clockgrove/factory@v0.7.121
         id: f
         with:
           mode: work
@@ -92,14 +124,14 @@ jobs:
     if: >-
       github.event_name == 'pull_request' && startsWith(github.head_ref, 'factory/') && github.event.pull_request.head.repo.full_name == github.repository &&
       ((github.event.action == 'labeled' && github.event.label.name == 'factory:review') || github.event.action == 'ready_for_review')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 240
     permissions: { contents: read, issues: write, actions: write } # actions: write here, for the tick below and triage's rerun of failed CI jobs
     concurrency: { group: "factory-review-${{ github.event.pull_request.number }}", cancel-in-progress: false }
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.114
+      - uses: clockgrove/factory@v0.7.121
         id: f
         with:
           mode: review
