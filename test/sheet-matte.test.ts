@@ -82,6 +82,7 @@ test("soft alpha and full colour keep fur edges, with no halo or leftover backgr
     mode: "unmix",
     background: "#ece6d8",
     band: 2,
+    markingPixels: 0,
   });
 });
 
@@ -236,4 +237,144 @@ test("opaque background colour inside a figure fails the background check, not t
     background!.reason,
     /opaque background colour inside the figure; the limit is 0\.50%/,
   );
+});
+
+/** A sheet whose figure 0 has a block of `colour` painted deep in its body; its sheet px. */
+function sheetWithMarking(colour: readonly [number, number, number], size = [6, 4]) {
+  const sheet = syntheticSheet();
+  const { box, mask } = sliceSheet(sheet.raster).figures[0]!;
+  const [w, h] = size as [number, number];
+  // The first figure pixel with the whole block, and 3 px around it, inside the figure.
+  let corner = { x: -1, y: -1 };
+  for (let y = 3; y < box.height - h - 3 && corner.x < 0; y++) {
+    for (let x = 3; x < box.width - w - 3 && corner.x < 0; x++) {
+      let inside = true;
+      for (let dy = -3; dy < h + 3 && inside; dy++) {
+        for (let dx = -3; dx < w + 3; dx++) {
+          if (mask[(y + dy) * box.width + x + dx] !== 1) inside = false;
+        }
+      }
+      if (inside) corner = { x, y };
+    }
+  }
+  assert.ok(corner.x >= 0, "the figure has room for the marking");
+  const marking = Array.from({ length: w * h }, (_, i) => ({
+    x: box.x + corner.x + (i % w),
+    y: box.y + corner.y + Math.floor(i / w),
+  }));
+  for (const p of marking) setPixel(sheet.raster, p.x, p.y, [...colour, 255]);
+  return { sheet, marking };
+}
+
+test("a light marking inside the figure, near the background's colour, stays opaque and keeps its colour", () => {
+  // Within the slice tolerance (40) of the background, so slicing alone takes it for background.
+  const pale: [number, number, number] = [250, 246, 238];
+  const { sheet, marking } = sheetWithMarking(pale);
+  const figure = sliceSheet(sheet.raster).figures[0]!;
+  const matted = matteFigure(figure, resolveStyle(undefined));
+  const at = (p: { x: number; y: number }) =>
+    (p.y - figure.box.y) * figure.box.width + p.x - figure.box.x;
+  assert.equal(figure.mask[at(marking[0]!)], 0, "slicing alone misses the marking");
+  for (const p of marking) {
+    assert.equal(matted.image.data[at(p) * 4 + 3], 255, `marking pixel ${p.x},${p.y} is a hole`);
+    assert.deepEqual([...matted.image.data.subarray(at(p) * 4, at(p) * 4 + 3)], pale);
+  }
+  const reclaimed = matted.transforms.find((t) => t.op === "matte")?.["markingPixels"];
+  assert.ok((reclaimed as number) >= marking.length);
+  assert.ok(matteChecks(matted.quality).every((r) => r.passed));
+});
+
+test("a pale grey marking on the line from the background to the fur stays opaque too", () => {
+  // 15% fur, 85% background: a colour a soft edge could have, but it is never the flat background.
+  const bg = SHEET_BACKGROUND;
+  const fur = [108, 110, 122];
+  const grey = [0, 1, 2].map((k) => Math.round(0.15 * fur[k]! + 0.85 * bg[k]!)) as [
+    number,
+    number,
+    number,
+  ];
+  const { sheet, marking } = sheetWithMarking(grey);
+  const figure = sliceSheet(sheet.raster).figures[0]!;
+  const matted = matteFigure(figure, resolveStyle(undefined));
+  const at = (p: { x: number; y: number }) =>
+    (p.y - figure.box.y) * figure.box.width + p.x - figure.box.x;
+  for (const p of marking) assert.equal(matted.image.data[at(p) * 4 + 3], 255);
+});
+
+test("a 2 x 2 gap of flat background inside the figure stays background", () => {
+  const { sheet, marking } = sheetWithMarking(SHEET_BACKGROUND, [2, 2]);
+  const figure = sliceSheet(sheet.raster).figures[0]!;
+  const matted = matteFigure(figure, resolveStyle(undefined));
+  const at = (p: { x: number; y: number }) =>
+    (p.y - figure.box.y) * figure.box.width + p.x - figure.box.x;
+  for (const p of marking) assert.ok(matted.image.data[at(p) * 4 + 3]! < 32);
+});
+
+/**
+ * A painterly disc on a cool pale background: dark brown fur, a warm pale rim (as light fur on a
+ * figure's edge), and a soft, antialiased edge blending that rim into the background.
+ */
+function rimmedDisc(): SlicedFigure {
+  const size = 40;
+  const bg: [number, number, number] = [229, 240, 238];
+  const fur = [116, 88, 73];
+  const rim = [236, 214, 188];
+  const crop = createRaster(size, size);
+  const mask = new Uint8Array(size * size);
+  const c = size / 2;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const r = Math.hypot(x + 0.5 - c, y + 0.5 - c);
+      const inner = r < 10 ? fur : rim;
+      const cover = Math.max(0, Math.min(1, 14 - r));
+      const px = [0, 1, 2].map((k) => Math.round(cover * inner[k]! + (1 - cover) * bg[k]!));
+      setPixel(crop, x, y, [px[0]!, px[1]!, px[2]!, 255]);
+      if (Math.hypot(px[0]! - bg[0], px[1]! - bg[1], px[2]! - bg[2]) > 40) mask[y * size + x] = 1;
+    }
+  }
+  return {
+    id: 1,
+    cell: { row: 0, column: 0, box: { x: 0, y: 0, width: size, height: size } },
+    box: { x: 0, y: 0, width: size, height: size },
+    crop,
+    mask,
+    background: bg,
+    transforms: [],
+  };
+}
+
+test("soft edge pixels carry the figure's colour, not a fringe amplified from the background", () => {
+  const matted = matteFigure(rimmedDisc(), resolveStyle(undefined));
+  const { width, height, data } = matted.image;
+  // Every faint pixel's colour is near some opaque colour of the figure within 3 px.
+  let faint = 0;
+  let far = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const a = data[i + 3]!;
+      if (a === 0 || a === 255) continue;
+      let best = Infinity;
+      for (let dy = -3; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          if (x + dx < 0 || y + dy < 0 || x + dx >= width || y + dy >= height) continue;
+          const j = ((y + dy) * width + x + dx) * 4;
+          if (data[j + 3] !== 255) continue;
+          best = Math.min(
+            best,
+            Math.hypot(
+              data[i]! - data[j]!,
+              data[i + 1]! - data[j + 1]!,
+              data[i + 2]! - data[j + 2]!,
+            ),
+          );
+        }
+      }
+      if (best === Infinity) continue;
+      faint++;
+      if (best > 48) far++;
+    }
+  }
+  assert.ok(faint > 20, `soft pixels ${faint}`);
+  assert.equal(far, 0, `${far} of ${faint} soft pixels carry a colour the figure does not have`);
 });

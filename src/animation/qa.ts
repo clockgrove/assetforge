@@ -1,12 +1,13 @@
 /**
  * Deterministic pixel animation QA of one strip: frame count, timing and beats against the
  * family's motion template, ground contact, anchor and footprint drift, silhouette change
- * between frames and the loop seam. Every check adds a reason whether it passes or not, and each
+ * between frames, the loop seam and a colour halo at the figure's edge. Every check adds a reason whether it passes or not, and each
  * failing reason names the frame(s) in 1-based numbers.
  */
 import type { Raster } from "../image/raster.ts";
 import type { ResolvedStyle } from "../style.ts";
 import type { Point, TargetProfile } from "../types.ts";
+import { edgeHaloReasons } from "./halo.ts";
 import { gaitFor, templateFor, templatesFor, thresholdsFor, withGait } from "./templates.ts";
 import { measureThreshold } from "./strip.ts";
 import type {
@@ -427,6 +428,8 @@ export function checkAnimation(
       );
     }
   }
+
+  reasons.push(...edgeHaloReasons(frames, thresholds));
 
   return {
     family,
