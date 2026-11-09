@@ -88,7 +88,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 
 An optional `identity` object configures identity lock scoring: `mode` (`shadow`, the default, scores without filtering; `enforce` filters candidates below the threshold; `off`), `threshold` (0 to 1, default 0.68, chosen from eval data; see [decisions.md](decisions.md)) and `question` (`score` or `boolean`). See [generation-knobs.md](generation-knobs.md#identity-lock-scoring).
 
-This example follows the public manifest shape in Clockgrove's `packages/assets/docs/pipeline.md`; Clockgrove's real profile, and its validator command, live in Clockgrove (clockgrove/clockgrove#27).
+This example follows the public manifest shape in Clockgrove's `packages/assets/docs/pipeline.md`; The paths are illustrative. Raccoon World's real profile and layout live in clockgrove/raccoon-world (raccoon-world#2); Clockgrove's validator support for external worlds is clockgrove/clockgrove#61.
 
 - **Style.** `style` is the world's style profile: alpha mode (`soft` or `binary`, with a `threshold`), colour rule (`full` or `palette`) and edges (`antialiased` or `crisp`). The sheet import path follows it ([sheet-import.md](sheet-import.md#style-profile)). It is optional, and templates can read it as `{{profile.style}}`.
 - **Templates.** `"{{a.b}}"` as a whole string inserts the value of any JSON type; `"{{a.b?}}"` drops the key when the value is undefined; `{{a.b}}` inside a longer string interpolates text. An undefined required value is an error.

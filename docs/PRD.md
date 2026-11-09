@@ -277,6 +277,7 @@ These are measured per campaign and recorded in the repository:
 
 ## 11. Relationship to other projects
 
-- **Clockgrove** owns its style bible, target profile, validator and review: clockgrove/clockgrove#27.
+- **Each world** owns its style bible, target profile and review. Raccoon World's live in clockgrove/raccoon-world (raccoon-world#2).
+- **Clockgrove** owns the platform side: validating external worlds' assets (clockgrove/clockgrove#61), material packing, atlases and KTX2 delivery (clockgrove/clockgrove#66).
 - **Factory** builds Assetforge (Objectives) and owns Git LFS persistence and infrastructure.
 - **Assetforge** owns generation, post-processing, QA, picking and hand-off.
