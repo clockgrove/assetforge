@@ -84,6 +84,8 @@ Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model
 
 ## Cost
 
+The sheet prompt states the family's motion template: its description and beats, a held pose when the template allows only a small silhouette change (`shelter`, `idle`), and the loop. `--brief <brief.json>` adds the author's brief (purpose, where it appears, what happens), checked as `plan` checks a brief, so the model draws the motion the author asked for rather than its own idea of the family.
+
 `generate-sheet` makes one `sheet` call (default `openai/gpt-image-2` at 1536x1024, estimated at $0.30) and one `vision` call for the grouping ($0.02). Both are reserved against the cap (default $5) before either is made. `import` makes the one grouping call, unless `--no-propose` is given. With `--lock-bible` and a locked character, either command adds one `identity` decision call (estimated at $0.001), reserved with the rest. That call is made in the default shadow mode too, so `import --no-propose --lock-bible` on a locked character needs a gateway key; add `--identity-mode off` to import it without one.
 
 ## The real Jimothy sheet

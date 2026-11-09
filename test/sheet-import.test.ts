@@ -10,7 +10,8 @@ import type { ImageRequest, VisionRequest } from "../src/gateway/provider.ts";
 import { decodePng, getPixel } from "../src/image/raster.ts";
 import { loadBibleInputs, sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
-import { generateSheet } from "../src/sheet/generate.ts";
+import { generateSheet, motionLines, sheetBrief } from "../src/sheet/generate.ts";
+import { templateFor, templatesFor } from "../src/animation/templates.ts";
 import { SliceError } from "../src/sheet/slice.ts";
 import { GROUPING_FILE, importSheet, writeFamilies } from "../src/sheet/import.ts";
 import { jitterOf } from "../src/sheet/register.ts";
@@ -351,6 +352,9 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   const request = images[0]!.request as ImageRequest;
   assert.equal(request.model, defaultRoutes.sheet.model);
   assert.match(request.prompt, /"walk" animation cycle of 6 frames/);
+  // The family's motion template is stated; a walk moves, so no held-pose line.
+  assert.match(request.prompt, /Motion: a walk cycle/);
+  assert.doesNotMatch(request.prompt, /Hold the pose/);
   assert.match(request.prompt, /grey adult raccoon/);
   for (const hex of PALETTE) assert.ok(request.prompt.includes(hex));
   // The bible's subject references, perspective sample and palette swatch, exactly and in order.
@@ -430,4 +434,30 @@ test("sheet generation refuses a sheet with another frame count and keeps it", a
   assert.equal(kept.sheet.sha256, sha256(sheet.png));
   assert.equal(kept.generation.calls.length, 1);
   assert.deepEqual([kept.slice.found, kept.slice.expected], [6, 8]);
+});
+
+test("the sheet prompt states a held family's motion and the author's brief", () => {
+  const shelter = templateFor("shelter", templatesFor());
+  const brief = sheetBrief({
+    purpose: "animation strip: the shelter family, one looping cycle",
+    appearsIn: "the yard at dusk in the rain",
+    context:
+      "Rain has started; the raccoon hunkers down, hunched low, a small shiver, tail wrapped close.",
+  });
+  const lines = motionLines(shelter, brief).join("\n");
+  assert.match(
+    lines,
+    /Motion: huddled in cover, a small tremble\. Beats, in order: huddle from the first frame, then tremble about 50% through\./,
+  );
+  assert.match(lines, /Hold the pose for the whole cycle/);
+  assert.match(lines, /The cycle loops/);
+  assert.match(lines, /Purpose: animation strip/);
+  assert.match(lines, /Seen in: the yard at dusk/);
+  assert.match(lines, /What happens: Rain has started; .*a small shiver/);
+  // No template and no brief: nothing added.
+  assert.deepEqual(motionLines(undefined, undefined), []);
+  // A brief is checked as plan checks it.
+  assert.throws(() => sheetBrief({ style: "flat" }), /unsupported brief field style/);
+  assert.throws(() => sheetBrief({ context: 3 }), /brief context must be a string/);
+  assert.throws(() => sheetBrief(["x"]), /brief must be an object/);
 });
