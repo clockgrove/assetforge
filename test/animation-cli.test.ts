@@ -210,6 +210,27 @@ test("fix-frame: regenerates only that frame and records it in provenance", asyn
   );
 });
 
+test("fix-frame: a provenance it cannot extend exits 2 before any call and writes nothing", async () => {
+  const { root } = await setup(undefined, { count: 8, style: "painterly", motion: "walk" });
+  // A transform record (what `recipe` writes) for some other image.
+  await writeFile(
+    join(root, "other.provenance.json"),
+    JSON.stringify({ generator: "transform", sources: [], steps: [], outputs: [] }),
+  );
+  const out = join(root, "fixed");
+  const r = await cli([
+    "fix-frame",
+    ...["--strip", join(root, "walk-right.png"), "--family", "walk-right"],
+    ...["--profile", join(root, "profile.json"), "--frame", "3", "--from", "2", "--out", out],
+    ...["--provenance", join(root, "other.provenance.json")],
+    ...["--provider-script", SCRIPT, "--json"],
+  ]);
+  assert.equal(r.code, 2, r.stderr);
+  assert.equal(doc(r).error.code, "invalid_input");
+  assert.match(doc(r).error.message, /cannot extend the provenance/);
+  await assert.rejects(readFile(join(out, "walk-right.png")), "nothing written");
+});
+
 test("write-families writes the onion skin and loop preview and reports animation QA", async () => {
   const root = await mkdtemp(join(tmpdir(), "assetforge-anim-wf-"));
   const target = join(root, "target");

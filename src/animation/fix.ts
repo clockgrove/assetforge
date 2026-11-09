@@ -15,6 +15,7 @@ import { measureFrame } from "../sheet/register.ts";
 import { sheetImportRecipe } from "../sheet/import.ts";
 import type { ResolvedStyle } from "../style.ts";
 import { pixelHash, runOperation, runRecipe } from "../transform/run.ts";
+import type { TransformRecord } from "../transform/run.ts";
 import type { ImageItem, TransformStep } from "../transform/types.ts";
 import type { LoadedReference, Point, Provenance, Size } from "../types.ts";
 import { joinStrip, measureThreshold, splitStrip } from "./strip.ts";
@@ -99,6 +100,121 @@ function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStrings(value: unknown): boolean {
+  return Array.isArray(value) && value.every((v) => typeof v === "string");
+}
+
+const EXTENDABLE =
+  "fix-frame extends a strip's own provenance (from write-families, pick or an earlier fix-frame) " +
+  "or the transform record of recipe or op that lists this strip as an output";
+
+function refuseProvenance(source: string, problems: string[]): InputError {
+  return new InputError(
+    `cannot extend the provenance ${source}: ${problems.join("; ")}. ${EXTENDABLE}; ` +
+      "give that file with --provenance. Nothing was spent",
+  );
+}
+
+/**
+ * What stops a record from being extended by a fix, one entry per field the fix reads or appends
+ * to. Empty for a strip's provenance (write-families, stage and pick, an earlier fix).
+ */
+export function provenanceProblems(value: unknown): string[] {
+  if (!isObject(value)) return ["it is not a JSON object"];
+  const problems: string[] = [];
+  if (typeof value["generator"] !== "string") problems.push("generator is not a string");
+  for (const key of ["models", "requestIds", "referenceHashes", "providerTerms"]) {
+    if (!isStrings(value[key])) problems.push(`${key} is not a list of strings`);
+  }
+  if (!Array.isArray(value["calls"])) problems.push("calls is not a list");
+  if (typeof value["costUsd"] !== "number" || !Number.isFinite(value["costUsd"])) {
+    problems.push("costUsd is not a number");
+  }
+  if (value["digitalSourceType"] !== undefined && typeof value["digitalSourceType"] !== "string") {
+    problems.push("digitalSourceType is not a string");
+  }
+  for (const key of ["steps", "fixes"]) {
+    if (value[key] !== undefined && !Array.isArray(value[key]))
+      problems.push(`${key} is not a list`);
+  }
+  const frames = value["frames"];
+  if (
+    frames !== undefined &&
+    !(
+      Array.isArray(frames) &&
+      frames.every(
+        (f) => isObject(f) && typeof f["index"] === "number" && Array.isArray(f["transforms"]),
+      )
+    )
+  ) {
+    problems.push("frames is not a list of frames with an index and transforms");
+  }
+  return problems;
+}
+
+/**
+ * The record a fix extends, from a provenance file Assetforge wrote. A strip's own provenance is
+ * kept as it is. A transform record (`recipe`, `op`) that lists this strip among its outputs
+ * becomes a provenance carrying the record's sources, steps and output. Anything else is refused
+ * with an InputError, so it is caught before any call is made.
+ */
+export function fixBaseProvenance(
+  value: unknown,
+  input: { strip: Raster; source: string; license: string; bibleVersion?: string; at: string },
+): Provenance {
+  if (isObject(value) && value["generator"] === "transform") {
+    const problems: string[] = [];
+    for (const key of ["sources", "steps", "outputs"]) {
+      if (!Array.isArray(value[key])) problems.push(`the transform record's ${key} is not a list`);
+    }
+    if (problems.length > 0) throw refuseProvenance(input.source, problems);
+    const record = value as unknown as TransformRecord;
+    const pixels = pixelHash(input.strip);
+    const output = record.outputs.find((o) => isObject(o) && o.pixels === pixels);
+    if (!output) {
+      throw refuseProvenance(input.source, [
+        "it is a transform record, but none of its outputs has this strip's pixels",
+      ]);
+    }
+    return {
+      ...(typeof output.digitalSourceType === "string" && {
+        digitalSourceType: output.digitalSourceType,
+      }),
+      ...(record.sourceDeclaration && { sourceDeclaration: record.sourceDeclaration }),
+      generator: "transform",
+      route: "transform",
+      models: [],
+      prompt: "",
+      parameters: {
+        ...(record.recipe && { recipe: record.recipe }),
+        sources: record.sources,
+        output,
+      },
+      requestIds: [],
+      referenceHashes: unique(
+        record.sources.flatMap((s) =>
+          isObject(s) && typeof s.sha256 === "string" ? [s.sha256] : [],
+        ),
+      ),
+      bibleVersion: input.bibleVersion ?? "unknown",
+      license: input.license,
+      providerTerms: [],
+      startedAt: input.at,
+      finishedAt: input.at,
+      costUsd: 0,
+      calls: [],
+      steps: record.steps,
+    };
+  }
+  const problems = provenanceProblems(value);
+  if (problems.length > 0) throw refuseProvenance(input.source, problems);
+  return value as Provenance;
+}
+
 export async function fixFrame(
   options: FixFrameOptions,
 ): Promise<{ strip: Raster; frame: Raster; provenance: FixedProvenance; fix: FrameFix }> {
@@ -137,6 +253,10 @@ export async function fixFrame(
     ...(neighbour !== undefined && { sourceFrame: neighbour }),
     ...(options.note !== undefined && { note: options.note }),
   });
+  if (options.provenance !== undefined) {
+    const problems = provenanceProblems(options.provenance);
+    if (problems.length > 0) throw refuseProvenance("given", problems);
+  }
   const seed = Number.parseInt(sha256(new TextEncoder().encode(prompt)).slice(0, 8), 16);
   const startedAt = now().toISOString();
   const returned = await call.image("edit", prompt, [first, second], seed);
