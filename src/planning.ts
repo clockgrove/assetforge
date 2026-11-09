@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { Budget } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { InputError, ProviderError } from "./errors.ts";
+import { licenseFields, requireGrant } from "./license.ts";
 import { biblePalette, loadBible, loadDesignColors, doDontSection } from "./bible.ts";
 import type { ArtBible, BibleDocument } from "./bible.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
@@ -173,6 +174,7 @@ function route(value: Route, label: string): Route {
     typeof value.providerTerms !== "string"
   )
     throw new InputError(`invalid ${label} route`);
+  if (value.outputGrant !== undefined) requireGrant(value.outputGrant, `the ${label} route`);
   return structuredClone(value);
 }
 
@@ -1045,7 +1047,7 @@ export async function applyPlan(
         requestIds: calls.map((c) => c.requestId),
         referenceHashes: refs.map((r) => r.sha256),
         bibleVersion: plan.bible.version,
-        license: plan.profile.license,
+        ...licenseFields(plan.profile, calls),
         providerTerms: [...new Set(calls.map((c) => c.providerTerms))],
         startedAt: calls[0]?.startedAt ?? run.createdAt,
         finishedAt: calls.at(-1)?.finishedAt ?? run.createdAt,

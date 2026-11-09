@@ -86,6 +86,7 @@ export class Caller {
       costUsd,
       costSource: result.costUsd === undefined ? "estimate" : "provider",
       providerTerms: route.providerTerms,
+      ...(route.outputGrant !== undefined && { outputGrant: structuredClone(route.outputGrant) }),
     });
     return result;
   }

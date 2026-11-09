@@ -13,6 +13,7 @@ import { evaluateIdentity } from "./identity-eval.ts";
 import { parseDigitalSourceType } from "./metadata.ts";
 import type { DigitalSourceType } from "./metadata.ts";
 import { InputError, ProviderError } from "./errors.ts";
+import { LicenseError } from "./license.ts";
 import { VercelGateway } from "./gateway/vercel.ts";
 import { ScriptedProvider } from "./gateway/scripted.ts";
 import type { Script } from "./gateway/scripted.ts";
@@ -60,6 +61,7 @@ type ErrorCode =
   | "provider_error"
   | "qa_found_nothing"
   | "validator_rejected"
+  | "license_refused"
   | "internal_error";
 
 const EXIT: Record<ErrorCode, number> = {
@@ -68,6 +70,7 @@ const EXIT: Record<ErrorCode, number> = {
   provider_error: 4,
   qa_found_nothing: 5,
   validator_rejected: 6,
+  license_refused: 7,
   internal_error: 1,
 };
 
@@ -1427,6 +1430,7 @@ function classify(error: unknown): { code: ErrorCode; message: string } {
   }
   if (error instanceof BudgetExceededError) return { code: "cap_refused", message };
   if (error instanceof ProviderError) return { code: "provider_error", message };
+  if (error instanceof LicenseError) return { code: "license_refused", message };
   return { code: "internal_error", message };
 }
 

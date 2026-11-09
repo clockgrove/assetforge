@@ -90,6 +90,12 @@ export interface TargetProfile {
   style?: StyleProfile;
   /** The license value the target accepts for generated output (Clockgrove: `MIT`). */
   license: string;
+  /**
+   * Licences the target accepts on purpose beyond its own, for outputs whose provider grant does
+   * not let the target relabel them (Raccoon World: `["CC-BY-4.0"]`). Non-commercial grants are
+   * refused whatever this lists (docs/target-profile.md).
+   */
+  acceptedLicenses?: string[];
   /** Free values for the manifest template, for example `{ "creator": "Clockgrove" }`. */
   values?: Record<string, unknown>;
   frames: { width: number; height: number; maxEdge?: number; durationMs?: number };
@@ -152,8 +158,27 @@ export interface CallRecord {
   costUsd: number;
   costSource: "provider" | "estimate";
   providerTerms: string;
+  /** What the provider grants for this call's output, from its route. */
+  outputGrant?: OutputGrant;
   /** For a typed decision call: what it answered, how sure and how long it took. */
   decision?: DecisionLog;
+}
+
+/**
+ * What a provider grants for an output, on the plan or route it was made on. Field names are a
+ * contract shared with Clockgrove's asset manifest (clockgrove/clockgrove#61).
+ */
+export interface OutputGrant {
+  /** An SPDX ID (`CC-BY-4.0`), or `LicenseRef-<provider>-<plan>` when the terms are not one. */
+  license: string;
+  /** The provider plan or route the output was made on (`free`, `pro`, `api`, ...). */
+  plan: string;
+  /** Whether the grant allows commercial use. */
+  commercial: boolean;
+  /** Whether the target may declare its own licence (the grant gives ownership). */
+  relabel: boolean;
+  /** The credit line the grant requires, when it requires one. */
+  attribution?: string;
 }
 
 /** One typed decision call's answer, as logged in its call record. */
@@ -211,7 +236,13 @@ export interface Provenance {
   requestIds: string[];
   referenceHashes: string[];
   bibleVersion: string;
+  /**
+   * The licence the output is declared under: the target's licence when the output grant allows
+   * relabelling (or there is none), else the granted licence the target accepts.
+   */
   license: string;
+  /** The combined grant of every call (the most restrictive wins), when any call records one. */
+  outputGrant?: OutputGrant;
   providerTerms: string[];
   startedAt: string;
   finishedAt: string;

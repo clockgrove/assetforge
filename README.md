@@ -66,15 +66,16 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 - `ops`: list the operations, their parameter schemas and the engines.
 - `--help`, `--version`, and `<command> --help`.
 
-| Code | Meaning                                                                  |
-| ---- | ------------------------------------------------------------------------ |
-| 0    | Success                                                                  |
-| 1    | Unexpected internal error                                                |
-| 2    | Invalid input                                                            |
-| 3    | Cap refused (also a dry-run forecast over the cap)                       |
-| 4    | Provider error (missing `AI_GATEWAY_API_KEY`, or every candidate failed) |
-| 5    | QA found nothing                                                         |
-| 6    | The target's validator rejected what was written                         |
+| Code | Meaning                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------- |
+| 0    | Success                                                                                                   |
+| 1    | Unexpected internal error                                                                                 |
+| 2    | Invalid input                                                                                             |
+| 3    | Cap refused (also a dry-run forecast over the cap)                                                        |
+| 4    | Provider error (missing `AI_GATEWAY_API_KEY`, or every candidate failed)                                  |
+| 5    | QA found nothing                                                                                          |
+| 6    | The target's validator rejected what was written                                                          |
+| 7    | Licence refused: the provider's output grant does not let the target declare the output (nothing written) |
 
 ## Develop
 

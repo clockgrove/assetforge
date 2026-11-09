@@ -1,5 +1,7 @@
 import { InputError } from "./errors.ts";
 import { parseJsonFile } from "./json.ts";
+import { requireGrant } from "./license.ts";
+import type { OutputGrant } from "./types.ts";
 
 /** A model route: which gateway model serves an operation, its per-call estimate and its terms. */
 export interface Route {
@@ -8,6 +10,12 @@ export interface Route {
   estimatedCostUsd: number;
   /** The provider terms the output was made under, recorded in provenance. */
   providerTerms: string;
+  /**
+   * What the provider grants for this route's outputs on the plan it is called on, recorded on
+   * every call. A route to a provider whose terms do not give ownership (a free plan) must
+   * declare it, or its outputs are taken as relabellable (docs/generation-knobs.md).
+   */
+  outputGrant?: OutputGrant;
   size?: string;
   /** Whether the model accepts a seed; only then is one sent and recorded. */
   supportsSeed?: boolean;
@@ -36,6 +44,12 @@ export const defaultRoutes: Routes = {
     model: "openai/gpt-image-2",
     estimatedCostUsd: 0.25,
     size: "1024x1024",
+    outputGrant: {
+      license: "LicenseRef-openai-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms:
       "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
   },
@@ -43,6 +57,12 @@ export const defaultRoutes: Routes = {
     model: "bfl/flux-kontext-pro",
     estimatedCostUsd: 0.05,
     supportsSeed: true,
+    outputGrant: {
+      license: "LicenseRef-bfl-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms:
       "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
@@ -50,12 +70,24 @@ export const defaultRoutes: Routes = {
     model: "openai/gpt-image-2",
     estimatedCostUsd: 0.3,
     size: "1536x1024",
+    outputGrant: {
+      license: "LicenseRef-openai-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms:
       "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
   },
   vision: {
     model: "google/gemini-3-flash",
     estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-google-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
@@ -64,12 +96,24 @@ export const defaultRoutes: Routes = {
     // is the alternate. About $0.00003 per answer; the estimate is a deliberate upper bound.
     model: "perplexity/pplx-decider-v1.2",
     estimatedCostUsd: 0.001,
+    outputGrant: {
+      license: "LicenseRef-perplexity-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms: "Perplexity API Terms of Service, via Vercel AI Gateway (as of 2026-11-08)",
   },
   // Identity-flicker judgement between consecutive animation frames.
   flicker: {
     model: "google/gemini-3-flash",
     estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-google-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
@@ -85,6 +129,8 @@ export async function loadRoutes(path?: string): Promise<Routes> {
   const merged: Record<string, Route> = { ...defaultRoutes };
   for (const [operation, route] of Object.entries(overrides as Record<string, Partial<Route>>)) {
     merged[operation] = { ...merged[operation], ...route } as Route;
+    const grant = merged[operation]?.outputGrant;
+    if (grant !== undefined) requireGrant(grant, `the ${operation} route in ${path}`);
   }
   return merged as Routes;
 }

@@ -33,6 +33,10 @@ The operator picks. `assetforge stage` stages only QA-passing candidates with th
 
 Assetforge writes the license value the target profile declares (Clockgrove: MIT) and records the models, route and provider terms in provenance.
 
+## Provider output grants (assetforge#47, 2026-11-09)
+
+Provider terms differ on who owns an output (Meshy free: CC BY 4.0 with credit; Tripo free: rights kept by Tripo, no commercial use; paid plans give ownership). Each route declares its `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`; names shared with clockgrove/clockgrove#61), every call records it, and the provenance carries the combination over its calls, the most restrictive winning. The provenance's `license` is the target's licence only when the grant allows relabelling; otherwise the granted licence, when it is commercial and the target lists it in `acceptedLicenses`. Anything else is refused at hand-off (`pick`, `write-families`) with exit 7 (`license_refused`) before a file is written. Staging is unaffected, so free-credit spikes that never reach a target still run.
+
 ## Packaging (assetforge#21, 2026-11-07)
 
 Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetforge` is taken.

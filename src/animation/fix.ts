@@ -17,7 +17,15 @@ import type { ResolvedStyle } from "../style.ts";
 import { pixelHash, runOperation, runRecipe } from "../transform/run.ts";
 import type { TransformRecord } from "../transform/run.ts";
 import type { ImageItem, TransformStep } from "../transform/types.ts";
-import type { LoadedReference, Point, Provenance, Size } from "../types.ts";
+import { grantOf, grantProblems } from "../license.ts";
+import type {
+  CallRecord,
+  LoadedReference,
+  OutputGrant,
+  Point,
+  Provenance,
+  Size,
+} from "../types.ts";
 import { joinStrip, measureThreshold, splitStrip } from "./strip.ts";
 
 export const DEFAULT_FIX_CAP_USD = 2;
@@ -131,6 +139,14 @@ export function provenanceProblems(value: unknown): string[] {
     if (!isStrings(value[key])) problems.push(`${key} is not a list of strings`);
   }
   if (!Array.isArray(value["calls"])) problems.push("calls is not a list");
+  else {
+    value["calls"].forEach((call: unknown, i: number) => {
+      const grant = isObject(call) ? call["outputGrant"] : undefined;
+      if (grant === undefined) return;
+      const bad = grantProblems(grant);
+      if (bad.length > 0) problems.push(`call ${i + 1}'s outputGrant: ${bad.join("; ")}`);
+    });
+  }
   if (typeof value["costUsd"] !== "number" || !Number.isFinite(value["costUsd"])) {
     problems.push("costUsd is not a number");
   }
@@ -372,6 +388,7 @@ export async function fixFrame(
     finishedAt: at,
     costUsd: base.costUsd + record.costUsd,
     calls: [...base.calls, record],
+    ...grantFields(base, [...base.calls, record]),
     steps: [...(base.steps ?? []), ...steps],
     fixes: [...(base.fixes ?? []), fix],
     ...(base.frames && {
@@ -394,4 +411,17 @@ export async function fixFrame(
     }),
   };
   return { strip, frame: fixed, provenance, fix };
+}
+
+/**
+ * The combined output grant of a fixed strip's calls, and its licence: the granted licence once a
+ * grant does not allow relabelling, else the base record's (the target's) licence.
+ */
+function grantFields(
+  base: Provenance,
+  calls: CallRecord[],
+): { license: string; outputGrant?: OutputGrant } {
+  const outputGrant = grantOf(calls);
+  if (!outputGrant) return { license: base.license };
+  return { license: outputGrant.relabel ? base.license : outputGrant.license, outputGrant };
 }
