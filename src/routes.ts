@@ -75,7 +75,7 @@ export const defaultRoutes: Routes = {
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
-  // Holes: one enlarged frame with its enclosed see-through areas marked. About $0.003 a call
+  // Holes: one enlarged frame with its enclosed see-through areas marked. $0.003 to $0.008 a call
   // (#51's proof); the estimate is an upper bound.
   holes: {
     model: "google/gemini-3-flash",
