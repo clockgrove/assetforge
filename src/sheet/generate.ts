@@ -18,6 +18,10 @@ import { SliceError } from "./slice.ts";
 import type { ImportIdentity } from "./import.ts";
 import type { ImportRecord } from "./import.ts";
 import type { Grouping, SliceOptions } from "./types.ts";
+import { templateFor, templatesFor } from "../animation/templates.ts";
+import type { MotionTemplate } from "../animation/types.ts";
+import { assertOriginalDescription } from "../planning.ts";
+import type { GenerationBrief } from "../planning.ts";
 
 export interface GenerateSheetOptions {
   spec: AssetSpec;
@@ -25,6 +29,8 @@ export interface GenerateSheetOptions {
   bible: StyleBible;
   bibleDir: string;
   profile: TargetProfile;
+  /** The author's brief: what the strip is for and how it moves. Its words go into the sheet prompt. */
+  brief?: GenerationBrief;
   routes: Routes;
   provider: GenerationProvider;
   /** Recorded in each call's route, for example `vercel-ai-gateway`. */
@@ -46,6 +52,74 @@ export function sheetColumns(count: number): number {
   return Math.max(1, Math.ceil(Math.sqrt(count * 1.5)));
 }
 
+const BRIEF_FIELDS = new Set([
+  "purpose",
+  "appearsIn",
+  "neighbouringAssets",
+  "mood",
+  "context",
+  "adjustments",
+]);
+
+/** A brief file's value, checked as `plan` checks it: known fields, strings where strings belong, original wording. */
+export function sheetBrief(value: unknown): GenerationBrief {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new InputError("brief must be an object");
+  const brief = value as Record<string, unknown>;
+  for (const key of Object.keys(brief))
+    if (!BRIEF_FIELDS.has(key))
+      throw new InputError(
+        `unsupported brief field ${key}; constitutional overrides are forbidden`,
+      );
+  for (const key of ["purpose", "appearsIn", "mood", "context"])
+    if (brief[key] !== undefined && typeof brief[key] !== "string")
+      throw new InputError(`brief ${key} must be a string`);
+  const neighbours = brief["neighbouringAssets"];
+  if (
+    neighbours !== undefined &&
+    (!Array.isArray(neighbours) || neighbours.some((v) => typeof v !== "string"))
+  )
+    throw new InputError("neighbouringAssets must be a string array");
+  for (const key of ["purpose", "appearsIn", "context"]) {
+    const text = brief[key];
+    if (typeof text === "string") assertOriginalDescription(text);
+  }
+  return brief as GenerationBrief;
+}
+
+/**
+ * The family's motion as the sheet prompt states it: the template's description and beats, a held
+ * pose when its silhouette barely changes, the loop; then the brief's purpose, setting and motion.
+ */
+export function motionLines(
+  template: MotionTemplate | undefined,
+  brief: GenerationBrief | undefined,
+): string[] {
+  const lines: string[] = [];
+  if (template) {
+    const beats = template.beats
+      .map((b) =>
+        b.at === 0
+          ? `${b.name} from the first frame`
+          : `${b.name} about ${Math.round(b.at * 100)}% through`,
+      )
+      .join(", then ");
+    lines.push(
+      `Motion: ${template.description ?? template.name}.${beats ? ` Beats, in order: ${beats}.` : ""}`,
+    );
+    if (template.silhouette.max <= 0.2)
+      lines.push(
+        "Hold the pose for the whole cycle: the outline changes only a little from one frame to the next. Never show the character moving into or out of the pose.",
+      );
+    if (template.loop)
+      lines.push("The cycle loops: the last frame leads straight back into the first.");
+  }
+  if (brief?.purpose) lines.push(`Purpose: ${brief.purpose}.`);
+  if (brief?.appearsIn) lines.push(`Seen in: ${brief.appearsIn}.`);
+  if (brief?.context) lines.push(`What happens: ${brief.context}`);
+  return lines;
+}
+
 /** The sheet request, composed from the spec and the bible, never typed freehand. */
 export function buildSheetPrompt(
   spec: AssetSpec,
@@ -53,6 +127,7 @@ export function buildSheetPrompt(
   grid: FrameGrid,
   inputs: BibleInputs,
   keyPose: boolean,
+  motion: string[] = [],
 ): string {
   const subject = subjectOf(spec);
   const description = bible.subjects?.[subject]?.description;
@@ -69,6 +144,7 @@ export function buildSheetPrompt(
     description ? `Subject: ${subject}, ${description}.` : `Subject: ${subject}.`,
     `Draw one complete "${spec.animationFamily}" animation cycle of ${grid.count} frames, as a sprite sheet of ${columns} columns and ${rows} rows of equal cells, frames in reading order (left to right, then top to bottom); leave any cell after the last frame empty.`,
     "The same character in every frame: identical design, colours, proportions and scale. One whole, uncropped figure per cell, centred in its cell, with the feet on the same ground line in every cell. Consecutive frames change only the pose, so the last frame flows back into the first.",
+    ...motion,
     `Each frame will be scaled to a ${grid.frame.width}x${grid.frame.height} px game frame, so keep the silhouette readable.`,
     `Reference images, in order: ${roles.join(", ")}. Match the identity to the subject references and the camera angle to the perspective sample.`,
     `Palette: ${bible.palette.join(", ")}.`,
@@ -121,7 +197,15 @@ export async function generateSheet(
   const keyPose: LoadedReference[] = spec.keyPose
     ? [await loadReference(spec.keyPose, "key pose (approved)", options.specDir)]
     : [];
-  const prompt = buildSheetPrompt(spec, bible, grid, inputs, keyPose.length > 0);
+  const template = templateFor(spec.animationFamily as string, templatesFor(profile));
+  const prompt = buildSheetPrompt(
+    spec,
+    bible,
+    grid,
+    inputs,
+    keyPose.length > 0,
+    motionLines(template, options.brief),
+  );
   const seed = Number.parseInt(sha256(new TextEncoder().encode(prompt)).slice(0, 8), 16);
   const refs = [...keyPose, ...inputs.subject, inputs.perspective, inputs.palette];
   const image = await call.image("sheet", prompt, refs, seed);

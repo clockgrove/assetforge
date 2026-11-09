@@ -32,7 +32,7 @@ import type { MaterialDerivation } from "./material/pipeline.ts";
 import { resolveStyle } from "./style.ts";
 import { describeOperations, parseRecipe, transformFiles } from "./transform/run.ts";
 import type { TransformFilesOptions } from "./transform/run.ts";
-import { generateSheet, planSheet } from "./sheet/generate.ts";
+import { generateSheet, planSheet, sheetBrief } from "./sheet/generate.ts";
 import {
   CONTACT_FILE,
   DEFAULT_JITTER_BOUND_PX,
@@ -555,7 +555,7 @@ const generateSheetCommand: Command = {
   usage: `Usage: assetforge generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>
                                 [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--imports .assetforge/imports]
                                 [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>]
-                                [--provider-script <module>] [--dry-run] [--json]
+                                [--brief <brief.json>] [--provider-script <module>] [--dry-run] [--json]
 
 Asks the model for a whole animation cycle as one sheet within the cost cap in USD, then
 imports it as the import command does, with a proposed grouping for a human to confirm.
@@ -564,11 +564,14 @@ naming the cells or figures behind the difference; the sheet and its generation 
 kept in the import directory.
 --dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
 --lock-bible and --identity-mode score the generated sheet against the subject's identity lock
-as the import command does; the scoring call is part of the forecast and the cap.`,
+as the import command does; the scoring call is part of the forecast and the cap.
+The prompt states the family's motion template (its beats, a held pose, the loop). --brief adds
+the author's brief (purpose, setting, what happens), checked as plan checks it.`,
   options: {
     spec: { type: "string" },
     bible: { type: "string" },
     profile: { type: "string" },
+    brief: { type: "string" },
     cap: { type: "string" },
     routes: { type: "string" },
     imports: { type: "string" },
@@ -585,6 +588,10 @@ as the import command does; the scoring call is part of the forecast and the cap
     const spec = await readJson<AssetSpec>(files["spec"] as string);
     const bible = await readJson<StyleBible>(files["bible"] as string);
     const profile = await readJson<TargetProfile>(files["profile"] as string);
+    const brief =
+      values["brief"] === undefined
+        ? undefined
+        : sheetBrief((await readJson<unknown>(values["brief"] as string)).value);
     const routes = await loadRoutes(values["routes"] as string | undefined);
     const lock = await lockFor(values, spec.value.subject ?? spec.value.assetId, profile.value);
     const perCall = [
@@ -630,6 +637,7 @@ as the import command does; the scoring call is part of the forecast and the cap
     try {
       generated = await generateSheet({
         spec: spec.value,
+        ...(brief !== undefined && { brief }),
         specDir: spec.dir,
         bible: bible.value,
         bibleDir: bible.dir,
