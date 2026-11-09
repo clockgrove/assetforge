@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs: { issues: "${{ steps.f.outputs.issues }}", count: "${{ steps.f.outputs.count }}" }
     steps:
-      - uses: clockgrove/factory@v0.7.98
+      - uses: clockgrove/factory@v0.7.100
         id: f
         with: { mode: dispatch, issue: "${{ inputs.issue }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
   work:
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.98
+      - uses: clockgrove/factory@v0.7.100
         id: f
         with:
           mode: work
@@ -77,7 +77,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }} # Claude; empty with federation
           codex_api_key: ${{ secrets.CODEX_API_KEY }} # Codex; reaches the harness step only
           copilot_github_token: ${{ secrets.COPILOT_GITHUB_TOKEN }} # Copilot; a token with only the Copilot Requests permission (required)
-          ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }} # optional: red-check triage reruns flaky CI jobs instead of a fix pass; empty turns it off
+          ai_gateway_api_key: ${{ secrets.AI_GATEWAY_API_KEY }} # optional: red-check triage reruns flaky CI jobs instead of a fix pass, and the drift advisory flags a drifting worker on its progress comment; empty turns both off
           # anthropic_oidc_exchange_url: ${{ vars.ANTHROPIC_OIDC_EXCHANGE_URL }} # Claude federation (with id-token: write above)
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # credential: plan only; your own repository only
       - uses: actions/upload-artifact@v7
@@ -99,7 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.98
+      - uses: clockgrove/factory@v0.7.100
         id: f
         with:
           mode: review
