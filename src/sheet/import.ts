@@ -104,6 +104,11 @@ export interface ImportRecord {
   subject?: string;
   /** The asset spec's gait, for animation QA; the profile's `animation.gait` applies when unset. */
   gait?: string;
+  /**
+   * The asset spec's family and its target fields (`fields`), when a spec asked for the sheet. The family of that name
+   * written by `writeFamilies` carries the fields to the target's templates, as a `pick` does.
+   */
+  spec?: { animationFamily: string; fields: Record<string, unknown> };
   sheet: SheetSource;
   profile: TargetProfile;
   bibleVersion: string;
@@ -151,6 +156,8 @@ export interface ImportOptions {
   subject?: string;
   /** The asset spec's gait, recorded for animation QA. */
   gait?: string;
+  /** The asset spec's family and target fields, recorded for `writeFamilies`. */
+  spec?: ImportRecord["spec"];
   profile: TargetProfile;
   /** The bible's palette backs a palette colour rule that names none; its version is recorded. */
   bible?: { version: string; palette?: string[] };
@@ -367,6 +374,7 @@ export async function importSheet(
     assetId: options.assetId,
     ...(options.subject !== undefined && { subject: options.subject }),
     ...(options.gait !== undefined && { gait: options.gait }),
+    ...(options.spec !== undefined && { spec: options.spec }),
     sheet: {
       path: options.sheetPath,
       sha256: sheetSha,
@@ -716,6 +724,8 @@ export async function writeFamilies(
       ...(record.subject !== undefined && { subject: record.subject }),
       ...(record.gait !== undefined && { gait: record.gait }),
       animationFamily: s.family.name,
+      // The requesting spec's target fields (atlas slot, labels, semantics) belong to the family it asked for.
+      ...(record.spec?.animationFamily === s.family.name && { fields: record.spec.fields }),
       frames: {
         count,
         width: frame.width,

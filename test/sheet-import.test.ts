@@ -309,6 +309,11 @@ test("sheet generation: one request for the whole cycle within the cap, then the
     assetId: "stevie",
     animationFamily: "walk",
     frames: { count: 6 },
+    // Target fields the spec carries for its family; write-families must hand them to the templates.
+    fields: {
+      semantic: { role: "actor", entity: "grove.stevie" },
+      accessibilityLabel: "Stevie walking",
+    },
   };
   const options = {
     spec,
@@ -372,6 +377,9 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   assert.equal(provenance.calls.length, 2);
   assert.equal(provenance.costUsd, 0.22);
   assert.equal(provenance.frames[0].tool, defaultRoutes.sheet.model);
+  // The spec's fields reach the family it asked for, not a generic default.
+  assert.equal(manifest.accessibilityLabel, "Stevie walking");
+  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.stevie" });
 });
 
 test("sheet generation refuses a sheet with another frame count and keeps it", async () => {

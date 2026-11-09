@@ -137,6 +137,9 @@ export async function generateSheet(
       assetId: spec.assetId,
       ...(spec.subject !== undefined && { subject: spec.subject }),
       ...(spec.gait !== undefined && { gait: spec.gait }),
+      ...(spec.fields !== undefined && {
+        spec: { animationFamily: spec.animationFamily as string, fields: spec.fields },
+      }),
       profile,
       bible: { version: bible.version, palette: bible.palette },
       importsDir: options.importsDir,
