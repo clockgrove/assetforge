@@ -19,7 +19,7 @@ import { readImport } from "../sheet/import.ts";
 import { resolveStyle } from "../style.ts";
 import type { ResolvedStyle } from "../style.ts";
 import type { Point, Provenance, Size, TargetProfile } from "../types.ts";
-import { DEFAULT_FIX_CAP_USD, fixFrame, planFix } from "./fix.ts";
+import { DEFAULT_FIX_CAP_USD, fixBaseProvenance, fixFrame, planFix } from "./fix.ts";
 import type { FrameFix } from "./fix.ts";
 import { planFlicker } from "./flicker.ts";
 import { defaultAnchor, familyLoops, profileFrame, qaStrip } from "./run.ts";
@@ -267,13 +267,22 @@ export async function runFixFrame(options: {
   const sidecar = options.provenancePath ?? `${target.path}.provenance.json`;
   let provenance: Provenance | undefined;
   if (options.provenancePath !== undefined || (await exists(sidecar))) {
+    let value: unknown;
     try {
-      provenance = JSON.parse(await readFile(sidecar, "utf8")) as Provenance;
+      value = JSON.parse(await readFile(sidecar, "utf8"));
     } catch (error) {
       throw new InputError(`cannot read the provenance ${sidecar}: ${(error as Error).message}`, {
         cause: error,
       });
     }
+    // Checked here, before any call: a record the fix cannot extend must cost nothing.
+    provenance = fixBaseProvenance(value, {
+      strip: raster,
+      source: sidecar,
+      license: target.profile.license,
+      ...(options.bible !== undefined && { bibleVersion: options.bible.version }),
+      at: (options.now ?? (() => new Date()))().toISOString(),
+    });
   }
   if (provenance && origin !== undefined && provenance.digitalSourceType === undefined) {
     provenance = { ...provenance, digitalSourceType: origin };

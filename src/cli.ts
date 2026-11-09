@@ -853,7 +853,9 @@ const fixFrameCommand: Command = {
 Edits frame <n> (1-based) with one reference-guided edit call, from an approved neighbour
 frame (--from) or the approved key pose (--key-pose), within the cost cap in USD. Only that
 frame changes. Writes the fixed strip, its provenance (the strip's own, with the call and a
-fixes entry added) and its QA report and previews into --out. Never writes into a target and
+fixes entry added) and its QA report and previews into --out. --provenance (default
+<strip>.provenance.json when it exists) is the strip's own provenance or the record recipe or op
+wrote for it; any other file is refused (exit 2) before the call. Never writes into a target and
 never sets a review value. --dry-run prints the planned call and forecast and needs no key.`,
   options: {
     strip: { type: "string" },

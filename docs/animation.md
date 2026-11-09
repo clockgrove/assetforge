@@ -104,6 +104,8 @@ A reference-guided edit of one frame. Image 1 is the approved neighbour frame (`
 
 `--out` receives the fixed strip, its provenance, its QA report and new previews. The provenance carries the strip's own record forward (read from `--provenance`, or `<strip>.provenance.json` beside it) and adds the call (model, route, prompt, seed, request ID, time, cost), a `fixes` entry (frame, source, the frame's pixel hashes before and after) and an `edit-frame` transform on that frame. A strip with a model-edited frame is disclosed as a composite with trained algorithmic media unless it was fully generated already. The fix never writes into a target and never sets a review value: the person picks the fixed strip and hands it off.
 
+The provenance file is checked before the edit call, so a file the fix cannot extend costs nothing. It accepts a strip's own provenance (from `write-families`, `pick` or an earlier `fix-frame`) and the transform record `recipe` or `op` wrote, when one of that record's outputs has the strip's pixels; the fix then records the transform's sources, recipe and steps and adds its call. Any other file is refused with exit 2, naming what is wrong with it.
+
 ## Proof on real art
 
 The owner's Jimothy sheet is never committed. `test/real/animation.real.ts` runs on it when `JIMOTHY_SHEET` points at a local copy and `JIMOTHY_GROUPING` at an author-confirmed grouping: it imports, writes the families into a temporary target, runs the QA and writes the onion sheets and previews to `JIMOTHY_OUT` (default a temporary directory, printed). With `AI_GATEWAY_API_KEY` set it also runs one identity-flicker pass and one per-frame fix within a $2 cap. Run it with `pnpm test:real`; it skips without the sheet.

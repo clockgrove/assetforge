@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { DEFAULT_FIX_CAP_USD, buildFixPrompt, fixFrame, planFix } from "../src/animation/fix.ts";
+import { runFixFrame, stripTarget } from "../src/animation/commands.ts";
+import {
+  DEFAULT_FIX_CAP_USD,
+  buildFixPrompt,
+  fixFrame,
+  planFix,
+  provenanceProblems,
+} from "../src/animation/fix.ts";
 import type { FixFrameOptions } from "../src/animation/fix.ts";
 import { splitStrip } from "../src/animation/strip.ts";
 import { Budget, BudgetExceededError } from "../src/budget.ts";
@@ -14,7 +24,9 @@ import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import { measureFrame } from "../src/sheet/register.ts";
 import { resolveStyle } from "../src/style.ts";
+import { parseRecipe, transformFiles } from "../src/transform/run.ts";
 import type { Provenance } from "../src/types.ts";
+import { syntheticProfile } from "./fixtures/synthetic.ts";
 
 const frame = { width: 24, height: 32 };
 const anchor = { x: 12, y: 30 };
@@ -221,4 +233,117 @@ test("soft and binary styles both work", async () => {
     if (mode === "binary") assert.deepEqual([...alphas].sort(), [0, 255]);
     assert.ok(measureFrame(result.frame, 128));
   }
+});
+
+/** A 4-frame strip on disk with a target profile of its frame size, for `runFixFrame`. */
+async function stripOnDisk() {
+  const root = await mkdtemp(join(tmpdir(), "assetforge-fix-prov-"));
+  const path = join(root, "walk.png");
+  await writeFile(path, encodePng(makeStrip(4)));
+  const target = stripTarget({
+    path,
+    family: "walk",
+    profile: syntheticProfile({ frames: { width: frame.width, height: frame.height } }),
+    anchor,
+  });
+  return { root, path, target };
+}
+
+function runOn(
+  target: ReturnType<typeof stripTarget>,
+  provider: ScriptedProvider,
+  out: string,
+  provenancePath?: string,
+) {
+  return runFixFrame({
+    target,
+    index: 3,
+    from: { neighbour: 2 },
+    ...(provenancePath !== undefined && { provenancePath }),
+    outDir: out,
+    routes: defaultRoutes,
+    capUsd: DEFAULT_FIX_CAP_USD,
+    provider: { provider, name: "scripted" },
+  });
+}
+
+test("a provenance the fix cannot extend refuses before any paid call", async () => {
+  const { root, path, target } = await stripOnDisk();
+  // A recipe's record for another image, a record with no models, and not a record at all.
+  const other = await transformFiles({
+    recipe: parseRecipe({ steps: [{ op: "convert", params: { format: "png" } }] }),
+    inputs: [path],
+    out: join(root, "other", "other.png"),
+  });
+  const otherRecord = JSON.parse(await readFile(other.provenancePath, "utf8"));
+  otherRecord.outputs[0].pixels = "not-this-strip";
+  const shapes: Array<[string, unknown]> = [
+    ["recipe-for-another-image", otherRecord],
+    ["no-models", { generator: "frame-fix", calls: [], costUsd: 0 }],
+    ["a-list", [1, 2, 3]],
+  ];
+  for (const [name, record] of shapes) {
+    const provenancePath = join(root, `${name}.provenance.json`);
+    await writeFile(provenancePath, JSON.stringify(record));
+    const { provider } = setup();
+    const out = join(root, `out-${name}`);
+    await assert.rejects(runOn(target, provider, out, provenancePath), (error: Error) => {
+      assert.ok(error instanceof InputError, String(error));
+      assert.match(error.message, /cannot extend the provenance/);
+      assert.match(error.message, /write-families/);
+      return true;
+    });
+    assert.equal(provider.calls.length, 0, `${name}: no paid call`);
+    await assert.rejects(access(out), `${name}: nothing written`);
+  }
+});
+
+test("fixFrame itself refuses a provenance it cannot extend before the call", async () => {
+  const { provider, call } = setup();
+  const transform = { generator: "transform", sources: [], steps: [], outputs: [] };
+  await assert.rejects(
+    fixFrame(base(call, { provenance: transform as unknown as Provenance })),
+    InputError,
+  );
+  assert.equal(provider.calls.length, 0);
+  assert.deepEqual(provenanceProblems(transform), [
+    "models is not a list of strings",
+    "requestIds is not a list of strings",
+    "referenceHashes is not a list of strings",
+    "providerTerms is not a list of strings",
+    "calls is not a list",
+    "costUsd is not a number",
+  ]);
+});
+
+test("a recipe's transform record for the strip is carried forward with the fix", async () => {
+  const { root, path } = await stripOnDisk();
+  // `recipe` with one output writes `<out>.provenance.json`, the sidecar fix-frame reads.
+  const recipeOut = join(root, "recipe", "walk.png");
+  const made = await transformFiles({
+    recipe: parseRecipe({ name: "tidy", steps: [{ op: "convert", params: { format: "png" } }] }),
+    inputs: [path],
+    out: recipeOut,
+  });
+  const target = stripTarget({
+    path: recipeOut,
+    family: "walk",
+    profile: syntheticProfile({ frames: { width: frame.width, height: frame.height } }),
+    anchor,
+  });
+  const { provider } = setup();
+  const run = await runOn(target, provider, join(root, "fixed"));
+  assert.equal(provider.calls.length, 1);
+  const p = JSON.parse(await readFile(run.provenancePath, "utf8"));
+  assert.equal(p.generator, "transform");
+  assert.deepEqual(p.parameters.recipe, { name: "tidy" });
+  assert.equal(p.parameters.sources[0].sha256, made.record.sources[0]?.sha256);
+  assert.deepEqual(p.referenceHashes.slice(0, 1), [made.record.sources[0]?.sha256]);
+  assert.deepEqual(
+    p.steps.slice(0, made.record.steps.length).map((s: { op: string }) => s.op),
+    made.record.steps.map((s) => s.op),
+  );
+  assert.equal(p.calls.length, 1);
+  assert.equal(p.fixes[0].frame, 3);
+  assert.equal(p.license, "MIT");
 });
