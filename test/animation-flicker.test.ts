@@ -14,7 +14,8 @@ import {
 import { Budget, BudgetExceededError } from "../src/budget.ts";
 import { Caller } from "../src/calls.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
-import { createRaster, encodePng, setPixel } from "../src/image/raster.ts";
+import { flattenFrame } from "../src/animation/preview.ts";
+import { createRaster, decodePng, encodePng, setPixel } from "../src/image/raster.ts";
 import { defaultRoutes, type Routes } from "../src/routes.ts";
 
 function frames(n: number) {
@@ -137,7 +138,7 @@ test("a routes override changes the model, and the plan reports it", async () =>
   assert.ok(Math.abs(plan.estimatedCostUsd - 0.08) < 1e-9);
 });
 
-test("the images sent are the two frames as PNG", async () => {
+test("the images sent are the two frames as PNG, flattened over the preview backdrop", async () => {
   const { call, provider } = setup([reply("same", 0.9)]);
   const fs = frames(2);
   await checkFlicker({ ...base, frames: fs, loop: false, call });
@@ -145,8 +146,44 @@ test("the images sent are the two frames as PNG", async () => {
   assert.ok(sent && "images" in sent);
   assert.deepEqual(
     sent.images.map((i) => i.bytes),
-    fs.map((f) => encodePng(f)),
+    fs.map((f) => encodePng(flattenFrame(f))),
   );
+  // Opaque everywhere: a transparent pixel (a matte hole) shows the backdrop, not hidden colour.
+  for (const image of sent.images) {
+    const r = decodePng(image.bytes);
+    for (let i = 3; i < r.data.length; i += 4) assert.equal(r.data[i], 255);
+  }
+  assert.deepEqual([...decodePng(sent.images[0]!.bytes).data.subarray(4, 8)], [236, 236, 236, 255]);
   assert.match(sent.prompt, /image 1 is frame 1 and image 2 is frame 2/i);
   assert.match(buildFlickerPrompt({ ...base, pair: [3, 1] }), /frame 3/);
+});
+
+test("a texture reply passes: the identity holds, only painterly texture differs", async () => {
+  const { call } = setup([
+    JSON.stringify({ label: "texture", confidence: 0.95, reason: "fur strokes differ" }),
+    reply("flicker", 0.9),
+  ]);
+  const { reasons, decisions } = await checkFlicker({
+    ...base,
+    frames: frames(3),
+    loop: false,
+    call,
+  });
+  assert.deepEqual(
+    reasons.map((r) => r.passed),
+    [true, false],
+  );
+  assert.match(
+    reasons[0]!.reason,
+    /^frame 1 → frame 2: same identity, only painterly texture differs \(0\.95\): fur strokes differ$/,
+  );
+  assert.equal(decisions[0]?.label, "texture");
+  assert.equal(decisions[0]?.flagged, false);
+  const prompt = buildFlickerPrompt({ ...base, pair: [1, 2] });
+  assert.match(prompt, /"label":"same"\|"texture"\|"flicker"/);
+  assert.match(prompt, /That is texture, not identity/);
+  assert.match(
+    prompt,
+    /a marking appears, disappears, moves or takes a clearly different overall shape/,
+  );
 });

@@ -140,6 +140,17 @@ export function onionSkinSheet(
   return out;
 }
 
+/**
+ * One frame flattened over the neutral opaque backdrop the loop preview uses, at its own size:
+ * the frame as a viewer sees it, whatever a model does with transparent pixels.
+ */
+export function flattenFrame(frame: Raster): Raster {
+  const out = createRaster(frame.width, frame.height);
+  for (let i = 0; i < out.data.length; i += 4) out.data.set([BACKDROP, BACKDROP, BACKDROP, 255], i);
+  drawFrame(out, frame, 0, 0, 1, 1);
+  return out;
+}
+
 /** A looping animated WebP of the frames, zoomed and flattened over a neutral opaque backdrop. */
 export function loopPreview(frames: Raster[], options: { durationMs: number }): Uint8Array {
   const first = frames[0];

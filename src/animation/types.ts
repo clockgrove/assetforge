@@ -49,7 +49,24 @@ export interface MotionTemplate {
   strides?: number;
   /** Overrides the footprint drift bound for this family, in px. */
   footprintDriftPx?: number;
+  /**
+   * Where a frame's footprint is measured. Unset: the span of the bottom two rows (one foot, the
+   * lowest). Set: the centre of the pixels in the bottom `footprintBand` of the figure's height
+   * (0..1), so every foot near the ground counts, which suits a gait with several feet down at once.
+   */
+  footprintBand?: number;
+  /**
+   * The footprint rule per gait, by gait name (for example `quadruped`). The gait comes from the
+   * asset spec's `gait`, else the profile's `animation.gait`; its entry overrides this template's
+   * footprint fields. No gait, or one the template does not list, keeps the template's own.
+   */
+  gaits?: Record<string, GaitRule>;
 }
+
+/** A gait's footprint rule: the template's footprint fields it overrides. */
+export type GaitRule = Partial<
+  Pick<MotionTemplate, "footprint" | "strides" | "footprintDriftPx" | "footprintBand">
+>;
 
 /** Bounds of the deterministic checks and the flicker cutoff. All optional in the profile. */
 export interface AnimationThresholds {
@@ -72,6 +89,11 @@ export interface AnimationThresholds {
 
 /** The target profile's optional `animation` field. */
 export interface AnimationProfile {
+  /**
+   * The target's default gait (for example `quadruped` for a world of four-legged animals); an
+   * asset spec's `gait` overrides it. It picks each template's rule under `gaits`.
+   */
+  gait?: string;
   /** Templates the target adds (sleep, groom, climb, converse) or overrides, by name. */
   templates?: MotionTemplate[];
   thresholds?: Partial<AnimationThresholds>;
@@ -100,6 +122,8 @@ export interface StripInput {
   family: string;
   /** Frame duration in ms, when known (the profile's `frames.durationMs`). */
   durationMs?: number;
+  /** The subject's gait, from the asset spec; the profile's `animation.gait` when unset. */
+  gait?: string;
 }
 
 /** The animation QA report of one strip. Each reason's text names the frame(s). */
@@ -107,6 +131,8 @@ export interface AnimationReport {
   family: string;
   /** The matched template's name, or undefined when none matched. */
   template?: string;
+  /** The gait the checks used, when one was declared. */
+  gait?: string;
   frameCount: number;
   passed: boolean;
   reasons: AnimationReason[];
@@ -127,7 +153,8 @@ export interface FlickerDecision {
   pair: [number, number];
   model: string;
   requestId: string;
-  label: "same" | "flicker" | "unreadable";
+  /** `texture`: only painterly texture differs, the identity holds (a pass). */
+  label: "same" | "texture" | "flicker" | "unreadable";
   confidence: number;
   cutoff: number;
   /** True when the pair fails: label flicker at or above the cutoff, or unreadable. */

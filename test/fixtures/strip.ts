@@ -169,3 +169,42 @@ export function syntheticStrip(options: StripOptions): {
   });
   return { frames, anchor, strip: joinStrip(frames) };
 }
+
+/**
+ * A four-legged walk seen from three-quarters, drawn as blocks: near paws reach the ground line,
+ * far paws stop 5 px higher, and each paw is down for three quarters of the cycle (moving back)
+ * and lifted 3 px while it swings forward, a quarter cycle after the paw before it. The lowest
+ * paw changes from frame to frame and the pattern runs once per cycle, as in a real raccoon walk.
+ * `slide[f]` shifts frame f's legs (1-based) by that many px while the body stays put.
+ */
+export function quadrupedWalk(
+  count: number,
+  slide: Record<number, number> = {},
+): { frames: Raster[]; frame: Size; anchor: Point } {
+  const width = 160;
+  const height = 80;
+  const anchor = { x: 80, y: 70 };
+  const legs = [
+    { hip: 60, near: true, phase: 0 },
+    { hip: 100, near: true, phase: 0.25 },
+    { hip: 60, near: false, phase: 0.5 },
+    { hip: 100, near: false, phase: 0.75 },
+  ];
+  const frames = Array.from({ length: count }, (_, i) => {
+    const r = createRaster(width, height);
+    const paint = (x0: number, y0: number, x1: number, y1: number) => {
+      for (let y = y0; y <= y1; y++)
+        for (let x = x0; x <= x1; x++) setPixel(r, x, y, [90, 80, 70, 255]);
+    };
+    paint(40, 16, 119, 52);
+    for (const leg of legs) {
+      const u = (i / count + leg.phase) % 1;
+      const down = u < 0.75;
+      const reach = down ? 1 - (2 * u) / 0.75 : -1 + (2 * (u - 0.75)) / 0.25;
+      const x = Math.round(leg.hip + 14 * reach) + (slide[i + 1] ?? 0);
+      paint(x - 3, 50, x + 2, (leg.near ? 70 : 65) - (down ? 0 : 3));
+    }
+    return r;
+  });
+  return { frames, frame: { width, height }, anchor };
+}

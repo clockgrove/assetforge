@@ -6,7 +6,7 @@
  */
 import { InputError } from "../errors.ts";
 import type { TargetProfile } from "../types.ts";
-import type { AnimationThresholds, MotionTemplate } from "./types.ts";
+import type { AnimationThresholds, GaitRule, MotionTemplate } from "./types.ts";
 
 export const DEFAULT_THRESHOLDS: AnimationThresholds = {
   groundTolerancePx: 1,
@@ -47,6 +47,12 @@ export const BUILTIN_TEMPLATES: readonly MotionTemplate[] = [
     footprint: "moving",
     strides: 2,
     footprintDriftPx: 6,
+    gaits: {
+      // Four legs: the contact pattern runs once per cycle and two or three feet are down at
+      // once, so the footprint is every foot near the ground (the bottom 30% of the figure), held
+      // to the loop's mean.
+      quadruped: { strides: 1, footprintBand: 0.3, footprintDriftPx: 12 },
+    },
   },
   {
     name: "sniff",
@@ -162,17 +168,24 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
     fail(where, 'contact must be "all", "beats" or "none"');
   }
   const silhouette = range(value["silhouette"], where, "silhouette", 0, 1);
-  const footprint = value["footprint"];
-  if (footprint !== undefined && footprint !== "planted" && footprint !== "moving") {
-    fail(where, 'footprint must be "planted" or "moving"');
-  }
-  const drift = value["footprintDriftPx"];
-  if (drift !== undefined && (typeof drift !== "number" || !(drift >= 0))) {
-    fail(where, "footprintDriftPx must be a number of px, 0 or more");
-  }
-  const strides = value["strides"];
-  if (strides !== undefined && (!Number.isInteger(strides) || !((strides as number) >= 1))) {
-    fail(where, "strides must be a whole number, 1 or more");
+  const rule = gaitRule(value, where, "");
+  const gaitsRaw = value["gaits"];
+  let gaits: Record<string, GaitRule> | undefined;
+  if (gaitsRaw !== undefined) {
+    if (!isRecord(gaitsRaw)) fail(where, "gaits must be an object of gait name → footprint rule");
+    gaits = {};
+    for (const [gait, r] of Object.entries(gaitsRaw)) {
+      if (!GAIT_NAME.test(gait)) fail(where, `gaits.${gait}: ${GAIT_NAME_RULE}`);
+      if (!isRecord(r)) fail(where, `gaits.${gait} must be an object`);
+      const unknown = Object.keys(r).filter((k) => !GAIT_FIELDS.includes(k));
+      if (unknown.length > 0) {
+        fail(
+          where,
+          `gaits.${gait} may only set ${GAIT_FIELDS.join(", ")} (not ${unknown.join(", ")})`,
+        );
+      }
+      gaits[gait] = gaitRule(r, where, `gaits.${gait}.`);
+    }
   }
   const description = value["description"];
   if (description !== undefined && typeof description !== "string") {
@@ -187,10 +200,71 @@ export function parseTemplate(value: unknown, index = 0): MotionTemplate {
     beats,
     contact,
     silhouette,
+    ...rule,
+    ...(gaits !== undefined && { gaits }),
+  };
+}
+
+const GAIT_NAME = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
+const GAIT_NAME_RULE = "a gait name is lowercase words joined by '-' or '_', for example quadruped";
+const GAIT_FIELDS = ["footprint", "strides", "footprintDriftPx", "footprintBand"];
+
+/** The footprint fields of a template or of one of its gait rules, validated. */
+function gaitRule(value: Record<string, unknown>, where: string, prefix: string): GaitRule {
+  const footprint = value["footprint"];
+  if (footprint !== undefined && footprint !== "planted" && footprint !== "moving") {
+    fail(where, `${prefix}footprint must be "planted" or "moving"`);
+  }
+  const drift = value["footprintDriftPx"];
+  if (drift !== undefined && (typeof drift !== "number" || !(drift >= 0))) {
+    fail(where, `${prefix}footprintDriftPx must be a number of px, 0 or more`);
+  }
+  const strides = value["strides"];
+  if (strides !== undefined && (!Number.isInteger(strides) || !((strides as number) >= 1))) {
+    fail(where, `${prefix}strides must be a whole number, 1 or more`);
+  }
+  const band = value["footprintBand"];
+  if (band !== undefined && (typeof band !== "number" || !(band > 0 && band <= 1))) {
+    fail(
+      where,
+      `${prefix}footprintBand must be a fraction of the figure's height, above 0 and at most 1`,
+    );
+  }
+  return {
     ...(footprint !== undefined && { footprint }),
     ...(strides !== undefined && { strides: strides as number }),
     ...(drift !== undefined && { footprintDriftPx: drift }),
+    ...(band !== undefined && { footprintBand: band }),
   };
+}
+
+/**
+ * The gait animation QA uses: the asset spec's, else the profile's `animation.gait`. Undefined
+ * when neither declares one; Assetforge never guesses a gait.
+ */
+export function gaitFor(
+  profile?: Pick<TargetProfile, "animation">,
+  specGait?: string,
+): string | undefined {
+  const gait = specGait ?? profile?.animation?.gait;
+  if (gait === undefined) return undefined;
+  if (typeof gait !== "string" || !GAIT_NAME.test(gait)) {
+    throw new InputError(`invalid gait ${JSON.stringify(gait)}: ${GAIT_NAME_RULE}`);
+  }
+  return gait;
+}
+
+/**
+ * The template as the gait sees it: the gait's rule under `gaits` over the template's own
+ * footprint fields. `applied` says whether the template had a rule for the gait.
+ */
+export function withGait(
+  template: MotionTemplate,
+  gait: string | undefined,
+): { template: MotionTemplate; applied: boolean } {
+  const rule = gait === undefined ? undefined : template.gaits?.[gait];
+  if (!rule) return { template, applied: false };
+  return { template: { ...template, ...rule }, applied: true };
 }
 
 /** The built-in templates with the profile's added or overriding ones, by name. */

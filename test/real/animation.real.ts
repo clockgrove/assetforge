@@ -36,10 +36,12 @@ const profile: TargetProfile = {
   },
   manifest: { review: { status: "pending" } },
   review: { path: "review.status", pending: "pending" },
-  // Jimothy's crouch-hop matches no built-in template; the target adds one for exactly that
-  // family, as data, whose contacts move (crouch, hop, land) once per cycle, so each planted
-  // frame's footprint is checked against the loop's mean.
+  // Jimothy walks on four legs, so the walk template's quadruped rule applies. His crouch-hop
+  // matches no built-in template; the target adds one for exactly that family, as data, whose
+  // contacts move (crouch, hop, land) once per cycle, so each planted frame's footprint is
+  // checked against the loop's mean.
   animation: {
+    gait: "quadruped",
     templates: [
       {
         name: "crouch-hop",

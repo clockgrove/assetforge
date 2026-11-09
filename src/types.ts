@@ -24,6 +24,11 @@ export interface AssetSpec {
   /** The bible subject (character, prop) this asset depicts; defaults to `assetId`. */
   subject?: string;
   animationFamily?: string;
+  /**
+   * How the subject moves, for example `biped` or `quadruped`; animation QA uses the motion
+   * template's rule for it (docs/animation.md). Overrides the profile's `animation.gait`.
+   */
+  gait?: string;
   frames?: { count?: number; width?: number; height?: number; durationMs?: number };
   anchor?: Point;
   /** Path (relative to the spec file) of an author-approved key pose; frames are edits of it. */

@@ -730,12 +730,29 @@ function positiveInteger(values: Values, name: string): number | undefined {
   return n;
 }
 
+/**
+ * The subject and gait an asset spec given with `--spec` declares, for animation QA. The gait
+ * picks each motion template's rule for it (the spec's over the profile's `animation.gait`).
+ */
+async function specForQa(values: Values): Promise<{ subject?: string; gait?: string }> {
+  if (typeof values["spec"] !== "string") return {};
+  const spec = (await readJson<AssetSpec>(values["spec"])).value;
+  if (spec.gait !== undefined && typeof spec.gait !== "string") {
+    throw new InputError(`the spec's gait must be text, for example "quadruped"`);
+  }
+  return {
+    ...(typeof spec.subject === "string" && { subject: spec.subject }),
+    ...(spec.gait !== undefined && { gait: spec.gait }),
+  };
+}
+
 const animationQaCommand: Command = {
   name: "animation-qa",
   summary: "check strips against motion templates and for loop and continuity; write previews",
   usage: `Usage: assetforge animation-qa (--strip <strip.png> --family <name> --profile <profile.json>
                               | --import <import directory>)
-                              [--out .assetforge/animation] [--subject <name>] [--anchor x,y]
+                              [--out .assetforge/animation] [--subject <name>] [--spec <spec.json>]
+                              [--anchor x,y]
                               [--no-vision] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
                               [--provider-script <module>] [--dry-run] [--json]
 
@@ -746,6 +763,8 @@ check: one flicker call per pair within the cost cap in USD, each label and conf
 appended to flicker.jsonl; --no-vision skips it. Writes <family>.qa.json, the onion-skin
 sheet <family>.onion.png and the looping preview <family>.webp into --out.
 --import checks every family write-families wrote from that import.
+--spec reads the asset spec's gait (and its subject, unless --subject is given); the gait
+picks the motion template's footprint rule for it, over the profile's animation.gait.
 --dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
 Exits 5 when any check fails; every failed check names its frame.`,
   options: {
@@ -755,6 +774,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
     import: { type: "string" },
     out: { type: "string" },
     subject: { type: "string" },
+    spec: { type: "string" },
     anchor: { type: "string" },
     "no-vision": { type: "boolean" },
     cap: { type: "string" },
@@ -768,6 +788,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
     const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
     const routes = await loadRoutes(values["routes"] as string | undefined);
     const vision = !values["no-vision"];
+    const spec = await specForQa(values);
     let targets;
     if (typeof values["import"] === "string") {
       if (values["strip"] !== undefined) throw new InputError("give --strip or --import, not both");
@@ -786,8 +807,10 @@ Exits 5 when any check fails; every failed check names its frame.`,
         }),
       ];
     }
-    if (typeof values["subject"] === "string") {
-      for (const t of targets) t.subject = values["subject"];
+    const subject = typeof values["subject"] === "string" ? values["subject"] : spec.subject;
+    for (const t of targets) {
+      if (subject !== undefined) t.subject = subject;
+      if (spec.gait !== undefined) t.gait = spec.gait;
     }
     if (values["dry-run"]) {
       if (values["provider-script"]) await loadScript(values["provider-script"] as string);
@@ -846,7 +869,8 @@ const fixFrameCommand: Command = {
   summary: "regenerate one bad frame of a strip by a reference-guided edit within a cost cap",
   usage: `Usage: assetforge fix-frame --strip <strip.png> --family <name> --profile <profile.json>
                            --frame <n> (--from <n> | --key-pose <image>) --out <directory>
-                           [--subject <name>] [--note <text>] [--provenance <strip>.provenance.json]
+                           [--subject <name>] [--spec <spec.json>] [--note <text>]
+                           [--provenance <strip>.provenance.json]
                            [--bible <bible.json>] [--anchor x,y] [--cap ${DEFAULT_FIX_CAP_USD}] [--routes <routes.json>]
                            [--provider-script <module>] [--dry-run] [--json]
 
@@ -856,7 +880,8 @@ frame changes. Writes the fixed strip, its provenance (the strip's own, with the
 fixes entry added) and its QA report and previews into --out. --provenance (default
 <strip>.provenance.json when it exists) is the strip's own provenance or the record recipe or op
 wrote for it; any other file is refused (exit 2) before the call. Never writes into a target and
-never sets a review value. --dry-run prints the planned call and forecast and needs no key.`,
+never sets a review value. --spec reads the asset spec's gait (and subject) for that QA.
+--dry-run prints the planned call and forecast and needs no key.`,
   options: {
     strip: { type: "string" },
     family: { type: "string" },
@@ -866,6 +891,7 @@ never sets a review value. --dry-run prints the planned call and forecast and ne
     "key-pose": { type: "string" },
     out: { type: "string" },
     subject: { type: "string" },
+    spec: { type: "string" },
     note: { type: "string" },
     provenance: { type: "string" },
     bible: { type: "string" },
@@ -889,12 +915,15 @@ never sets a review value. --dry-run prints the planned call and forecast and ne
     const routes = await loadRoutes(values["routes"] as string | undefined);
     const profile = await readJson<TargetProfile>(o["profile"] as string);
     const anchor = parseAnchor(values["anchor"] as string | undefined);
+    const spec = await specForQa(values);
+    const subject = typeof values["subject"] === "string" ? values["subject"] : spec.subject;
     const target = stripTarget({
       path: o["strip"] as string,
       family: o["family"] as string,
       profile: profile.value,
-      ...(typeof values["subject"] === "string" && { subject: values["subject"] }),
+      ...(subject !== undefined && { subject }),
       ...(anchor !== undefined && { anchor }),
+      ...(spec.gait !== undefined && { gait: spec.gait }),
     });
     if (values["dry-run"]) {
       if (values["provider-script"]) await loadScript(values["provider-script"] as string);

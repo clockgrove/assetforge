@@ -3,10 +3,12 @@ import { test } from "node:test";
 import {
   BUILTIN_TEMPLATES,
   DEFAULT_THRESHOLDS,
+  gaitFor,
   parseTemplate,
   templateFor,
   templatesFor,
   thresholdsFor,
+  withGait,
 } from "../src/animation/templates.ts";
 import { InputError } from "../src/errors.ts";
 
@@ -89,4 +91,43 @@ test("thresholds: defaults, profile overrides and refusals", () => {
     () => thresholdsFor({ animation: { thresholds: { flickerCutoff: 2 } } }),
     /flickerCutoff/,
   );
+});
+
+test("gaits: a template's gait rules are data, validated with the field named", () => {
+  const walk = templateFor("walk", BUILTIN_TEMPLATES)!;
+  assert.deepEqual(walk.gaits?.["quadruped"], {
+    strides: 1,
+    footprintBand: 0.3,
+    footprintDriftPx: 12,
+  });
+  const hexapod = { footprint: "moving", strides: 3, footprintDriftPx: 4, footprintBand: 0.2 };
+  const parsed = parseTemplate({ ...walk, gaits: { ...walk.gaits, hexapod } });
+  assert.deepEqual(parsed.gaits?.["hexapod"], hexapod);
+  const bad = (gaits: unknown, field: RegExp) =>
+    assert.throws(
+      () => parseTemplate({ ...walk, gaits }),
+      (e: unknown) => e instanceof InputError && field.test(e.message),
+    );
+  bad({ "Four Legs": {} }, /gaits\.Four Legs: a gait name is lowercase words/);
+  bad({ quadruped: { loop: false } }, /gaits\.quadruped may only set .* \(not loop\)/);
+  bad({ quadruped: { footprintBand: 0 } }, /gaits\.quadruped\.footprintBand must be a fraction/);
+  bad({ quadruped: { strides: 1.5 } }, /gaits\.quadruped\.strides must be a whole number/);
+  bad(["quadruped"], /gaits must be an object/);
+  assert.throws(() => parseTemplate({ ...walk, footprintBand: 1.5 }), /^.*footprintBand must be/);
+});
+
+test("gaits: the spec's gait wins over the profile's; none is never guessed", () => {
+  const profile = { animation: { gait: "quadruped" } };
+  assert.equal(gaitFor(profile), "quadruped");
+  assert.equal(gaitFor(profile, "biped"), "biped");
+  assert.equal(gaitFor({}), undefined);
+  assert.throws(() => gaitFor({ animation: { gait: 4 as never } }), /invalid gait 4/);
+  const walk = templateFor("walk", BUILTIN_TEMPLATES)!;
+  const four = withGait(walk, "quadruped");
+  assert.equal(four.applied, true);
+  assert.equal(four.template.strides, 1);
+  assert.equal(four.template.footprintBand, 0.3);
+  assert.equal(four.template.footprint, "moving");
+  assert.deepEqual(withGait(walk, "biped"), { template: walk, applied: false });
+  assert.deepEqual(withGait(walk, undefined), { template: walk, applied: false });
 });

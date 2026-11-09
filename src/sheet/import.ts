@@ -100,6 +100,8 @@ export interface ImportRecord {
   createdAt: string;
   assetId: string;
   subject?: string;
+  /** The asset spec's gait, for animation QA; the profile's `animation.gait` applies when unset. */
+  gait?: string;
   sheet: SheetSource;
   profile: TargetProfile;
   bibleVersion: string;
@@ -145,6 +147,8 @@ export interface ImportOptions {
   tool: string;
   assetId: string;
   subject?: string;
+  /** The asset spec's gait, recorded for animation QA. */
+  gait?: string;
   profile: TargetProfile;
   /** The bible's palette backs a palette colour rule that names none; its version is recorded. */
   bible?: { version: string; palette?: string[] };
@@ -351,6 +355,7 @@ export async function importSheet(
     createdAt: now().toISOString(),
     assetId: options.assetId,
     ...(options.subject !== undefined && { subject: options.subject }),
+    ...(options.gait !== undefined && { gait: options.gait }),
     sheet: {
       path: options.sheetPath,
       sha256: sheetSha,
@@ -657,6 +662,7 @@ export async function writeFamilies(
       kind: "sprite-strip",
       assetId: record.assetId,
       ...(record.subject !== undefined && { subject: record.subject }),
+      ...(record.gait !== undefined && { gait: record.gait }),
       animationFamily: s.family.name,
       frames: {
         count,
@@ -741,7 +747,14 @@ export async function writeFamilies(
     const durationMs = record.durationMs ?? DEFAULT_DURATION_MS;
     const stripFrames = splitStrip(strip, frame);
     const animation = animationQa(
-      { frames: stripFrames, frame, anchor, family: s.family.name, durationMs },
+      {
+        frames: stripFrames,
+        frame,
+        anchor,
+        family: s.family.name,
+        durationMs,
+        ...(record.gait !== undefined && { gait: record.gait }),
+      },
       record.profile,
       style,
     );
