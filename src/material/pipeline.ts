@@ -11,6 +11,7 @@ import {
 } from "../metadata.ts";
 import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
+import { licenseFields } from "../license.ts";
 import { decodeImage, encodePng } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
 import { sha256, sniffMediaType } from "../request.ts";
@@ -241,7 +242,6 @@ export async function runMaterials(options: {
   let litComplete = false;
   const common = {
     startedAt,
-    license: profile.license,
     profileHash: sha256(Buffer.from(JSON.stringify(profile))),
     specHash: sha256(Buffer.from(JSON.stringify(spec))),
     derivationHash: sha256(Buffer.from(JSON.stringify(derivation))),
@@ -265,16 +265,23 @@ export async function runMaterials(options: {
     };
     const finishedAt = new Date().toISOString();
     const costUsd = call.records.reduce((sum, c) => sum + c.costUsd, 0);
+    // The licence is derived once every call (including material-qa) has been recorded.
+    const licensing = licenseFields(profile, call.records);
     for (const [path, record] of sidecars)
       await writeFile(
         path,
-        JSON.stringify({ ...record, calls: call.records, finishedAt, costUsd }, null, 2) + "\n",
+        JSON.stringify(
+          { ...record, ...licensing, calls: call.records, finishedAt, costUsd },
+          null,
+          2,
+        ) + "\n",
       );
     await writeFile(
       reportPath,
       JSON.stringify(
         {
           ...common,
+          ...licensing,
           finishedAt,
           costUsd,
           derivations: Object.fromEntries(

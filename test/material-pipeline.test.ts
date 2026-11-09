@@ -16,9 +16,17 @@ import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import type { TargetProfile } from "../src/types.ts";
 import { runMaterials } from "../src/material/pipeline.ts";
+import type { OutputGrant } from "../src/types.ts";
 import type { MaterialDerivation, MaterialProfile } from "../src/material/pipeline.ts";
 
-async function setup(options: { failLit?: boolean; compression?: boolean; model?: boolean } = {}) {
+async function setup(
+  options: {
+    failLit?: boolean;
+    compression?: boolean;
+    model?: boolean;
+    qaGrant?: OutputGrant;
+  } = {},
+) {
   const dir = await mkdtemp(join(tmpdir(), "assetforge-material-pipeline-"));
   const albedo = createRaster(8, 4),
     height = createRaster(8, 4),
@@ -134,7 +142,12 @@ async function setup(options: { failLit?: boolean; compression?: boolean; model?
     budget: new Budget(1),
     routes: {
       ...defaultRoutes,
-      "material-qa": { model: "vision", estimatedCostUsd: 0.1, providerTerms: "synthetic" },
+      "material-qa": {
+        model: "vision",
+        estimatedCostUsd: 0.1,
+        providerTerms: "synthetic",
+        ...(options.qaGrant && { outputGrant: options.qaGrant }),
+      },
       "material-height": { model: "depth", estimatedCostUsd: 0.1, providerTerms: "synthetic" },
     },
   });
@@ -401,4 +414,28 @@ test("undeclared material PNG previews remain local while package compression re
     await readFile(`${exported.outputs[0]!.path}.provenance.json`, "utf8"),
   );
   assert.equal(provenance.sourceDeclaration.value, DIGITAL_SOURCE_TYPES.human);
+});
+
+test("material sidecars declare the licence the routes' output grants allow", async () => {
+  const plain = await setup();
+  const ok = await runMaterials(plain.options);
+  const mit = JSON.parse(await readFile(`${ok.outputs[0]!.path}.provenance.json`, "utf8"));
+  assert.equal(mit.license, "MIT");
+  const f = await setup({
+    qaGrant: {
+      license: "CC-BY-4.0",
+      plan: "free",
+      commercial: true,
+      relabel: false,
+      attribution: "Made with Synthetic",
+    },
+  });
+  const result = await runMaterials(f.options);
+  const sidecar = JSON.parse(await readFile(`${result.outputs[0]!.path}.provenance.json`, "utf8"));
+  assert.equal(sidecar.license, "CC-BY-4.0");
+  assert.equal(sidecar.outputGrant.relabel, false);
+  assert.equal(sidecar.outputGrant.attribution, "Made with Synthetic");
+  const report = JSON.parse(await readFile(result.reportPath, "utf8"));
+  assert.equal(report.license, "CC-BY-4.0");
+  assert.equal(report.outputGrant.plan, "free");
 });

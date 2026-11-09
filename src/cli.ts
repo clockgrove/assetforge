@@ -1409,7 +1409,8 @@ function mainUsage(): string {
     "  --version    print the version",
     "",
     "Exit codes: 0 success, 1 internal error, 2 invalid input, 3 cap refused,",
-    "4 provider error, 5 QA found nothing, 6 validator rejected the write.",
+    "4 provider error, 5 QA found nothing, 6 validator rejected the write,",
+    "7 licence refused (provider grant does not allow the target's licence).",
     "Run `assetforge <command> --help` for a command's options.",
   ].join("\n");
 }
