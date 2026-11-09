@@ -41,6 +41,7 @@ import {
   writeFamilies,
 } from "./sheet/import.ts";
 import type { ImportOptions, ImportRecord } from "./sheet/import.ts";
+import { SliceError } from "./sheet/slice.ts";
 import type { Grouping, SliceOptions } from "./sheet/types.ts";
 import type { AssetSpec, StyleBible, TargetProfile } from "./types.ts";
 import {
@@ -397,12 +398,22 @@ function formatImport(record: ImportRecord, importDir: string, grouping: Groupin
   return lines.join("\n");
 }
 
-function parseSlice(grid: string | undefined, components: boolean | undefined): SliceOptions {
-  if (components) return { components: true };
-  if (grid === undefined) return {};
+function parseSlice(
+  grid: string | undefined,
+  components: boolean | undefined,
+  frames: string | undefined,
+): SliceOptions {
+  let count: number | undefined;
+  if (frames !== undefined) {
+    count = Number(frames);
+    if (!Number.isInteger(count) || count < 1) throw new InputError(`invalid --frames: ${frames}`);
+  }
+  const counted = count !== undefined ? { count } : {};
+  if (components) return { components: true, ...counted };
+  if (grid === undefined) return counted;
   const columns = Number(grid);
   if (!Number.isInteger(columns) || columns < 1) throw new InputError(`invalid --grid: ${grid}`);
-  return { grid: { columns } };
+  return { grid: { columns }, ...counted };
 }
 
 function declarationOption(values: Values): DigitalSourceType | undefined {
@@ -418,7 +429,8 @@ const importCommand: Command = {
   summary: "slice a contact sheet into frames and propose animation families",
   usage: `Usage: assetforge import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>
                         [--bible <bible.json>] [--subject <name>] [--hints idle,walk-right,...]
-                        [--grid <columns>] [--components] [--no-propose] [--cap ${DEFAULT_CAP_USD}]
+                        [--frames <count>] [--grid <columns>] [--components] [--no-propose]
+                        [--cap ${DEFAULT_CAP_USD}]
                         [--routes <routes.json>] [--imports .assetforge/imports]
                         [--digital-source-type <IPTC code or URI>] [--provider-script <module>]
                         [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>] [--json]
@@ -429,6 +441,9 @@ families in <import>/grouping.json with status "proposed" (--no-propose skips th
 model; it needs no key unless --lock-bible names a locked subject, whose identity score is a
 model call in shadow and enforce modes: add --identity-mode off to skip it). A human reviews the proposal against contact.png, edits it and sets its status
 to "confirmed" before write-families. See docs/sheet-import.md.
+
+With --frames, the sheet must hold exactly that many figures: slicing another number is refused
+(exit 2) before any model call, naming the cells or figures behind the difference.
 
 With --lock-bible, a subject with an identity lock in that art bible has its contact sheet scored
 against the lock by the identity decision model. --identity-mode overrides the profile's
@@ -443,6 +458,7 @@ below the threshold, off skips scoring.`,
     bible: { type: "string" },
     subject: { type: "string" },
     hints: { type: "string" },
+    frames: { type: "string" },
     grid: { type: "string" },
     components: { type: "boolean" },
     "no-propose": { type: "boolean" },
@@ -460,7 +476,11 @@ below the threshold, off skips scoring.`,
     const sheetPath = o["sheet"] as string;
     const asset = o["asset"] as string;
     const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
-    const slice = parseSlice(values["grid"] as string | undefined, values["components"] as boolean);
+    const slice = parseSlice(
+      values["grid"] as string | undefined,
+      values["components"] as boolean,
+      values["frames"] as string | undefined,
+    );
     const profile = await readJson<TargetProfile>(o["profile"] as string);
     const biblePath = values["bible"] as string | undefined;
     const bible = biblePath ? await readJson<StyleBible>(biblePath) : undefined;
@@ -539,6 +559,9 @@ const generateSheetCommand: Command = {
 
 Asks the model for a whole animation cycle as one sheet within the cost cap in USD, then
 imports it as the import command does, with a proposed grouping for a human to confirm.
+A sheet that does not slice into exactly the spec's frames.count figures fails QA (exit 5),
+naming the cells or figures behind the difference; the sheet and its generation record are
+kept in the import directory.
 --dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
 --lock-bible and --identity-mode score the generated sheet against the subject's identity lock
 as the import command does; the scoring call is part of the forecast and the cap.`,
@@ -603,21 +626,36 @@ as the import command does; the scoring call is part of the forecast and the cap
       );
     }
     const { provider, name } = await providerFor(values);
-    const { record, importDir, grouping, spentUsd } = await generateSheet({
-      spec: spec.value,
-      specDir: spec.dir,
-      bible: bible.value,
-      bibleDir: bible.dir,
-      profile: profile.value,
-      routes,
-      provider,
-      providerName: name,
-      importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
-      capUsd,
-      ...(lock && {
-        identity: { record: lock.record, references: lock.references, settings: lock.settings },
-      }),
-    });
+    let generated: Awaited<ReturnType<typeof generateSheet>>;
+    try {
+      generated = await generateSheet({
+        spec: spec.value,
+        specDir: spec.dir,
+        bible: bible.value,
+        bibleDir: bible.dir,
+        profile: profile.value,
+        routes,
+        provider,
+        providerName: name,
+        importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
+        capUsd,
+        ...(lock && {
+          identity: { record: lock.record, references: lock.references, settings: lock.settings },
+        }),
+      });
+    } catch (error) {
+      // The model drew another number of figures than the spec asks for: the sheet failed QA.
+      if (!(error instanceof SliceError)) throw error;
+      const fields = {
+        spentUsd: error.spentUsd,
+        found: error.found,
+        expected: error.expected,
+        problems: error.problems,
+        ...(error.kept !== undefined && { kept: error.kept }),
+      };
+      return refusal("qa_found_nothing", error.message, fields, "");
+    }
+    const { record, importDir, grouping, spentUsd } = generated;
     return {
       exitCode: 0,
       fields: { importDir, spentUsd, ...record, grouping },

@@ -11,7 +11,10 @@ export interface SlicedFigure {
   id: number;
   /** The grid cell it sits in; without a grid, its row and column in reading order. */
   cell: { row: number; column: number; box: Box };
-  /** The crop's box in sheet coordinates: the figure's extent plus padding, clipped to its cell. */
+  /**
+   * The crop's box in sheet coordinates: the figure's extent plus padding, clipped to its cell when
+   * the grid was given (a detected grid's cells only order the figures, so nothing is clipped).
+   */
   box: Box;
   /** The sheet's pixels inside `box`, unchanged (RGBA; alpha is whatever the sheet had). */
   crop: Raster;
@@ -53,6 +56,11 @@ export interface SliceOptions {
     cellHeight?: number;
     origin?: Point;
   };
+  /**
+   * The number of figures the sheet must hold (a spec's `frames.count`). Slicing refuses a sheet
+   * that holds another number with a SliceError naming the cells or figures behind the difference.
+   */
+  count?: number;
   /** Skip grid detection and locate figures as connected components. Default false. */
   components?: boolean;
   /** RGB distance from the background beyond which a pixel is foreground. Default 40. */

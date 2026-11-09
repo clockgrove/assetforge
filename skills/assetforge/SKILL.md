@@ -40,10 +40,10 @@ for the brief, run settings and versioned target template formats.
   Generates candidates within the USD cost cap and stages only those passing QA, with reasons and provenance, in a run directory. `--dry-run` reports the planned calls and cost forecast and spends nothing (needs no key).
 - `pick --run <dir> --candidate <id> --target <dir> [--json]`
   Writes the chosen candidate and manifest into the target with review pending.
-- `import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name> [--bible <bible.json>] [--hints idle,walk-right] [--grid <columns>] [--components] [--no-propose] [--cap 5] [--provider-script <module.js>] [--json]`
-  Slices a contact sheet into frames and has a vision model propose animation families in `<import>/grouping.json` with status `proposed` (`--no-propose` calls no model).
+- `import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name> [--bible <bible.json>] [--hints idle,walk-right] [--frames <count>] [--grid <columns>] [--components] [--no-propose] [--cap 5] [--provider-script <module.js>] [--json]`
+  Slices a contact sheet into frames and has a vision model propose animation families in `<import>/grouping.json` with status `proposed` (`--no-propose` calls no model). With `--frames`, a sheet that does not slice into exactly that many figures is refused (exit 2), naming the cells behind it.
 - `generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json> [--cap 5] [--provider-script <module.js>] [--dry-run] [--json]`
-  Has the model draw a whole cycle as one sheet within the cap, then imports it.
+  Has the model draw a whole cycle as one sheet within the cap, then imports it. A sheet that does not slice into the spec's `frames.count` figures exits 5; the sheet and its record are kept in the import directory.
 - `write-families --import <dir> --target <dir> [--grouping <file>] [--json]`
   Writes the strips of a grouping a human set to `confirmed` into the target with review pending.
 - `op <operation> <input...> --out <path> [--params <json>] [--profile <profile.json>] [--json]`

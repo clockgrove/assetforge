@@ -51,6 +51,7 @@ import type {
   Transform,
 } from "../types.ts";
 import { checkConfirmed, familyFrames, proposeGrouping } from "./group.ts";
+import { SliceError } from "./slice.ts";
 import { animationQa } from "../animation/qa.ts";
 import { DEFAULT_DURATION_MS, familyLoops, renderPreviews } from "../animation/run.ts";
 import { splitStrip } from "../animation/strip.ts";
@@ -297,17 +298,26 @@ export async function importSheet(
     meta: {},
     digitalSourceType,
   };
-  const ran = runRecipe(sheetImportRecipe(options.slice), [sheetItem], { style });
+  const importId =
+    options.importId ??
+    `${now().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const importDir = resolve(options.importsDir, importId);
+  let ran: ReturnType<typeof runRecipe>;
+  try {
+    ran = runRecipe(sheetImportRecipe(options.slice), [sheetItem], { style });
+  } catch (error) {
+    // A generated sheet was paid for: keep it and how it was made, so it can be imported by hand.
+    if (error instanceof SliceError && options.generation) {
+      await keepRefusedSheet(importDir, options, digitalSourceType, error, now);
+    }
+    throw error;
+  }
   const slicing = ran.steps[0]?.report as {
     mode: "grid" | "components";
     grid?: unknown;
     background: string;
   };
 
-  const importId =
-    options.importId ??
-    `${now().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
-  const importDir = resolve(options.importsDir, importId);
   await mkdir(join(importDir, "frames"), { recursive: true });
 
   const sheetSha = sha256(options.sheet);
@@ -433,6 +443,47 @@ export async function importSheet(
   await writeFile(join(importDir, GROUPING_FILE), `${JSON.stringify(grouping, null, 2)}\n`);
   await writeImport(importDir, record);
   return { record, importDir, grouping };
+}
+
+/** The generated sheet a slice refused, and its record, written beside the would-be import. */
+export const REFUSED_SHEET_RECORD = "sheet.json";
+
+async function keepRefusedSheet(
+  importDir: string,
+  options: ImportOptions,
+  digitalSourceType: DigitalSourceType,
+  error: SliceError,
+  now: () => Date,
+): Promise<void> {
+  const mediaType = sniffMediaType(options.sheet);
+  const file = `sheet.${mediaType.split("/")[1] ?? "bin"}`;
+  await mkdir(importDir, { recursive: true });
+  await writeFile(
+    join(importDir, file),
+    embedDigitalSourceType(options.sheet, mediaType, digitalSourceType),
+  );
+  const record = {
+    createdAt: now().toISOString(),
+    assetId: options.assetId,
+    file,
+    sheet: {
+      path: options.sheetPath,
+      sha256: sha256(options.sheet),
+      mediaType,
+      tool: options.tool,
+    },
+    digitalSourceType,
+    generation: options.generation,
+    slice: {
+      params: options.slice ?? {},
+      found: error.found,
+      expected: error.expected,
+      problems: error.problems,
+    },
+  };
+  await writeFile(join(importDir, REFUSED_SHEET_RECORD), `${JSON.stringify(record, null, 2)}\n`);
+  error.kept = join(importDir, file);
+  error.message += `. The generated sheet is kept at ${error.kept}, with its generation record in ${join(importDir, REFUSED_SHEET_RECORD)}`;
 }
 
 export async function writeImport(importDir: string, record: ImportRecord): Promise<void> {

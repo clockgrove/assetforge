@@ -4,6 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { syntheticSheet } from "./fixtures/sheet.ts";
 import { shelterSpec, syntheticWorld } from "./fixtures/synthetic.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -252,6 +253,33 @@ test("generate-sheet --dry-run forecasts the sheet and grouping calls without a 
   ]);
   assert.equal(over.code, 3);
   assert.equal(doc(over).error.code, "cap_refused");
+});
+
+test("generate-sheet fails QA (exit 5) when the sheet holds another frame count, and keeps it", async () => {
+  const { world, base } = await files();
+  // The spec asks for 6 frames; the scripted model draws a 16-figure sheet.
+  const png = Buffer.from(syntheticSheet().png).toString("base64");
+  const provider = await script(
+    world.dir,
+    `{ image: () => ({ images: [{ mediaType: "image/png", bytes: Uint8Array.from(Buffer.from("${png}", "base64")) }], costUsd: 0.2 }), vision: () => ({ text: "{}" }) }`,
+  );
+  const imports = join(world.dir, "imports");
+  const r = await cli([
+    "generate-sheet",
+    ...base.slice(0, 6),
+    ...["--provider-script", provider, "--imports", imports, "--json"],
+  ]);
+  assert.equal(r.code, 5, r.stderr);
+  const d = doc(r);
+  assert.equal(d.error.code, "qa_found_nothing");
+  assert.match(d.error.message, /found 16 figures on the sheet where 6 are asked for/);
+  assert.deepEqual([d.found, d.expected, d.spentUsd], [16, 6, 0.2]);
+  assert.match(d.kept, /sheet\.png$/);
+  const [kept] = await readdir(imports);
+  assert.deepEqual((await readdir(join(imports, kept as string))).sort(), [
+    "sheet.json",
+    "sheet.png",
+  ]);
 });
 
 test("write-families on a missing import is one invalid_input document", async () => {

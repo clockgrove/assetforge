@@ -117,3 +117,26 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
   assert.equal(manifest.review.status, "pending");
   assert.equal(manifest.provenance.generated.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
 });
+
+test("import --frames refuses a sheet that slices into another count (exit 2)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "assetforge-cli-"));
+  await writeFile(join(root, "sheet.png"), syntheticSheet().png);
+  await writeFile(join(root, "profile.json"), JSON.stringify(syntheticProfile()));
+  const run = (frames: string) =>
+    exec(process.execPath, [
+      CLI,
+      "import",
+      ...["--sheet", join(root, "sheet.png"), "--profile", join(root, "profile.json")],
+      ...["--asset", "stevie", "--tool", "hand drawn", "--no-propose", "--frames", frames],
+      ...["--imports", join(root, "imports"), "--json"],
+    ]);
+  const ok = JSON.parse((await run("16")).stdout) as { frames: unknown[] };
+  assert.equal(ok.frames.length, 16);
+  await assert.rejects(run("17"), (error: { code: number; stdout: string }) => {
+    assert.equal(error.code, 2);
+    const doc = JSON.parse(error.stdout) as { error: { code: string; message: string } };
+    assert.equal(doc.error.code, "invalid_input");
+    assert.match(doc.error.message, /found 16 figures on the sheet where 17 are asked for/);
+    return true;
+  });
+});

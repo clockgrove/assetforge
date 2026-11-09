@@ -11,6 +11,7 @@ import { decodePng, getPixel } from "../src/image/raster.ts";
 import { loadBibleInputs, sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import { generateSheet } from "../src/sheet/generate.ts";
+import { SliceError } from "../src/sheet/slice.ts";
 import { GROUPING_FILE, importSheet, writeFamilies } from "../src/sheet/import.ts";
 import { jitterOf } from "../src/sheet/register.ts";
 import type { Grouping } from "../src/sheet/types.ts";
@@ -371,4 +372,54 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   assert.equal(provenance.calls.length, 2);
   assert.equal(provenance.costUsd, 0.22);
   assert.equal(provenance.frames[0].tool, defaultRoutes.sheet.model);
+});
+
+test("sheet generation refuses a sheet with another frame count and keeps it", async () => {
+  const world = await syntheticWorld();
+  const { importsDir } = await dirs();
+  // The model drew 6 figures; the spec asks for 8.
+  const sheet = syntheticSheet({
+    families: [{ name: "walk-right", count: 6, facing: 1, walk: true }],
+    columns: 3,
+  });
+  const provider = groupingProvider(sheet.png);
+  await assert.rejects(
+    generateSheet({
+      spec: {
+        kind: "sprite-sheet",
+        assetId: "stevie",
+        animationFamily: "walk",
+        frames: { count: 8 },
+      },
+      specDir: world.dir,
+      bible: world.bible,
+      bibleDir: world.bibleDir,
+      profile: painterlyProfile(),
+      routes: defaultRoutes,
+      provider,
+      providerName: "scripted",
+      importsDir,
+      importId: "short",
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof SliceError);
+      assert.equal(error.found, 6);
+      assert.equal(error.expected, 8);
+      assert.equal(error.spentUsd, 0.21);
+      assert.equal(error.kept, join(importsDir, "short", "sheet.png"));
+      assert.match(error.message, /found 6 figures on the sheet where 8 are asked for/);
+      return true;
+    },
+  );
+  // No grouping call was made for a sheet that cannot be used.
+  assert.deepEqual(
+    provider.calls.map((c) => c.kind),
+    ["image"],
+  );
+  assert.ok(await exists(join(importsDir, "short", "sheet.png")));
+  assert.equal(await exists(join(importsDir, "short", "import.json")), false);
+  const kept = JSON.parse(await readFile(join(importsDir, "short", "sheet.json"), "utf8"));
+  assert.equal(kept.sheet.sha256, sha256(sheet.png));
+  assert.equal(kept.generation.calls.length, 1);
+  assert.deepEqual([kept.slice.found, kept.slice.expected], [6, 8]);
 });
