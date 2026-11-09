@@ -26,7 +26,7 @@ env:
   FACTORY_HARNESS: claude # claude | codex | copilot
   FACTORY_MODEL: claude-opus-5-5
   FACTORY_SUBAGENT_MODEL: claude-sonnet-5-5
-  FACTORY_REVIEWER_MODEL: claude-fable-5-1
+  FACTORY_REVIEWER_MODEL: claude-fable-5-2
   FACTORY_CREDENTIAL: plan # api; plan only for your own repository
   FACTORY_MAX_CONCURRENT: 2
   FACTORY_DAILY_USD: 25
@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs: { issues: "${{ steps.f.outputs.issues }}", count: "${{ steps.f.outputs.count }}", queue_watch: "${{ steps.f.outputs.queue_watch }}" }
     steps:
-      - uses: clockgrove/factory@v0.7.121
+      - uses: clockgrove/factory@v0.7.129
         id: f
         with: { mode: dispatch, issue: "${{ inputs.issue }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
   queue-watch:
@@ -80,7 +80,7 @@ jobs:
     permissions: { contents: read, actions: write } # actions: write only for the dispatcher tick
     concurrency: { group: factory-queue-watch, cancel-in-progress: false }
     steps:
-      - uses: clockgrove/factory@v0.7.121
+      - uses: clockgrove/factory@v0.7.129
         id: w
         with: { mode: watch, pr: "${{ needs.dispatch.outputs.queue_watch }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
       - name: Dispatch tick (a queue commit started no check run)
@@ -98,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.121
+      - uses: clockgrove/factory@v0.7.129
         id: f
         with:
           mode: work
@@ -131,7 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.7.121
+      - uses: clockgrove/factory@v0.7.129
         id: f
         with:
           mode: review
