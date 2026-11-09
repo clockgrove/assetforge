@@ -12,6 +12,7 @@ import {
 import { decodeImage } from "./image/raster.ts";
 import { pixelHash } from "./transform/run.ts";
 import { InputError } from "./errors.ts";
+import { requireLicensable } from "./license.ts";
 import { readRun, writeRun } from "./loop.ts";
 import type { StagedCandidate } from "./loop.ts";
 import { sha256 } from "./request.ts";
@@ -85,10 +86,14 @@ export interface TargetWriteResult {
  * Writes one output into the target in the profile's format: the media, the manifest rendered from
  * the profile's template with the review field set to the profile's pending value, and the
  * provenance. Then runs the target's validator, when the profile declares one. Assetforge never
- * writes any review value other than pending.
+ * writes any review value other than pending. Refuses with a LicenseError, before writing, an
+ * output whose provider grant the target cannot declare (src/license.ts); `{{profile.license}}`
+ * renders the licence the output is declared under.
  */
 export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResult> {
   const { profile, spec } = write;
+  // Before anything is written: the output must be declarable under a licence the target takes.
+  const licensed = requireLicensable(profile, write.provenance);
   if (write.provenance.digitalSourceType === "undeclared") requireDeclared("undeclared");
   const known = [
     write.provenance.digitalSourceType,
@@ -100,7 +105,7 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
     ...write.output,
     bytes: embedDigitalSourceType(write.output.bytes, write.output.mediaType, digitalSourceType),
   };
-  const provenance = { ...write.provenance, digitalSourceType };
+  const provenance = { ...licensed, digitalSourceType };
   const last = provenance.steps?.at(-1);
   if (
     last?.op !== "embed-digital-source-type" ||
@@ -117,7 +122,8 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
     profile: {
       ...profile.values,
       name: profile.name,
-      license: profile.license,
+      // The licence this output is declared under, so a template never relabels it.
+      license: provenance.license,
       ...(profile.style !== undefined && { style: profile.style }),
     },
     bible: { version: write.bibleVersion },

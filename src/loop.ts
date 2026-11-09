@@ -13,6 +13,7 @@ import { pixelHash } from "./transform/run.ts";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
+import { licenseFields } from "./license.ts";
 import { parseJsonFile } from "./json.ts";
 import type { IdentityAgreement } from "./identity.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
@@ -173,7 +174,7 @@ function provenanceOf(
     requestIds: calls.map((c) => c.requestId),
     referenceHashes: unique(calls.flatMap((c) => c.referenceHashes)),
     bibleVersion: bible.version,
-    license: profile.license,
+    ...licenseFields(profile, calls),
     providerTerms: unique(calls.map((c) => c.providerTerms)),
     startedAt: calls[0]?.startedAt ?? "",
     finishedAt: calls[calls.length - 1]?.finishedAt ?? "",

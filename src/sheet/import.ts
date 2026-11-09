@@ -13,6 +13,7 @@ import {
 } from "../metadata.ts";
 import type { DigitalSourceType } from "../metadata.ts";
 import { InputError } from "../errors.ts";
+import { licenseFields } from "../license.ts";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -705,7 +706,7 @@ export async function writeFamilies(
       requestIds: calls.map((c) => c.requestId),
       referenceHashes: unique(calls.flatMap((c) => c.referenceHashes)),
       bibleVersion: record.bibleVersion,
-      license: record.profile.license,
+      ...licenseFields(record.profile, calls),
       providerTerms: unique(calls.map((c) => c.providerTerms)),
       startedAt: calls[0]?.startedAt ?? record.createdAt,
       finishedAt: calls[calls.length - 1]?.finishedAt ?? record.createdAt,

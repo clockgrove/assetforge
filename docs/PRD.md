@@ -166,6 +166,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
   - the version of the provider's terms;
   - the style bible's version.
 - The license value comes from the target profile. Clockgrove: MIT, as its own work; owner decision, 2026-11-07.
+- Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off (assetforge#47).
 - The asset lock makes every approved asset auditable, and regenerable as far as the provider allows.
 - Candidates are cached by content hash. Asking the same question twice does not pay twice.
 
