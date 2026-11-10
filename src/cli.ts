@@ -242,6 +242,9 @@ within the cost cap in USD, and stages only the ones that pass QA.
 --dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
 --provider-script answers every model call from a module whose default export is
 { image, vision } instead of calling the gateway.
+A character-3d spec makes rigged, animated .glb candidates from the subject's approved
+turnaround: its 3D calls go to Tripo (TRIPO_API_KEY from the environment) and its identity call to
+the gateway; turntable renders are written beside each candidate (docs/characters-3d.md).
 A sprite-strip spec needs an approved keyPose: stage a still of the pose first, choose one
 of its staged candidates, and name that file as keyPose in the strip spec.`,
   options: {

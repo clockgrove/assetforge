@@ -16,7 +16,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 }
 ```
 
-- `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose) or `still` (one image). A new kind is a new generator.
+- `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose), `still` (one image) or `character-3d` (a rigged, animated `.glb`; its fields `gait`, `clips` and `heightM` and the profile's `model3d` section are in [characters-3d.md](characters-3d.md)). A new kind is a new generator.
 - `subject` names the bible subject; it defaults to `assetId`.
 - `frames.width` and `frames.height` default to the profile's frame size; `frames.count` defaults to 1.
 - `anchor` is the pivot in frame coordinates: the bottom centre of the subject is aligned to it. It defaults to the bottom centre of the frame.

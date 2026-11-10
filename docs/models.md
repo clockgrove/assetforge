@@ -34,4 +34,23 @@ A generated sheet makes one `sheet` call and one `vision` call for the grouping 
 
 A character with an identity lock adds one `identity` call per candidate (see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). Some decision models reject images under about 300 px a side, and `liquid/d1` rejects image input entirely (#27), so pick an alternate that accepts images.
 
+## 3D routes (Tripo, not the gateway)
+
+3D characters (`character-3d`, [characters-3d.md](characters-3d.md)) call Tripo's API directly with `TRIPO_API_KEY`. Their identity call still goes through the gateway. The account is on paid credits, so Tripo's output is owned: the routes' `outputGrant` is `LicenseRef-tripo-paid`, plan `paid`, commercial, `relabel: true`. Each call's cost is the task's reported `consumed_credit` × `usdPerCredit` ($0.01).
+
+| Operation | Model                             | What it calls                                                                                                      | Estimate per call |
+| --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| `model3d` | `tripo/v2.5-20250123`             | `multiview_to_model` with texture and PBR (`image_to_model` when there is only one view): 30 credits on 2026-11-10 | $0.50             |
+| `rig3d`   | `tripo/animate-rig-v2.0-20250506` | `animate_rig` with `rig_type` from the gait: 25 credits. The v1 rigger refuses quadrupeds.                         | $0.30             |
+| `clips3d` | `tripo/animate-retarget`          | `animate_retarget` with every library clip the spec needs, in one call                                             | $0.20             |
+
+One candidate is one `model3d`, one `rig3d`, one `clips3d` (left out when the library has none of the families) and one `identity` call. That is $1.001 reserved per candidate, or $4.004 for 4 candidates against the $5 cap.
+
+The `clips3d` route's `library` maps gait → family → `{ clip, loop }`. Tripo's library, probed on 2026-11-10:
+
+- biped: `preset:idle`, `preset:walk`, `preset:run`, `preset:jump`, `preset:turn`, `preset:hurt`, `preset:fall`, `preset:climb`, `preset:dive`, `preset:slash` and `preset:shoot`;
+- quadruped: only `preset:quadruped:walk`. Tripo refuses `preset:quadruped:idle`, `:run`, `:trot`, `:stand`, `:jump` and others as invalid animation names.
+
+So a quadruped `idle` is reported missing, not faked. Override the library with `--routes` when the provider adds clips.
+
 Each route records its provider terms in provenance. The values name the terms in force on 2026-11-07; check and update them when a route changes.
