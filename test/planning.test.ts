@@ -298,7 +298,8 @@ test("apply refuses changed bible, templates, identity locks, references and tam
         serializeBible(f.data, "## Do's and Don'ts\nDo preserve identity. Don't add text.\n"),
       );
     }
-    if (change === "reference") await writeFile(join(f.dir, "turn.png"), Buffer.from("changed"));
+    if (change === "reference")
+      await writeFile(join(f.dir, "turn.png"), encodePng(createRaster(3, 3)));
     if (change === "plan") plan.prompt = "edited";
     await assert.rejects(
       applyPlan(plan, { provider, autoApprove: true, outDir: join(f.root, "runs") }),

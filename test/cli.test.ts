@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -345,4 +346,60 @@ test("import of a sheet that is not an image is invalid_input", async () => {
   assert.equal(r.code, 2, r.stderr);
   assert.equal(doc(r)["error"].code, "invalid_input");
   assert.match(doc(r)["error"].message, /cannot decode the sheet/);
+});
+
+/** A provider script that records every call in `marker`, so a test can prove none was made. */
+async function recordingScript(dir: string): Promise<{ path: string; marker: string }> {
+  const path = join(dir, "recording.mjs");
+  const marker = join(dir, "provider-called");
+  await writeFile(
+    path,
+    `import { appendFileSync } from "node:fs";
+const record = (kind) => { appendFileSync(${JSON.stringify(marker)}, kind + "\\n"); throw new Error("no call expected"); };
+export default { image: () => record("image"), vision: () => record("vision") };`,
+  );
+  return { path, marker };
+}
+
+const LFS_POINTER =
+  "version https://git-lfs.github.com/spec/v1\n" +
+  "oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\n" +
+  "size 12345\n";
+
+test("generate-sheet refuses Git LFS pointer references as invalid_input with no provider call", async () => {
+  const { world, base } = await files();
+  for (const ref of ["stevie-sheet.png", "stevie-turnaround.png", "den.png", "perspective.png"]) {
+    await writeFile(join(world.bibleDir, "refs", ref), LFS_POINTER);
+  }
+  await writeFile(join(world.dir, "key-pose.png"), LFS_POINTER);
+  const provider = await recordingScript(world.dir);
+  const r = await cli([
+    "generate-sheet",
+    ...base.slice(0, 6),
+    ...["--provider-script", provider.path, "--imports", join(world.dir, "imports"), "--json"],
+  ]);
+  assert.equal(r.code, 2, r.stderr);
+  const d = doc(r);
+  assert.equal(d.error.code, "invalid_input");
+  assert.match(d.error.message, /Git LFS pointer/);
+  assert.match(d.error.message, /git lfs pull/);
+  assert.equal(existsSync(provider.marker), false, "a provider call was made");
+  assert.equal(existsSync(join(world.dir, "imports")), false);
+});
+
+test("stage refuses a reference that is not an image, naming the file, with no provider call", async () => {
+  const { world, base } = await files();
+  const perspective = join(world.bibleDir, "refs", "perspective.png");
+  await writeFile(perspective, "not an image");
+  const provider = await recordingScript(world.dir);
+  const r = await cli([
+    "stage",
+    ...base,
+    ...["--candidates", "2", "--provider-script", provider.path, "--json"],
+  ]);
+  assert.equal(r.code, 2, r.stderr);
+  const d = doc(r);
+  assert.equal(d.error.code, "invalid_input");
+  assert.ok(d.error.message.includes(perspective), d.error.message);
+  assert.equal(existsSync(provider.marker), false, "a provider call was made");
 });

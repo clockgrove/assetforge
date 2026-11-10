@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createRaster, encodePng, parseHex, setPixel } from "./image/raster.ts";
+import { createRaster, decodeImage, encodePng, parseHex, setPixel } from "./image/raster.ts";
 import { InputError } from "./errors.ts";
 import type { AssetSpec, LoadedReference, Size, StyleBible, TargetProfile } from "./types.ts";
 
@@ -25,6 +25,53 @@ export function sniffMediaType(bytes: Uint8Array): string {
   return "application/octet-stream";
 }
 
+/** The first line of a Git LFS pointer file (Git LFS spec v1), which stands in for an unfetched object. */
+const LFS_POINTER_HEADER = "version https://git-lfs.github.com/spec/v1\n";
+/** The Git LFS spec caps pointer files below this size. */
+const LFS_POINTER_MAX_BYTES = 1024;
+
+/** Whether the bytes are a Git LFS pointer file rather than the object it points to. */
+export function isLfsPointer(bytes: Uint8Array): boolean {
+  if (bytes.length >= LFS_POINTER_MAX_BYTES) return false;
+  const head = Buffer.from(bytes.subarray(0, LFS_POINTER_HEADER.length)).toString("latin1");
+  return head === LFS_POINTER_HEADER;
+}
+
+/** A WebP whose RIFF container holds its declared length and starts with an image chunk. */
+function wellFormedWebp(bytes: Uint8Array): boolean {
+  if (bytes.length < 20) return false;
+  const view = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const chunk = view.subarray(12, 16).toString("latin1");
+  return view.readUInt32LE(4) + 8 <= bytes.length && ["VP8 ", "VP8L", "VP8X"].includes(chunk);
+}
+
+/**
+ * Why the bytes are not a usable reference image, or undefined when they are one: the signature
+ * must name an image type and the image must decode (WebP, which Assetforge does not decode, must
+ * have a well-formed container).
+ */
+export function referenceImageProblem(bytes: Uint8Array): string | undefined {
+  if (isLfsPointer(bytes)) {
+    return "is a Git LFS pointer, not the image: fetch the LFS objects with `git lfs pull` and run again";
+  }
+  const mediaType = sniffMediaType(bytes);
+  if (!mediaType.startsWith("image/")) return "is not an image of a known type";
+  if (mediaType === "image/webp") {
+    return wellFormedWebp(bytes) ? undefined : "is not a decodable image/webp";
+  }
+  try {
+    decodeImage(bytes);
+  } catch (error) {
+    return `is not a decodable ${mediaType}: ${(error as Error).message}`;
+  }
+  return undefined;
+}
+
+/**
+ * Loads a reference image for a model call. Every reference reaches the model through here, so a
+ * file that is not a decodable image (such as a Git LFS pointer) is refused as invalid input
+ * before anything is spent.
+ */
 export async function loadReference(
   path: string,
   role: string,
@@ -37,6 +84,8 @@ export async function loadReference(
   } catch (error) {
     throw new InputError(`cannot read the ${role} image ${full}`, { cause: error });
   }
+  const problem = referenceImageProblem(bytes);
+  if (problem) throw new InputError(`the ${role} image ${full} ${problem}`);
   return { role, path, mediaType: sniffMediaType(bytes), bytes, sha256: sha256(bytes) };
 }
 
