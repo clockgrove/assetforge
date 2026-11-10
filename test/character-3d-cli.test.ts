@@ -233,6 +233,7 @@ test("stage writes rigged candidates with clips, renders and per-candidate QA; p
     p.calls[0].parameters.views.map((v: { view: string }) => v.view),
     ["front", "left", "back"],
   );
+  assert.equal(p.calls[0].parameters.maxTriangles, 40000, "the triangle budget is sent");
 
   // Turntable renders for the person.
   const renders = await readdir(join(w.runs, run["runId"], "c1-character-3d"));

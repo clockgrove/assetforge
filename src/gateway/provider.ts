@@ -70,6 +70,8 @@ export interface ModelRequest {
   views: ModelView[];
   prompt?: string;
   seed?: number;
+  /** The target's triangle budget; a provider that can limit its mesh should stay within it. */
+  maxTriangles?: number;
   providerOptions?: Record<string, Record<string, unknown>>;
 }
 

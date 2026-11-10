@@ -196,7 +196,13 @@ export const character3dGenerator: Generator = {
     const references = await subjectReferences(spec, bible, context.bibleDir);
     const text = prompt(spec, bible, character);
 
-    const made = await call.model3d(MODEL_OPERATION, text, references, context.seed);
+    const made = await call.model3d(
+      MODEL_OPERATION,
+      text,
+      references,
+      context.seed,
+      settings.budgets.triangles,
+    );
     const rigRoute = call.route(RIG_OPERATION);
     const rigType = rigRoute.rigTypes?.[character.gait] ?? character.gait;
     const rigged = await call.rig3d(RIG_OPERATION, made.handle, rigType);

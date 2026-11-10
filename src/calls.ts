@@ -131,11 +131,13 @@ export class Caller {
     prompt: string,
     views: Array<LoadedReference & { view: string }>,
     seed?: number,
+    maxTriangles?: number,
   ): Promise<ModelResult> {
     const route = this.route(operation);
     const sendSeed = route.supportsSeed ? seed : undefined;
     const parameters: Record<string, unknown> = {
       ...(sendSeed !== undefined && { seed: sendSeed }),
+      ...(maxTriangles !== undefined && { maxTriangles }),
       ...(route.providerOptions !== undefined && { providerOptions: route.providerOptions }),
       views: views.map((r) => ({ view: r.view, role: r.role, path: r.path, sha256: r.sha256 })),
     };
@@ -147,6 +149,7 @@ export class Caller {
         prompt,
         views: views.map((v) => ({ view: v.view, mediaType: v.mediaType, bytes: v.bytes })),
         ...(sendSeed !== undefined && { seed: sendSeed }),
+        ...(maxTriangles !== undefined && { maxTriangles }),
         ...(r.providerOptions !== undefined && { providerOptions: r.providerOptions }),
       });
     });

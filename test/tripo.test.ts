@@ -75,12 +75,13 @@ function provider(f: { fetch: typeof fetch }, sleeps: number[] = [], timeoutMs?:
 
 const png = (view: string) => ({ view, mediaType: "image/png", bytes: new Uint8Array([1, 2, 3]) });
 
-test("multiview orders front, left, back, right with {} for a missing view", async () => {
+test("multiview orders front, left, back, right with {} for a missing view; the budget is the face limit", async () => {
   const f = fake({});
   const result = await provider(f).generateModel({
     model: "tripo",
     views: [png("back"), png("front"), png("left")],
     seed: 7,
+    maxTriangles: 40000,
     providerOptions: {
       tripo: { modelVersion: "v3", texture: true, pbr: true, usdPerCredit: 0.01 },
     },
@@ -98,6 +99,7 @@ test("multiview orders front, left, back, right with {} for a missing view", asy
     texture: true,
     pbr: true,
     model_seed: 7,
+    face_limit: 40000,
   });
   assert.equal(f.calls[0]?.auth, `Bearer ${KEY}`);
   assert.equal(f.calls.filter((c) => c.url.endsWith("/upload/sts")).length, 3);

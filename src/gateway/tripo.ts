@@ -82,6 +82,8 @@ export class TripoProvider {
       ...(opts["texture"] !== undefined && { texture: opts["texture"] }),
       ...(opts["pbr"] !== undefined && { pbr: opts["pbr"] }),
       ...(request.seed !== undefined && { model_seed: request.seed }),
+      // Tripo's faces are triangles unless `quad` is set; without a limit it returns ~400K.
+      ...(request.maxTriangles !== undefined && { face_limit: request.maxTriangles }),
     };
     let body: Json;
     if (multi) {
