@@ -10,6 +10,9 @@ import {
   measure,
   normalize,
   posedPrimitives,
+  sceneRoots,
+  transformDirection,
+  worldMatrices,
 } from "../src/model3d/scene.ts";
 import { syntheticCharacter } from "./fixtures/glb.ts";
 
@@ -95,4 +98,18 @@ test("normalize grounds the model and centres it", () => {
   assert.ok(Math.abs(after.max[1] - 1.8) < 1e-9);
   assert.ok(Math.abs(after.min[0] + after.max[0]) < 1e-9);
   assert.ok(Math.abs(after.min[2] + after.max[2]) < 1e-9);
+});
+
+test("normalize turns a model that faces +x (Tripo's output) to the profile's forward", () => {
+  for (const [forward, expected] of [
+    ["+z", [0, 0, 1]],
+    ["-z", [0, 0, -1]],
+    ["+x", [1, 0, 0]],
+  ] as const) {
+    const glb = parseGlb(syntheticCharacter());
+    normalize(glb, { sourceForward: "+x", forward });
+    const [root] = sceneRoots(glb.json);
+    const facing = transformDirection(worldMatrices(glb.json).get(root!)!, 1, 0, 0);
+    facing.forEach((v, i) => assert.ok(Math.abs(v - expected[i]!) < 1e-9, `${forward}: ${facing}`));
+  }
 });

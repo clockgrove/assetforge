@@ -151,11 +151,12 @@ export const defaultRoutes: Routes = {
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
   // Image-to-3D on Tripo: multiview (or single-image) to a textured PBR model, 30 credits with
-  // texture and PBR (#72's probe); the estimate is an upper bound.
+  // texture and PBR (#72's probe); the estimate is an upper bound. Its models face +x: measured
+  // on the real Stevie run (#72), head at +x in the raw multiview output and after the rig.
   model3d: {
     model: "tripo/v2.5-20250123",
     estimatedCostUsd: 0.5,
-    forward: "+z",
+    forward: "+x",
     outputGrant: tripoGrant,
     providerTerms: tripoTerms,
     providerOptions: {

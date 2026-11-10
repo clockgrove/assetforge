@@ -80,7 +80,7 @@ Also available:
 2. **Rig** (`rig3d` route): the provider's auto-rig for the gait. The route's `rigTypes` maps a gait to the provider's rig type.
 3. **Clips** (`clips3d` route): the provider's library clips, retargeted onto the rig. The route's `library` maps gait → family → `{ clip, loop }`. A family with no library entry is reported as missing for the candidate. It is never faked, and the candidate is not refused for it. Each returned animation is renamed after its family. For a looping family, the last key of every channel is set to its first, which closes the loop.
 4. **Normalise.** The scene gets a single root node that:
-   - turns the model from the route's `forward` (the provider's facing, `+z` by default) to the profile's `forward`;
+   - turns the model from the route's `forward` (the provider's facing, `+z` by default; Tripo's models face `+x`, as measured on the real Stevie run) to the profile's `forward`;
    - scales it to `heightM`;
    - stands it on y = 0 and centres it on x and z.
 5. **QA**, recorded per candidate. All before the pick:
