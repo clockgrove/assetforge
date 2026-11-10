@@ -2,6 +2,8 @@ import { userInfo } from "node:os";
 import { InputError } from "./errors.ts";
 import { inflateSync } from "node:zlib";
 import type { TransformStep } from "./transform/types.ts";
+import { parseGlb, writeGlb } from "./model3d/glb.ts";
+import type { GltfDocument } from "./model3d/glb.ts";
 
 const vocabulary = "http://cv.iptc.org/newscodes/digitalsourcetype/";
 const namespace = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/";
@@ -354,6 +356,10 @@ export function embedDigitalSourceType(
     header.writeUInt32LE(payload.length, 4);
     return Buffer.concat([header, payload]);
   }
+  if (mediaType === "model/gltf-binary") {
+    const glb = parseGlb(bytes);
+    return writeGlb({ ...glb, json: embedGltfDigitalSourceType(glb.json, value) as GltfDocument });
+  }
   if (mediaType === "model/gltf+json")
     return Buffer.from(
       `${JSON.stringify(embedGltfDigitalSourceType(JSON.parse(Buffer.from(bytes).toString("utf8")) as Gltf, value))}\n`,
@@ -378,8 +384,11 @@ export function readDigitalSourceType(
       .find((c) => c.type === "XMP ")
       ?.data.toString("utf8");
     if (xml !== undefined) return readXmp(xml);
-  } else if (mediaType === "model/gltf+json") {
-    const doc = JSON.parse(Buffer.from(bytes).toString("utf8")) as Gltf;
+  } else if (mediaType === "model/gltf+json" || mediaType === "model/gltf-binary") {
+    const doc =
+      mediaType === "model/gltf-binary"
+        ? (parseGlb(bytes).json as Gltf)
+        : (JSON.parse(Buffer.from(bytes).toString("utf8")) as Gltf);
     const ext = doc.extensions?.["KHR_xmp_json_ld"] as
       { packet?: number; packets?: Record<string, unknown>[] } | undefined;
     const reference = doc.asset?.extensions?.["KHR_xmp_json_ld"] as { packet?: number } | undefined;

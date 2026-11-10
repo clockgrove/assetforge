@@ -20,6 +20,19 @@ export interface Route {
   /** Whether the model accepts a seed; only then is one sent and recorded. */
   supportsSeed?: boolean;
   providerOptions?: Record<string, Record<string, unknown>>;
+  /**
+   * 3D routes: the axis the provider's models face (`+z` when unset). Assetforge turns each model
+   * to the target profile's `model3d.forward`.
+   */
+  forward?: "+x" | "-x" | "+z" | "-z";
+  /**
+   * 3D clip routes: the provider's animation library, by gait then family: the library clip that
+   * is retargeted for the family and whether the family loops. A family not listed has no close
+   * library clip and is reported as missing.
+   */
+  library?: Record<string, Record<string, { clip: string; loop: boolean }>>;
+  /** 3D rig routes: the provider's rig type for each gait (the gait itself when unlisted). */
+  rigTypes?: Record<string, string>;
 }
 
 export interface Routes {
@@ -37,8 +50,26 @@ export interface Routes {
   flicker: Route;
   /** Whether a see-through area inside an animation frame's outline is a hole or an opening. */
   holes: Route;
+  /** Image-to-3D: a textured character model from the approved turnaround. */
+  model3d: Route;
+  /** The provider's auto-rig for the spec's gait. */
+  rig3d: Route;
+  /** Library clips retargeted onto the rig, one per requested family, in one call. */
+  clips3d: Route;
   [operation: string]: Route;
 }
+
+/**
+ * Tripo on paid credits: the account owns its outputs, so they ship under the target's licence
+ * (owner decision on #72). Credits are about $0.01 each.
+ */
+const tripoGrant = {
+  license: "LicenseRef-tripo-paid",
+  plan: "paid",
+  commercial: true,
+  relabel: true,
+};
+const tripoTerms = "Tripo API Terms of Service, paid credits (as of 2026-11-10)";
 
 /** Defaults from the gateway survey of 2026-11-07 (docs/models.md). */
 export const defaultRoutes: Routes = {
@@ -118,6 +149,58 @@ export const defaultRoutes: Routes = {
     },
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  // Image-to-3D on Tripo: multiview (or single-image) to a textured PBR model, 30 credits with
+  // texture and PBR (#72's probe); the estimate is an upper bound. Its models face +x: measured
+  // on the real Stevie run (#72), head at +x in the raw multiview output and after the rig.
+  model3d: {
+    model: "tripo/v2.5-20250123",
+    estimatedCostUsd: 0.5,
+    forward: "+x",
+    outputGrant: tripoGrant,
+    providerTerms: tripoTerms,
+    providerOptions: {
+      tripo: { modelVersion: "v2.5-20250123", texture: true, pbr: true, usdPerCredit: 0.01 },
+    },
+  },
+  // Tripo's auto-rig, 25 credits (#72's probe). Quadruped rigs need the v2 rigger; v1 refuses them.
+  rig3d: {
+    model: "tripo/animate-rig-v2.0-20250506",
+    estimatedCostUsd: 0.3,
+    outputGrant: tripoGrant,
+    providerTerms: tripoTerms,
+    rigTypes: { quadruped: "quadruped", biped: "biped" },
+    providerOptions: {
+      tripo: { spec: "tripo", modelVersion: "v2.0-20250506", usdPerCredit: 0.01 },
+    },
+  },
+  // Tripo's animation library retargeted onto the rig.
+  clips3d: {
+    model: "tripo/animate-retarget",
+    estimatedCostUsd: 0.2,
+    outputGrant: tripoGrant,
+    providerTerms: tripoTerms,
+    library: {
+      biped: {
+        idle: { clip: "preset:idle", loop: true },
+        walk: { clip: "preset:walk", loop: true },
+        run: { clip: "preset:run", loop: true },
+        jump: { clip: "preset:jump", loop: false },
+        turn: { clip: "preset:turn", loop: false },
+        hurt: { clip: "preset:hurt", loop: false },
+        fall: { clip: "preset:fall", loop: false },
+        climb: { clip: "preset:climb", loop: false },
+        dive: { clip: "preset:dive", loop: false },
+        slash: { clip: "preset:slash", loop: false },
+        shoot: { clip: "preset:shoot", loop: false },
+      },
+      // Tripo's library has one quadruped clip (probed 2026-11-10: `preset:quadruped:idle`,
+      // `:run`, `:trot` and others are refused as invalid animation names).
+      quadruped: {
+        walk: { clip: "preset:quadruped:walk", loop: true },
+      },
+    },
+    providerOptions: { tripo: { usdPerCredit: 0.01 } },
   },
   // Holes: one enlarged frame with its enclosed see-through areas marked. $0.003 to $0.008 a call
   // (#51's proof); the estimate is an upper bound.
