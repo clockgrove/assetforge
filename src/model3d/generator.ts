@@ -226,7 +226,9 @@ export const character3dGenerator: Generator = {
     keepClips(glb, [...matched.keys()]);
     renameClips(glb, new Map([...matched.values()].map((family, i) => [i, family])));
     const delivered = plan.planned.filter((p) => [...matched.values()].includes(p.family));
-    const missing = [...plan.missing, ...unmatched];
+    // Only families the library has no close clip for are excused; a library clip that was
+    // requested but not returned fails its clip check.
+    const missing = plan.missing;
     const closed: Record<string, number> = {};
     delivered.forEach((p, i) => {
       if (p.loop) closed[p.family] = closeLoop(glb, i);
@@ -246,7 +248,7 @@ export const character3dGenerator: Generator = {
       hierarchyCheck(written, measures),
       ...budgetChecks(measures, settings),
       skeletonCheck(measures),
-      ...clipChecks(written, delivered, missing, settings, height),
+      ...clipChecks(written, plan.planned, missing, settings, height, unmatched),
     ];
 
     const renders = renderTurntable(written, {
@@ -309,6 +311,7 @@ export const character3dGenerator: Generator = {
           bounds: { min: bounds.min.map(round), max: bounds.max.map(round) },
           gait: character.gait,
           missingClips: missing,
+          ...(unmatched.length > 0 && { unmatchedClips: unmatched }),
           ...(identity && { identity }),
         },
       },
@@ -319,6 +322,7 @@ export const character3dGenerator: Generator = {
         rigType,
         clips: plan.planned.map((p) => ({ family: p.family, clip: p.clip, loop: p.loop })),
         missingClips: missing,
+        ...(unmatched.length > 0 && { unmatchedClips: unmatched }),
         loopClosedChannels: closed,
         forward: settings.forward,
         ...(character.heightM !== undefined && { heightM: character.heightM }),

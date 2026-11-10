@@ -9,6 +9,8 @@ export interface SyntheticCharacterOptions {
   materials?: number;
   joints?: number;
   clips?: Array<{ name: string; durationS: number; loopClosed: boolean }>;
+  /** When set, each clip also moves the last joint by this much along z by its last frame. */
+  translationDrift?: number;
   heightUnits?: number;
   forward?: "+z";
 }
@@ -265,6 +267,25 @@ export function syntheticCharacter(options: SyntheticCharacterOptions = {}): Uin
       });
       samplers.push({ input, output, interpolation: "LINEAR" });
       channels.push({ sampler: j, target: { node: j + 1, path: "rotation" } });
+    }
+    if (options.translationDrift !== undefined) {
+      const last = jointCount - 1;
+      const base = last === 0 ? [centreX, bottom, 0] : [0, step, 0];
+      const values = [0, 0, options.translationDrift].flatMap((d) => [
+        base[0]!,
+        base[1]!,
+        base[2]! + d,
+      ]);
+      const output = buffer.accessor(floats(values), {
+        componentType: FLOAT,
+        count: 3,
+        type: "VEC3",
+      });
+      samplers.push({ input, output, interpolation: "LINEAR" });
+      channels.push({
+        sampler: samplers.length - 1,
+        target: { node: last + 1, path: "translation" },
+      });
     }
     animations.push({ name: clip.name, channels, samplers });
   }

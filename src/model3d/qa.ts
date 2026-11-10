@@ -36,6 +36,14 @@ export function budgetChecks(measures: Measures, settings: ResolvedModel3d): Rea
   return BUDGET_KEYS.map((key) => {
     const measured = measures[key];
     const budget = settings.budgets[key];
+    if (key === "textureMaxPx" && measures.unmeasuredImages.length > 0) {
+      return deterministic(
+        `budget-${key}`,
+        false,
+        `${key} not measured: the size of image(s) ${measures.unmeasuredImages.join(", ")} cannot be read ` +
+          `(an external uri or an unknown format), so the budget of ${budget} cannot be checked`,
+      );
+    }
     const within = measured <= budget;
     return deterministic(
       `budget-${key}`,
@@ -76,7 +84,8 @@ export interface ClipPlan {
 /**
  * Whether every requested clip that the library had plays on the skeleton: it exists by name,
  * lasts longer than zero, animates joints of the skin, and samples. Missing families (no close
- * library clip) are listed and do not fail the candidate.
+ * library clip) are listed and do not fail the candidate; a planned family the provider did not
+ * return (`unmatched`) fails it.
  */
 export function clipChecks(
   glb: Glb,
@@ -84,6 +93,7 @@ export function clipChecks(
   missing: Array<{ family: string; why: string }>,
   settings: ResolvedModel3d,
   heightM: number,
+  unmatched: Array<{ family: string; why: string }> = [],
 ): Reason[] {
   const reasons: Reason[] = [];
   const all = clips(glb);
@@ -91,8 +101,13 @@ export function clipChecks(
   for (const { family, loop } of planned) {
     const clip = all.find((c) => c.name === family);
     if (!clip) {
+      const why = unmatched.find((u) => u.family === family)?.why;
       reasons.push(
-        deterministic(`clip-${family}`, false, `no clip named "${family}" in the model`),
+        deterministic(
+          `clip-${family}`,
+          false,
+          `no clip named "${family}" in the model${why ? `: ${why}` : ""}`,
+        ),
       );
       continue;
     }
@@ -117,17 +132,19 @@ export function clipChecks(
     );
     if (plays && loop) {
       const error = loopError(glb, clip.index);
+      // Joint translations are in the joints' local units, under the root's scale; heightM is in
+      // metres after that scale, so bring the error into metres before comparing.
+      const translationM = error.translation * rootScale(glb);
       const maxTranslation = settings.loopTolerance.translationFraction * heightM;
       const closed =
-        error.rotationDeg <= settings.loopTolerance.rotationDeg &&
-        error.translation <= maxTranslation;
+        error.rotationDeg <= settings.loopTolerance.rotationDeg && translationM <= maxTranslation;
       reasons.push(
         deterministic(
           `loop-${family}`,
           closed,
           `last pose ${closed ? "returns" : "does not return"} to the first: ` +
             `${error.rotationDeg.toFixed(2)}° (tolerance ${settings.loopTolerance.rotationDeg}°), ` +
-            `${error.translation.toFixed(4)} m (tolerance ${maxTranslation.toFixed(4)} m)`,
+            `${translationM.toFixed(4)} m (tolerance ${maxTranslation.toFixed(4)} m)`,
         ),
       );
     }
@@ -136,6 +153,13 @@ export function clipChecks(
     reasons.push(deterministic(`clip-${family}`, true, `missing, not faked: ${why}`));
   }
   return reasons;
+}
+
+/** The uniform scale of the single scene root (normalize's `assetforge-root`), 1 when none. */
+function rootScale(glb: Glb): number {
+  const roots = glb.json.scenes?.[glb.json.scene ?? 0]?.nodes ?? [];
+  if (roots.length !== 1) return 1;
+  return glb.json.nodes?.[roots[0]!]?.scale?.[0] ?? 1;
 }
 
 /** Passes when every check that filters passed; shadow-mode reasons are recorded, never filter. */

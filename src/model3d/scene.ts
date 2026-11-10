@@ -419,6 +419,8 @@ export function imageSize(bytes: Uint8Array): { width: number; height: number } 
 export interface Measures {
   triangles: number;
   textureMaxPx: number;
+  /** Images whose size could not be read (a `uri`, or a format the header reader does not know). */
+  unmeasuredImages: number[];
   materials: number;
   bones: number;
   lods: number;
@@ -446,16 +448,20 @@ export function measure(glb: Glb): Measures {
     }
   }
   let textureMaxPx = 0;
-  for (const image of json.images ?? []) {
-    if (image.bufferView === undefined) continue;
-    const start = json.bufferViews?.[image.bufferView];
-    if (!start) continue;
+  const unmeasuredImages: number[] = [];
+  for (const [index, image] of (json.images ?? []).entries()) {
+    const start = image.bufferView === undefined ? undefined : json.bufferViews?.[image.bufferView];
+    if (!start) {
+      unmeasuredImages.push(index);
+      continue;
+    }
     const bytes = glb.bin.subarray(
       start.byteOffset ?? 0,
       (start.byteOffset ?? 0) + start.byteLength,
     );
     const size = imageSize(bytes);
     if (size) textureMaxPx = Math.max(textureMaxPx, size.width, size.height);
+    else unmeasuredImages.push(index);
   }
   let lods = 1;
   for (const node of json.nodes ?? []) {
@@ -466,6 +472,7 @@ export function measure(glb: Glb): Measures {
   return {
     triangles,
     textureMaxPx,
+    unmeasuredImages,
     materials: json.materials?.length ?? 0,
     bones: new Set((json.skins ?? []).flatMap((s) => s.joints)).size,
     lods,

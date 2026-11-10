@@ -63,7 +63,8 @@ The field names below are shared with clockgrove/raccoon-world#39. Fields may be
 Also available:
 
 - `output.gait`;
-- `output.missingClips`, as `{ family, why }`;
+- `output.missingClips`, as `{ family, why }`: families the library has no close clip for, which do not fail the candidate;
+- `output.unmatchedClips`, as `{ family, why }`, when present: library clips that were requested but not returned, each of which fails its `clip-<family>` check;
 - `output.identity`, the identity score.
 
 ## What a candidate is
