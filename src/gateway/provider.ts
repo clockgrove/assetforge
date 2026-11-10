@@ -50,6 +50,52 @@ export interface GenerationProvider {
   analyzeImages(request: VisionRequest): Promise<VisionResult>;
   /** A typed decision (Score or Boolean); providers without decision models leave it out. */
   decide?(request: DecisionRequest): Promise<DecisionResult>;
+  /** Image-to-3D: a textured model from reference images. Providers without 3D leave it out. */
+  generateModel?(request: ModelRequest): Promise<ModelResult>;
+  /** Rigs a model the provider made earlier (by its handle) for a gait. */
+  rigModel?(request: RigRequest): Promise<ModelResult>;
+  /** Retargets library clips onto a rigged model (by its handle); one model with every clip. */
+  animateModel?(request: AnimateRequest): Promise<ModelResult>;
+}
+
+/** Reference views for image-to-3D, by the view each image shows. */
+export interface ModelView extends ImageInput {
+  /** `front`, `left`, `back`, `right`, or another role when the view is unknown. */
+  view: string;
+}
+
+export interface ModelRequest {
+  model: string;
+  /** Reference images; with several named views the provider may build from all of them. */
+  views: ModelView[];
+  prompt?: string;
+  seed?: number;
+  providerOptions?: Record<string, Record<string, unknown>>;
+}
+
+export interface RigRequest {
+  model: string;
+  /** The provider's handle of the model to rig. */
+  source: string;
+  /** The rig the provider fits, for example `quadruped` or `biped`. */
+  rigType: string;
+  providerOptions?: Record<string, Record<string, unknown>>;
+}
+
+export interface AnimateRequest {
+  model: string;
+  /** The provider's handle of the rigged model. */
+  source: string;
+  /** Library clip IDs, in order; the result holds one animation per clip, in this order. */
+  clips: string[];
+  providerOptions?: Record<string, Record<string, unknown>>;
+}
+
+export interface ModelResult extends ProviderResult {
+  /** An opaque handle a later call (rig, animate) passes back to the same provider. */
+  handle: string;
+  /** The model as binary glTF. */
+  glb: Uint8Array;
 }
 
 /**

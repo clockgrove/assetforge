@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   DIGITAL_SOURCE_TYPES,
   embedDigitalSourceType,
@@ -110,6 +110,8 @@ export interface StagedCandidate {
   reasons: Reason[];
   fields: Record<string, unknown>;
   provenance: Provenance;
+  /** Files written for the person beside the candidate (turntable renders), relative to the run. */
+  artifacts?: string[];
 }
 
 export interface RunRecord {
@@ -131,7 +133,14 @@ export interface RunRecord {
   /** Messages of candidates that failed to generate (no media is kept for them). */
   errors: string[];
   /** Why each filtered candidate was filtered (planned runs); `candidate` is the 1-based number. */
-  rejections?: Array<{ candidate: number; reasons: Reason[] }>;
+  rejections?: Array<{
+    candidate: number;
+    reasons: Reason[];
+    /** What the candidate cost (staged runs). */
+    costUsd?: number;
+    /** Files written for the person (turntable renders), relative to the run. */
+    artifacts?: string[];
+  }>;
   /**
    * The identity lock check of a planned run: which lock version scored the candidates, the mode
    * and threshold, and how often the identity verdict agreed with the QA verdict (the shadow-mode
@@ -245,12 +254,28 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
         index,
         seed,
       });
+      const id = `c${index + 1}`;
+      const artifacts: string[] = [];
+      for (const artifact of generated.artifacts ?? []) {
+        const name = join(`${id}-${generator.kind}`, basename(artifact.name));
+        await mkdir(join(runDir, dirname(name)), { recursive: true });
+        await writeFile(join(runDir, name), artifact.bytes);
+        artifacts.push(name);
+      }
       if (!generated.qa.passed) {
         run.filtered++;
+        if (generated.artifacts) {
+          // Recorded per candidate, with what it cost, so the filtered ones can be reviewed too.
+          (run.rejections ??= []).push({
+            candidate: index + 1,
+            reasons: generated.qa.reasons,
+            costUsd: call.records.reduce((sum, r) => sum + r.costUsd, 0),
+            artifacts,
+          });
+        }
         log(`candidate ${index + 1}/${requested}: filtered by QA`);
         continue;
       }
-      const id = `c${index + 1}`;
       const file = `${id}.${generated.output.extension}`;
       let digitalSourceType: DigitalSourceType = DIGITAL_SOURCE_TYPES.generated;
       if (spec.keyPose && call.records.some((record) => record.operation === "edit")) {
@@ -288,6 +313,7 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
         reasons: generated.qa.reasons,
         fields: generated.output.fields,
         provenance,
+        ...(artifacts.length > 0 && { artifacts }),
       });
       log(`candidate ${index + 1}/${requested}: passed QA`);
     } catch (error) {

@@ -35,6 +35,10 @@ export interface AssetSpec {
   keyPose?: string;
   /** Extra values the target profile's manifest template may read, such as `semantic`. */
   fields?: Record<string, unknown>;
+  /** `character-3d`: the animation families to retarget onto the rig, for example `["idle"]`. */
+  clips?: string[];
+  /** `character-3d`: the standing height in metres the model is scaled to; unset keeps its size. */
+  heightM?: number;
 }
 
 export interface BibleReference {
@@ -123,6 +127,8 @@ export interface TargetProfile {
     threshold?: number;
     question?: "score" | "boolean";
   };
+  /** 3D characters: format, budgets, forward axis, units and turntable (docs/characters-3d.md). */
+  model3d?: import("./model3d/profile.ts").Model3dProfile;
   /** Motion templates the target adds or overrides, and the animation QA thresholds. */
   animation?: import("./animation/types.ts").AnimationProfile;
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
@@ -21,6 +21,10 @@ import type { GenerationProvider } from "./gateway/provider.ts";
 import { generationTool, serveMcp } from "./mcp.ts";
 import type { ToolContext } from "./mcp.ts";
 import { imageGenerators } from "./generators/image.ts";
+import { character3dGenerator } from "./model3d/generator.ts";
+import { CHARACTER_3D_KIND } from "./model3d/profile.ts";
+import { RoutedProvider } from "./gateway/routed.ts";
+import { TripoProvider } from "./gateway/tripo.ts";
 import { pick } from "./handoff.ts";
 import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from "./loop.ts";
 import type { RunRecord, StagePlan } from "./loop.ts";
@@ -146,6 +150,26 @@ function gatewayProvider(): GenerationProvider {
   }
 }
 
+/** Every generator `stage` runs: the image kinds and 3D characters. */
+const stageGenerators = [...imageGenerators, character3dGenerator];
+
+/**
+ * The real provider of a stage run: 3D characters make their 3D calls on Tripo (TRIPO_API_KEY)
+ * and their identity calls on the gateway; other kinds use the gateway alone.
+ */
+function stageProvider(spec: AssetSpec): { provider: GenerationProvider; providerName: string } {
+  if (spec.kind !== CHARACTER_3D_KIND) {
+    return { provider: gatewayProvider(), providerName: "vercel-ai-gateway" };
+  }
+  return {
+    provider: new RoutedProvider({
+      gateway: () => VercelGateway.fromEnv(),
+      models: () => TripoProvider.fromEnv(),
+    }),
+    providerName: "tripo+vercel-ai-gateway",
+  };
+}
+
 const usd = (n: number) => `$${n.toFixed(4)}`;
 
 function formatPlan(plan: StagePlan): string {
@@ -171,12 +195,23 @@ function formatRun(run: RunRecord, runDir: string): string {
   ];
   if (run.stopped) lines.push(`stopped early: ${run.stopped}`);
   for (const c of run.candidates) {
-    lines.push("", `${c.id}  ${join(runDir, c.file)}  (${c.mediaType})`);
+    lines.push(
+      "",
+      `${c.id}  ${join(runDir, c.file)}  (${c.mediaType}, ${usd(c.provenance.costUsd)})`,
+    );
     for (const r of c.reasons) lines.push(`    ${r.check} [${r.source}]: ${r.reason}`);
+    if (c.artifacts?.length) lines.push(`    renders: ${join(runDir, dirname(c.artifacts[0]!))}`);
   }
-  for (const rejection of run.rejections ?? [])
-    for (const r of rejection.reasons.filter((reason) => !reason.passed))
+  for (const rejection of run.rejections ?? []) {
+    for (const r of rejection.reasons.filter((reason) => !reason.passed && !reason.shadow))
       lines.push(`candidate ${rejection.candidate} filtered: ${r.check}: ${r.reason}`);
+    if (rejection.costUsd !== undefined)
+      lines.push(`candidate ${rejection.candidate} cost ${usd(rejection.costUsd)}`);
+    if (rejection.artifacts?.length)
+      lines.push(
+        `candidate ${rejection.candidate} renders: ${join(runDir, dirname(rejection.artifacts[0]!))}`,
+      );
+  }
   if (run.identity) {
     const a = run.identity.agreement;
     lines.push(
@@ -234,7 +269,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       spec: spec.value,
       profile: profile.value,
       routes,
-      generators: imageGenerators,
+      generators: stageGenerators,
       candidates,
       capUsd,
     });
@@ -260,9 +295,10 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       bibleDir: bible.dir,
       profile: profile.value,
       routes,
-      provider: script ? new ScriptedProvider(script) : gatewayProvider(),
-      providerName: script ? "scripted" : "vercel-ai-gateway",
-      generators: imageGenerators,
+      ...(script
+        ? { provider: new ScriptedProvider(script), providerName: "scripted" }
+        : stageProvider(spec.value)),
+      generators: stageGenerators,
       runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
       candidates,
       capUsd,

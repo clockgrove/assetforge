@@ -1,4 +1,8 @@
 import type {
+  AnimateRequest,
+  ModelRequest,
+  ModelResult,
+  RigRequest,
   DecisionRequest,
   DecisionResult,
   GenerationProvider,
@@ -26,14 +30,28 @@ export interface Script {
     request: DecisionRequest,
     index: number,
   ): Omit<DecisionResult, "requestId"> & { requestId?: string };
+  /** Answers image-to-3D calls; a script without it cannot answer one. */
+  model?(request: ModelRequest, index: number): Scripted<ModelResult>;
+  /** Answers rig calls. */
+  rig?(request: RigRequest, index: number): Scripted<ModelResult>;
+  /** Answers clip retargeting calls. */
+  animate?(request: AnimateRequest, index: number): Scripted<ModelResult>;
 }
+
+type Scripted<T extends { requestId: string }> = Omit<T, "requestId"> & { requestId?: string };
 
 export class ScriptedProvider implements GenerationProvider {
   readonly calls: Array<
     | { kind: "image"; request: ImageRequest }
     | { kind: "vision"; request: VisionRequest }
     | { kind: "decide"; request: DecisionRequest }
+    | { kind: "model"; request: ModelRequest }
+    | { kind: "rig"; request: RigRequest }
+    | { kind: "animate"; request: AnimateRequest }
   > = [];
+  private modelCount = 0;
+  private rigCount = 0;
+  private animateCount = 0;
   private readonly script: Script;
   private imageCount = 0;
   private visionCount = 0;
@@ -63,5 +81,26 @@ export class ScriptedProvider implements GenerationProvider {
     if (!this.script.decide) throw new Error("the provider script has no decide answer");
     const result = this.script.decide(request, index);
     return { requestId: `scripted-decide-${index}`, ...result };
+  }
+
+  async generateModel(request: ModelRequest): Promise<ModelResult> {
+    this.calls.push({ kind: "model", request });
+    const index = this.modelCount++;
+    if (!this.script.model) throw new Error("the provider script has no model answer");
+    return { requestId: `scripted-model-${index}`, ...this.script.model(request, index) };
+  }
+
+  async rigModel(request: RigRequest): Promise<ModelResult> {
+    this.calls.push({ kind: "rig", request });
+    const index = this.rigCount++;
+    if (!this.script.rig) throw new Error("the provider script has no rig answer");
+    return { requestId: `scripted-rig-${index}`, ...this.script.rig(request, index) };
+  }
+
+  async animateModel(request: AnimateRequest): Promise<ModelResult> {
+    this.calls.push({ kind: "animate", request });
+    const index = this.animateCount++;
+    if (!this.script.animate) throw new Error("the provider script has no animate answer");
+    return { requestId: `scripted-animate-${index}`, ...this.script.animate(request, index) };
   }
 }

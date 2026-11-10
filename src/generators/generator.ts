@@ -28,6 +28,11 @@ export interface GeneratedCandidate {
   /** The prompt that defines the candidate (for animation, the key-pose prompt). */
   prompt: string;
   parameters: Record<string, unknown>;
+  /**
+   * Files written for the person beside the candidate, such as a 3D model's turntable renders,
+   * whether or not it passes QA. Written to `<run>/c<n>-<generator kind>/`.
+   */
+  artifacts?: Array<{ name: string; bytes: Uint8Array }>;
 }
 
 /** One model call a candidate makes, as forecast from the routes. */

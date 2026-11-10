@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "ai": "7.0.165",
+    "gltf-validator": "2.0.0-dev.3.10",
     "jpeg-js": "0.4.4",
     "pngjs": "7.0.0",
     "yaml": "2.9.1"

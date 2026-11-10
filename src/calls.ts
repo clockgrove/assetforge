@@ -5,6 +5,7 @@ import type {
   DecisionResult,
   GenerationProvider,
   ImageInput,
+  ModelResult,
   ProviderResult,
 } from "./gateway/provider.ts";
 import type { Route, Routes } from "./routes.ts";
@@ -119,6 +120,76 @@ export class Caller {
     const image = result.images[0];
     if (!image) throw new ProviderError(`the ${operation} call returned no image`);
     return image;
+  }
+
+  /**
+   * Image-to-3D from reference views. Each reference's `role` is sent as its view; the result's
+   * handle lets a later rig call name the model.
+   */
+  async model3d(
+    operation: string,
+    prompt: string,
+    views: Array<LoadedReference & { view: string }>,
+    seed?: number,
+  ): Promise<ModelResult> {
+    const route = this.route(operation);
+    const sendSeed = route.supportsSeed ? seed : undefined;
+    const parameters: Record<string, unknown> = {
+      ...(sendSeed !== undefined && { seed: sendSeed }),
+      ...(route.providerOptions !== undefined && { providerOptions: route.providerOptions }),
+      views: views.map((r) => ({ view: r.view, role: r.role, path: r.path, sha256: r.sha256 })),
+    };
+    return this.record(operation, prompt, views, parameters, sendSeed, (r) => {
+      const generate = this.provider.generateModel?.bind(this.provider);
+      if (!generate) throw new ProviderError(`the provider cannot make 3D models (${operation})`);
+      return generate({
+        model: r.model,
+        prompt,
+        views: views.map((v) => ({ view: v.view, mediaType: v.mediaType, bytes: v.bytes })),
+        ...(sendSeed !== undefined && { seed: sendSeed }),
+        ...(r.providerOptions !== undefined && { providerOptions: r.providerOptions }),
+      });
+    });
+  }
+
+  /** Rigs a model the provider made (by its handle) with the given rig type. */
+  async rig3d(operation: string, source: string, rigType: string): Promise<ModelResult> {
+    const route = this.route(operation);
+    const parameters: Record<string, unknown> = {
+      source,
+      rigType,
+      ...(route.providerOptions !== undefined && { providerOptions: route.providerOptions }),
+    };
+    return this.record(operation, `rig: ${rigType}`, [], parameters, undefined, (r) => {
+      const rig = this.provider.rigModel?.bind(this.provider);
+      if (!rig) throw new ProviderError(`the provider cannot rig 3D models (${operation})`);
+      return rig({
+        model: r.model,
+        source,
+        rigType,
+        ...(r.providerOptions !== undefined && { providerOptions: r.providerOptions }),
+      });
+    });
+  }
+
+  /** Retargets library clips onto a rigged model (by its handle). */
+  async clips3d(operation: string, source: string, clips: string[]): Promise<ModelResult> {
+    const route = this.route(operation);
+    const parameters: Record<string, unknown> = {
+      source,
+      clips,
+      ...(route.providerOptions !== undefined && { providerOptions: route.providerOptions }),
+    };
+    return this.record(operation, `clips: ${clips.join(", ")}`, [], parameters, undefined, (r) => {
+      const animate = this.provider.animateModel?.bind(this.provider);
+      if (!animate) throw new ProviderError(`the provider cannot animate 3D models (${operation})`);
+      return animate({
+        model: r.model,
+        source,
+        clips,
+        ...(r.providerOptions !== undefined && { providerOptions: r.providerOptions }),
+      });
+    });
   }
 
   /** A vision-model analysis of images; returns the model's text. */
