@@ -40,11 +40,11 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "@types/pngjs": "6.0.5",
     "eslint": "10.14.0",
     "prettier": "3.9.10",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "typescript-eslint": "8.72.1"
   }
 }
