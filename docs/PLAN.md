@@ -7,35 +7,40 @@ This plan breaks [the PRD](PRD.md) into waves. Each wave has:
 
 There are no dates; a wave starts when the one before has met its exit. Objectives are filed as GitHub issues and run through Factory. Each states a goal, outcomes and context, and leaves the implementation to the worker. Each wave's target-side work is an Objective in the target's repository: clockgrove/raccoon-world for Raccoon World's art, clockgrove/clockgrove for platform support.
 
-## Wave 0: the first loop
+## Wave 0: the first loop, in 3D
 
-**Outcome:** one asset, end to end. A spec and a style bible go in. Candidates come out of the gateway, are post-processed and QA-filtered, a person picks one, and the pick and its provenance are written to the target. PRD §5.1.
+Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md](decisions.md)), so the first loop is a character model, not a sprite strip.
+
+**Outcome:** one character end to end in real-time 3D. Stevie's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against his identity lock. A person picks one, and the pick, rigged and with an idle clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
 
 **Objectives:**
-- assetforge#1, the generic generation loop. Its tooling is chosen and recorded there.
-- clockgrove/raccoon-world#2, Raccoon World's side: style bible, identity locks, target profile and the first set. Clockgrove's validator support for external worlds is clockgrove/clockgrove#61.
+- Assetforge: image-to-3D characters. Generation from the approved turnaround, a rig, an idle clip, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetforge#47).
+- clockgrove/raccoon-world: a target profile that declares 3D characters, and Stevie's spec.
+- clockgrove/clockgrove: the live renderer shows a world's rigged characters through its world-content extension point (clockgrove/clockgrove#112).
 
-**Exit:** a `shelter` strip of Stevie made by Assetforge:
+**Exit:** a rigged Stevie `.glb` with an idle clip, made by Assetforge:
 - the target validator accepts it on the first try;
 - it costs at most $5 for 4 candidates;
-- it has complete provenance;
-- the person picked it from QA-passing candidates only.
+- it has complete provenance, including the provider's output grant;
+- the person picked it from QA-passing candidates only;
+- it shows in the live yard.
 
-## Wave 1: animation and the first Raccoon World set
+## Wave 1: Stevie's families and the cast
 
-**Outcome:** character animation that holds together, and Raccoon World's first real set. PRD §5.2, plus the identity lock from §5.3.
+**Outcome:** animation that holds together on one rig, and Raccoon World's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
 
 **Objectives:**
-- Sprite-sheet import and sheet generation (assetforge#10): slicing, alpha by the style profile, label stripping, baseline registration, and family grouping with a person confirming. Then per-frame fixes, with motion templates for idle, walk, sniff, eat, play and shelter. Jimothy's existing 57-frame sheet is the first import.
-- Media transformation core for images (PRD §5.11): slice and join sheets, crop, trim, pad and scale, background removal and alpha cleanup, baseline registration, renditions and format conversion. Deterministic, provenance-appending, chained as recipes, and usable from the CLI on any image. The sheet import is built on it.
-- Loop and continuity QA, with an onion-skin sheet and a loop preview at pick time.
-- Identity lock v1: each character's references and fingerprint; candidates below the threshold are filtered out with the reason.
-- Raccoon World: the first set approved and committed to clockgrove/raccoon-world (raccoon-world#2).
+- Clips for idle, walk, sniff, eat, play and shelter on Stevie's rig, with loop and foot-contact QA on rendered frames.
+- The identity lock on turntables: v1's references and threshold, scored on rendered views.
+- Juniper, a kit and Jimothy as rigged models from their approved references.
+- Raccoon World: the cast approved and committed to clockgrove/raccoon-world.
 
 **Exit:**
 - Stevie's six families approved and showing in the live yard.
 - At least 70% of requests end in a pick.
-- Cost per approved strip and author minutes per approved strip recorded.
+- Cost per approved asset and author minutes per approved asset recorded.
+
+The 2D path shipped first and stays: sheet generation and import (assetforge#10), the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them. Raccoon World's first 2D shelter run is recorded in clockgrove/raccoon-world PR #21.
 
 ## Wave 2: consistency and context
 
@@ -67,7 +72,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 ## Wave 4: the full 2D set
 
-**Outcome:** everything Wave 8 §10.2 of Clockgrove needs in 2D, as lit materials. PRD §5.5 and the 2D generators of §5.8.
+**Outcome:** everything Wave 8 §10.2 of Clockgrove needs in 2D (props, terrain, effects, icons and portraits; characters are 3D from wave 0), as lit materials. PRD §5.5 and the 2D generators of §5.8.
 
 **Objectives:**
 - Material maps by default: normal and height/depth, emissive and roughness/wetness, wind/flow; 1× and 2× renditions, and KTX2 for targets without their own texture build (Clockgrove encodes KTX2 from its packed atlases instead, clockgrove/clockgrove#66); temporal stability bounds; lit-preview QA against the target's light rig.
@@ -93,7 +98,7 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 ## Wave 6: video and 3D
 
-**Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D.
+**Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D props (3D characters came first, in waves 0 and 1).
 
 **Objectives:**
 - Video transforms (PRD §5.11): trim, split, concatenate, frame extraction into the sheet import, frames to video, and format conversion.
