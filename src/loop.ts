@@ -11,6 +11,7 @@ import type { DigitalSourceType } from "./metadata.ts";
 import { decodeImage } from "./image/raster.ts";
 import { pixelHash } from "./transform/run.ts";
 import { Budget, BudgetExceededError } from "./budget.ts";
+import type { SpendLedger } from "./spend.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
 import { licenseFields } from "./license.ts";
@@ -42,6 +43,8 @@ export interface StageOptions {
   provider: GenerationProvider;
   /** Recorded in each call's route, for example `vercel-ai-gateway`. */
   providerName: string;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   generators: Generator[];
   /** Directory runs are staged under; each run gets `<runsDir>/<runId>/`. */
   runsDir: string;
@@ -205,9 +208,10 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
   const { requested, capUsd, estimateUsd } = plan;
   const generator = options.generators.find((g) => g.kind === spec.kind) as Generator;
 
-  const budget = new Budget(capUsd);
-  // The run-level reservation: refuse the whole run, before any call, if it would exceed the cap.
-  budget.settle(budget.reserve(estimateUsd, `a run of ${requested} candidates`), 0);
+  const budget = new Budget(capUsd, options.ledger?.forProfile(profile));
+  // The run-level check: refuse the whole run, before any call, if it would exceed the cap or
+  // cross a spend ledger limit.
+  budget.check(estimateUsd, `a run of ${requested} candidates`);
 
   const runId =
     options.runId ??

@@ -127,6 +127,11 @@ export interface TargetProfile {
     threshold?: number;
     question?: "score" | "boolean";
   };
+  /**
+   * Provider spend limits across runs (docs/target-profile.md#spend): USD over the last 24 hours,
+   * and USD per work item. The stricter of these and the environment's applies.
+   */
+  spend?: { dailyLimitUsd?: number; workItemLimitUsd?: number };
   /** 3D characters: format, budgets, forward axis, units and turntable (docs/characters-3d.md). */
   model3d?: import("./model3d/profile.ts").Model3dProfile;
   /** Motion templates the target adds or overrides, and the animation QA thresholds. */

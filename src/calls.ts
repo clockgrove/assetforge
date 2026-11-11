@@ -13,7 +13,7 @@ import type { CallRecord, DecisionLog, LoadedReference } from "./types.ts";
 
 /**
  * Budgeted, recorded provider calls. Each call reserves its route's estimate against the run's cap
- * before it reaches the provider, then settles with the provider's reported cost (or the estimate)
+ * (and the budget's cross-run spend ledger, src/spend.ts) before it reaches the provider, then settles with the provider's reported cost (or the estimate)
  * and appends a provenance record.
  */
 export class Caller {
@@ -57,7 +57,11 @@ export class Caller {
     run: (route: Route) => Promise<T>,
   ): Promise<T> {
     const route = this.route(operation);
-    const reservation = this.budget.reserve(route.estimatedCostUsd, `the ${operation} call`);
+    const reservation = this.budget.reserve(
+      route.estimatedCostUsd,
+      `the ${operation} call`,
+      `${this.providerName}:${operation}:${route.model}`,
+    );
     const startedAt = this.now().toISOString();
     let result: T;
     try {
