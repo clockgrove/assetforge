@@ -101,8 +101,10 @@ export function bodyFrame(mesh: BakedMesh): { bodyLength: number; origin: V3 } {
   let maxX = -Infinity;
   let minZ = Infinity;
   let maxZ = -Infinity;
+  let maxY = -Infinity;
   for (let v = 0; v < mesh.count; v++) {
     const x = mesh.facing[v * 3]!;
+    maxY = Math.max(maxY, mesh.facing[v * 3 + 1]!);
     const z = mesh.facing[v * 3 + 2]!;
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x);
@@ -111,7 +113,81 @@ export function bodyFrame(mesh: BakedMesh): { bodyLength: number; origin: V3 } {
   }
   const bodyLength = maxZ - minZ;
   if (!(bodyLength > 0)) throw new InputError("the model has no extent along its facing axis");
-  return { bodyLength, origin: [(minX + maxX) / 2, 0, (minZ + maxZ) / 2] };
+  // The midline is the median x of the torso (the middle of the body, above a third of its
+  // height), so a tail curled to one side or a splayed leg does not pull it off the body.
+  const midZ = (minZ + maxZ) / 2;
+  const torso: number[] = [];
+  for (let v = 0; v < mesh.count; v++) {
+    const z = mesh.facing[v * 3 + 2]!;
+    if (Math.abs(z - midZ) > TORSO_BODY_LENGTHS * bodyLength) continue;
+    if (mesh.facing[v * 3 + 1]! < maxY / 3) continue;
+    torso.push(mesh.facing[v * 3]!);
+  }
+  torso.sort((a, b) => a - b);
+  const midX = torso.length > 0 ? torso[torso.length >> 1]! : (minX + maxX) / 2;
+  return { bodyLength, origin: [midX, 0, midZ] };
+}
+
+/** Half the length of the torso band whose median x is the midline, in body lengths. */
+const TORSO_BODY_LENGTHS = 0.2;
+/** Ground-contact vertices: at most this high above the lowest vertex, in body lengths. */
+const GROUND_BODY_LENGTHS = 0.03;
+/** How far a foot's ground contact is searched for, and moved, from the template's, in body lengths. */
+const FOOT_SEARCH_BODY_LENGTHS = 0.15;
+const MIN_FOOT_VERTICES = 3;
+/** How far along the foot its ground contact may be from the template's before the foot moves. */
+const FOOT_DEAD_ZONE_BODY_LENGTHS = 0.02;
+
+/**
+ * Where each foot's ground contact is on the mesh, as an x-z shift from the template's: the
+ * centroid of the ground-contact vertices nearest that foot (the sole between ankle and toe for a
+ * plantigrade foot, the toe for a digitigrade one). A foot with too few vertices does not move.
+ */
+function footShifts(
+  template: SkeletonTemplate,
+  initial: V3[],
+  index: Map<string, number>,
+  mesh: BakedMesh,
+  L: number,
+): Array<[number, number]> {
+  const contacts = template.feet.map((foot) => {
+    const ankle = initial[index.get(foot.joints[2])!]!;
+    const toe = initial[index.get(foot.joints[3])!]!;
+    return foot.plantigrade
+      ? ([(ankle[0] + toe[0]) / 2, (ankle[2] + toe[2]) / 2] as [number, number])
+      : ([toe[0], toe[2]] as [number, number]);
+  });
+  let minY = Infinity;
+  for (let v = 0; v < mesh.count; v++) minY = Math.min(minY, mesh.facing[v * 3 + 1]!);
+  const sums = contacts.map(() => [0, 0, 0]);
+  const search = FOOT_SEARCH_BODY_LENGTHS * L;
+  for (let v = 0; v < mesh.count; v++) {
+    if (mesh.facing[v * 3 + 1]! > minY + GROUND_BODY_LENGTHS * L) continue;
+    const x = mesh.facing[v * 3]!;
+    const z = mesh.facing[v * 3 + 2]!;
+    let best = -1;
+    let bestD = search;
+    contacts.forEach(([cx, cz], f) => {
+      const d = Math.hypot(x - cx, z - cz);
+      if (d < bestD) [best, bestD] = [f, d];
+    });
+    if (best < 0) continue;
+    const sum = sums[best]!;
+    sum[0]! += x;
+    sum[1]! += z;
+    sum[2]! += 1;
+  }
+  return contacts.map(([cx, cz], f) => {
+    const [sx, sz, n] = sums[f]!;
+    if (n! < MIN_FOOT_VERTICES) return [0, 0];
+    // Across the foot the sole's centroid is the foot's centre line, so x moves in full. Along it,
+    // the centroid is not exactly between ankle and toe, so the template is trusted within a dead
+    // zone and only a foot further off than that moves, by the excess.
+    const dx = sx! / n! - cx;
+    const dz = sz! / n! - cz;
+    const dead = FOOT_DEAD_ZONE_BODY_LENGTHS * L;
+    return [dx, Math.sign(dz) * Math.max(0, Math.abs(dz) - dead)];
+  });
 }
 
 const SEARCH_BODY_LENGTHS = 0.1;
@@ -131,6 +207,19 @@ export function fitSkeleton(template: SkeletonTemplate, mesh: BakedMesh): Skelet
   const index = new Map(names.map((n, i) => [n, i]));
   const parent = template.joints.map((j) => (j.parent === null ? -1 : index.get(j.parent)!));
   const initial = template.joints.map((j) => add(origin, scale(j.rest, L)) as V3);
+  // Each foot first goes to its ground contact on the mesh: the ankle and toe by the whole shift,
+  // the knee (or elbow) by half, the hip (or shoulder) not at all.
+  footShifts(template, initial, index, mesh, L).forEach(([dx, dz], f) => {
+    const [, lower, ankle, toe] = template.feet[f]!.joints.map((n) => index.get(n)!);
+    for (const [j, k] of [
+      [lower!, 0.5],
+      [ankle!, 1],
+      [toe!, 1],
+    ] as const) {
+      initial[j]![0] += dx * k;
+      initial[j]![2] += dz * k;
+    }
+  });
   const children = names.map((_, i) => parent.flatMap((p, c) => (p === i ? [c] : [])));
   const rest: V3[] = initial.map((p) => [...p] as V3);
   const moved: number[] = names.map(() => 0);

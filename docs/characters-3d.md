@@ -191,7 +191,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 }
 ```
 
-- `rest` is the joint's position as fractions of **body length**, the model's front-to-back extent at rest, tail included. It is in the character's facing frame: +z forward, +y up, +x the character's left. The origin is the bounds' centre on x and z, at the ground.
+- `rest` is the joint's position as fractions of **body length**, the model's front-to-back extent at rest, tail included. It is in the character's facing frame: +z forward, +y up, +x the character's left. The origin is at the ground, at the bounds' centre on z and on the body's midline on x: the median x of the torso (the middle 40% of the body length, above a third of the model's height), so a tail curled to one side or a splayed leg does not pull it off the body.
 - `limits` and `stanceLimits` are degrees of the joint's local rotation from rest, read as X-Y-Z Euler angles. x is flex and extend; a positive x pitches a forward-pointing bone down. An axis without a range is free. `limits` holds in every phase. `stanceLimits` (added) holds for a foot's ankle or wrist while that foot bears weight.
 - `role` (added) is `pelvis`, `spine`, `neck`, `head` or `tail`. It tells the gait where the arch, head carriage and tail go.
 - `feet[].joints` is the leg chain: upper (hip or shoulder), lower (knee or elbow), ankle (or wrist), toe. `plantigrade: true` stands the foot flat, from ankle to toe, in stance. `name` and `pair` (`fore` or `hind`) are added.
@@ -203,7 +203,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 ### What the rig does
 
-1. **Fit.** The model is normalised as above and baked at its rest pose. Its own skins, joints and clips are dropped; its materials and textures are kept. The template's rest positions are scaled by body length. Each joint then moves to the centre of the mesh around it, at most 0.04 body lengths, and only across its bones, so a joint at a corner such as an ankle re-centres sideways.
+1. **Fit.** The model is normalised as above and baked at its rest pose. Its own skins, joints and clips are dropped; its materials and textures are kept. The template's rest positions are scaled by body length. Each foot first goes to its ground contact on the mesh: the centroid of the ground-contact vertices (within 0.03 body lengths of the lowest) nearest that foot's template contact, searched within 0.15 body lengths. The template contact is the point between ankle and toe for a plantigrade foot, and the toe for a digitigrade one. The ankle and toe move by the whole offset and the knee or elbow by half; the hip or shoulder stays put. Across the foot (x) the offset is applied in full; along it (z), only beyond 0.02 body lengths. A posed scan with a splayed foot is fitted to where the foot actually is. Each joint then moves to the centre of the mesh around it, at most 0.04 body lengths, and only across its bones, so a joint at a corner such as an ankle re-centres sideways.
 2. **Skin.** Smooth weights:
    - inverse distance (to the 4th power) to each bone;
    - four rounds of averaging across the mesh, with vertices welded by position;
@@ -212,11 +212,12 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
    Every character of the kind gets the template's joint names, in the template's order.
 
 3. **Generate.** Each clip is deterministic and in place, keyed at 30 frames per second, and its last key is its first. The body carries the profile's arch, head, tail, hip sway and a small bob. Each leg is solved by two-bone inverse kinematics, bending in its rest-pose plane:
+   - The body stands as high as the shortest leg of each pair reaches at the ends of its stance, so every foot can reach the ground.
    - In stance, the foot is planted on the ground line. Its sole (the lowest of the vertices the ankle and toe carry) touches y = 0, and it moves back at exactly the clip's speed. A plantigrade foot is flat.
    - In the swing, the foot lifts and swings forward, and the paw curls down by `swingCurlDeg`.
 4. **QA**, recorded per clip, on the written file's deformed mesh at 24 frames per cycle:
    - `contact-<clip>`: in stance, each foot's sole is within `contactBodyLengths` of the ground (neither floating nor sinking). It slides no more than `slideBodyLengths` in the ground frame that moves at the clip's speed. A plantigrade heel sits no more than `heelBodyLengths` above its toe.
-   - `joint-limits-<clip>`: no joint leaves its `limits`. A weight-bearing ankle or wrist stays within its `stanceLimits` while its foot is down. In the swing only `limits` apply, so a front wrist may curl the paw down.
+   - `joint-limits-<clip>`: no joint leaves its `limits`. A weight-bearing ankle or wrist stays within its `stanceLimits` while its foot is down. In the swing only `limits` apply, so a front wrist may curl the paw down. Each failing joint is reported at its worst frame.
    - `skinning-<clip>`: at each knee or elbow and ankle or wrist, the skin's mean distance from the joint's two bones stays at least `minGirthRatio` of its rest value. A lower value means volume is collapsing at the bend.
    - `clip-<clip>` and `loop-<clip>`, as for library clips.
    - `turntable`, as above, plus `<clip>-side.png`, 8 side-view frames of each clip. When the gait has `reference` frames, `<clip>-vs-reference.png` shows those frames under the clip's.

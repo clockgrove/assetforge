@@ -126,6 +126,50 @@ test("fitting places the template's joints on the mesh, and finds legs the templ
   }
 });
 
+test("a curled tail does not move the midline, and a splayed foot is found on the ground", () => {
+  const mesh = bakeMesh(model({ curledTail: true, splayedHindL: 0.07 }), 0);
+  const fitted = fitSkeleton(quadrupedTemplate(), mesh);
+  const L = fitted.bodyLength;
+  // The snout tip lies on the body's midline; normalisation centred the bounds instead.
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let maxZ = -Infinity;
+  for (let v = 0; v < mesh.count; v++) {
+    minX = Math.min(minX, mesh.facing[v * 3]!);
+    maxX = Math.max(maxX, mesh.facing[v * 3]!);
+    maxZ = Math.max(maxZ, mesh.facing[v * 3 + 2]!);
+  }
+  const tip: number[] = [];
+  for (let v = 0; v < mesh.count; v++)
+    if (mesh.facing[v * 3 + 2]! > maxZ - 0.01 * L) tip.push(mesh.facing[v * 3]!);
+  const midline = tip.reduce((a, b) => a + b, 0) / tip.length;
+  assert.ok(Math.abs((minX + maxX) / 2 - midline) / L > 0.03, "the bounds' centre is off the body");
+  assert.ok(Math.abs(fitted.origin[0] - midline) / L < 0.01, `midline ${fitted.origin[0] / L}`);
+  const at = (name: string) => (fitted.rest[fitted.names.indexOf(name)]![0] - midline) / L;
+  assert.ok(Math.abs(at("ankle_l") - 0.15) < 0.015, `ankle_l x ${at("ankle_l")}`);
+  assert.ok(Math.abs(at("ankle_r") + 0.08) < 0.01, `ankle_r x ${at("ankle_r")}`);
+  assert.ok(Math.abs(at("hip_l") - 0.08) < 0.01, `hip_l x ${at("hip_l")}`);
+});
+
+test("on a model with a splayed foot and a curled tail, every foot is planted", () => {
+  const r = pipeline({ curledTail: true, splayedHindL: 0.07 }, quadrupedTemplate(), walkGait());
+  assert.equal(r.contact.passed, true, r.contact.reason);
+  assert.equal(r.skinning.passed, true, r.skinning.reason);
+});
+
+test("joint-limit QA reports each joint at its worst frame", () => {
+  const tight = quadrupedTemplate();
+  for (const joint of tight.joints) if (/^wrist_/.test(joint.name)) joint.limits = { x: [-1, 1] };
+  const curl = { ...walkGait(), swingCurlDeg: { fore: 50, hind: 0 } };
+  const r = pipeline({}, tight, curl);
+  assert.equal(r.limits.passed, false);
+  const angles = [
+    ...r.limits.reason.matchAll(/wrist_[lr] in any phase at [\d.]+ s: x ([-\d.]+)°/g),
+  ];
+  assert.equal(angles.length, 2, r.limits.reason);
+  for (const [, a] of angles) assert.ok(Number(a) > 45, `worst curl reported: ${a}`);
+});
+
 for (const digitigrade of [false, true]) {
   const kind = digitigrade ? "digitigrade" : "plantigrade";
   test(`a ${kind} walk is valid glTF, deterministic, and passes contact, limits, skinning`, async () => {

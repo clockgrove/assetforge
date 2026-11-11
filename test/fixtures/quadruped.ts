@@ -20,6 +20,10 @@ export interface QuadrupedOptions {
   offset?: Vec;
   /** Adds a 2-joint skin and a "walk" animation that a re-rig must drop. */
   providerRig?: boolean;
+  /** The tail curls to the character's left (+x), so the bounds' centre is off the body's midline. */
+  curledTail?: boolean;
+  /** The left hind foot rests splayed outward by this much (knee by half), as a posed scan might. */
+  splayedHindL?: number;
   /** Sides of each tube. */
   segments?: number;
   /** The way the model faces: +z (default), or +x as Tripo's models do (a root node turns it). */
@@ -293,11 +297,17 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
     [0, 0.4, 0.5],
   ];
   addTube(mesh, neck, [0.06, 0.055, 0.045, 0.03], sides, true);
-  const tail: Vec[] = [
-    [0, 0.31, -0.26],
-    [0, 0.29, -0.38],
-    [0, 0.27, -0.5],
-  ];
+  const tail: Vec[] = options.curledTail
+    ? [
+        [0, 0.31, -0.26],
+        [0.08, 0.29, -0.4],
+        [0.2, 0.27, -0.5],
+      ]
+    : [
+        [0, 0.31, -0.26],
+        [0, 0.29, -0.38],
+        [0, 0.27, -0.5],
+      ];
   addTube(mesh, tail, [0.04, 0.028, 0.015], sides, true);
 
   for (const s of ["l", "r"]) {
@@ -305,6 +315,11 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
     const hind = [J[`hip_${s}`]!, J[`knee_${s}`]!, J[`ankle_${s}`]!, J[`toe_${s}`]!];
     const fore = [J[`shoulder_${s}`]!, J[`elbow_${s}`]!, J[`wrist_${s}`]!, J[`ftoe_${s}`]!];
     if (raised) hind[2] = [x, 0.1, -0.21];
+    const splay = s === "l" ? (options.splayedHindL ?? 0) : 0;
+    if (splay) {
+      const out = (p: Vec, k: number): Vec => [p[0] + splay * k, p[1], p[2]];
+      hind.splice(1, 3, out(hind[1]!, 0.5), out(hind[2]!, 1), out(hind[3]!, 1));
+    }
     for (const [chain, isHind] of [
       [hind, true],
       [fore, false],
@@ -316,7 +331,7 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
       const zFront = toe![2];
       const zBack = digitigrade ? toe![2] - 0.03 : ankle![2] - 0.03;
       const zTop = zFront + 0.02;
-      const [x0, x1] = [x - 0.035, x + 0.035];
+      const [x0, x1] = [ankle![0] - 0.035, ankle![0] + 0.035];
       if (raised && isHind) {
         // Heel (back) end raised so the sole rises from y = 0 at the toe to y = 0.06 at the ankle.
         addBox(mesh, [

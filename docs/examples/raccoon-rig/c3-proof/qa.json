@@ -1,0 +1,101 @@
+{
+  "run": "assetforge rig (no provider calls, $0)",
+  "sourceModelSha256": "209db8115d4de1ae0a8288f1e4a8e22767a39201c43e2875a37f0a938da226bb",
+  "templateSha256": "8b6c62d8034b462a595b32f214471d5e4aec537113bb0bf3857aa57d256d622a",
+  "walkGaitSha256": "9993df60fd687d0deee07a5493d203be3f78e83d9d9d598c0f2c028812818687",
+  "clips": [
+    {
+      "name": "walk",
+      "durationMs": 714,
+      "loop": true,
+      "generated": true,
+      "speedMps": 0.267756
+    }
+  ],
+  "reasons": [
+    {
+      "check": "gltf-validator",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 2 warning(s)",
+      "source": "deterministic"
+    },
+    {
+      "check": "mesh-hierarchy",
+      "passed": true,
+      "reason": "1 scene root(s), 1 mesh(es), 59847 triangles",
+      "source": "deterministic"
+    },
+    {
+      "check": "budget-triangles",
+      "passed": true,
+      "reason": "triangles 59847 within 200000",
+      "source": "deterministic"
+    },
+    {
+      "check": "budget-textureMaxPx",
+      "passed": true,
+      "reason": "textureMaxPx 2048 within 4096",
+      "source": "deterministic"
+    },
+    {
+      "check": "budget-materials",
+      "passed": true,
+      "reason": "materials 1 within 8",
+      "source": "deterministic"
+    },
+    {
+      "check": "budget-bones",
+      "passed": true,
+      "reason": "bones 28 within 80",
+      "source": "deterministic"
+    },
+    {
+      "check": "budget-lods",
+      "passed": true,
+      "reason": "lods 1 within 1",
+      "source": "deterministic"
+    },
+    {
+      "check": "skeleton",
+      "passed": true,
+      "reason": "1 skin(s), 28 bone(s)",
+      "source": "deterministic"
+    },
+    {
+      "check": "clip-walk",
+      "passed": true,
+      "reason": "\"walk\" plays on the skeleton: 714 ms, 28 joint(s) animated",
+      "source": "deterministic"
+    },
+    {
+      "check": "loop-walk",
+      "passed": true,
+      "reason": "last pose returns to the first: 0.04\u00b0 (tolerance 2\u00b0), 0.0000 m (tolerance 0.0045 m)",
+      "source": "deterministic"
+    },
+    {
+      "check": "contact-walk",
+      "passed": true,
+      "reason": "stance feet planted on the ground line: fore_l sole -0.0019 m from the ground, slides 0.0012 m, heel 0.0000 m above toe; hind_l sole 0.0008 m from the ground, slides 0.0011 m, heel 0.0000 m above toe; fore_r sole -0.0018 m from the ground, slides 0.0015 m, heel 0.0000 m above toe; hind_r sole 0.0007 m from the ground, slides 0.0003 m, heel 0.0000 m above toe",
+      "source": "deterministic"
+    },
+    {
+      "check": "joint-limits-walk",
+      "passed": true,
+      "reason": "every joint within the template's range (stance range for weight-bearing ankles and wrists) over 24 frames",
+      "source": "deterministic"
+    },
+    {
+      "check": "skinning-walk",
+      "passed": true,
+      "reason": "girth at bent leg joints kept at 92% of rest or more (minimum 70%)",
+      "source": "deterministic"
+    },
+    {
+      "check": "turntable",
+      "passed": true,
+      "reason": "8 render(s) from a fixed camera and light: front.png, three-quarter.png, side.png, back.png, clip-walk-0.png, clip-walk-1.png, clip-walk-2.png, clip-walk-3.png; walk renders: walk-side.png, walk-vs-reference.png",
+      "source": "deterministic"
+    }
+  ]
+}

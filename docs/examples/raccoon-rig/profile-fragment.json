@@ -1,11 +1,14 @@
 {
   "model3d": {
-    "rig": { "template": "raccoon-template.json", "kind": "raccoon" },
+    "rig": {
+      "template": "raccoon-template.json",
+      "kind": "raccoon"
+    },
     "gaits": {
       "walk": {
         "footfall": ["hind_l", "fore_l", "hind_r", "fore_r"],
         "dutyFactor": 0.68,
-        "strideBodyLengths": 0.3,
+        "strideBodyLengths": 0.25,
         "stepHeightBodyLengths": 0.025,
         "backArchDeg": 12,
         "hipHeightRatio": 1.04,
@@ -13,7 +16,10 @@
         "tailPitchDeg": 10,
         "tailSwayDeg": 8,
         "speedBodyLengthsPerSecond": 0.35,
-        "swingCurlDeg": { "fore": 55, "hind": 12 }
+        "swingCurlDeg": {
+          "fore": 55,
+          "hind": 12
+        }
       }
     }
   }

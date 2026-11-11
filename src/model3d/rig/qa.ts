@@ -157,23 +157,30 @@ export function contactCheck(
   );
 }
 
-function outside(angles: V3, limits: JointLimits | undefined): string | undefined {
+/** The axis furthest outside its range, and by how many degrees; undefined when all are within. */
+function outside(
+  angles: V3,
+  limits: JointLimits | undefined,
+): { excess: number; text: string } | undefined {
   if (!limits) return undefined;
   const axes = ["x", "y", "z"] as const;
+  let worst: { excess: number; text: string } | undefined;
   for (let i = 0; i < 3; i++) {
     const range = limits[axes[i]!];
     if (!range) continue;
     const a = angles[i]!;
-    if (a < range[0] - LIMIT_SLACK_DEG || a > range[1] + LIMIT_SLACK_DEG) {
-      return `${axes[i]} ${a.toFixed(1)}° outside [${range[0]}, ${range[1]}]`;
+    const excess = Math.max(range[0] - a, a - range[1]);
+    if (excess > LIMIT_SLACK_DEG && (!worst || excess > worst.excess)) {
+      worst = { excess, text: `${axes[i]} ${a.toFixed(1)}° outside [${range[0]}, ${range[1]}]` };
     }
   }
-  return undefined;
+  return worst;
 }
 
 /**
  * No joint outside the template's range; a weight-bearing ankle or wrist also within its stance
  * range while its foot is down. In the swing only the full range applies, so a wrist may curl.
+ * Each failing joint is reported at its worst frame.
  */
 export function jointLimitCheck(
   family: string,
@@ -181,15 +188,13 @@ export function jointLimitCheck(
   clip: GeneratedClip,
   skeleton: Skeleton,
 ): Reason {
-  const violations: string[] = [];
-  const seen = new Set<string>();
+  const worst = new Map<number, { excess: number; text: string }>();
   const stanceAnkle = new Map<number, number>();
   skeleton.feet.forEach((foot, f) => stanceAnkle.set(foot.chain[2], f));
   for (const s of samples) {
     skeleton.template.joints.forEach((joint, j) => {
       const angles = eulerXyzDeg(s.local[j]!);
-      const limits = joint.limits;
-      let problem = outside(angles, limits);
+      let problem = outside(angles, joint.limits);
       let phaseName = "any phase";
       const f = stanceAnkle.get(j);
       if (!problem && f !== undefined && joint.stanceLimits) {
@@ -199,12 +204,15 @@ export function jointLimitCheck(
           phaseName = "stance";
         }
       }
-      if (problem && !seen.has(joint.name)) {
-        seen.add(joint.name);
-        violations.push(`${joint.name} in ${phaseName} at ${s.timeS.toFixed(2)} s: ${problem}`);
+      if (problem && problem.excess > (worst.get(j)?.excess ?? 0)) {
+        worst.set(j, {
+          excess: problem.excess,
+          text: `${joint.name} in ${phaseName} at ${s.timeS.toFixed(2)} s: ${problem.text}`,
+        });
       }
     });
   }
+  const violations = [...worst.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v.text);
   return deterministic(
     `joint-limits-${family}`,
     violations.length === 0,

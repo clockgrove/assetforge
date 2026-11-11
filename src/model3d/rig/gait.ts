@@ -302,7 +302,8 @@ function stance(
         const span = MAX_EXTENSION * (leg.upper + leg.lower);
         return ankleY + Math.sqrt(Math.max(span * span - dx * dx - dz * dz, 0));
       });
-    return heights.length ? heights.reduce((a, b) => a + b, 0) / heights.length : undefined;
+    // The shortest leg of the pair sets its height, so every foot of the pair can reach the ground.
+    return heights.length ? Math.min(...heights) : undefined;
   };
   const upperOf = (pair: "fore" | "hind") =>
     legs.filter((l) => l.foot.pair === pair).map((l) => l.u);
