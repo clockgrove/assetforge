@@ -116,6 +116,8 @@ The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode.
 
 An AUC of 0.5 is chance. The features the cast shares satisfy every level of the Score question for any of its members. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. Keeping characters on-model is assetforge#92. It is cast-agnostic, and is measured on drift of the same character, generic members of the type and look-alike cast members, for more than one cast. Enforce mode waits for its measured bar.
 
+A follow-up the same day found a second cause: the record contradicted its references. Stevie's v1 record called him lean, upright and long-legged, but his approved turnaround is stocky and short-legged. Models that trusted the text rejected the real Stevie and accepted the lean Gracie. The numbers above are confounded by this; Raccoon World corrected the record in clockgrove/raccoon-world#65 (lock v2). Vision chat models (Claude Opus 5.5, GPT-6.1 Terra, Gemini 4 Argon) did no better on the same question (lock AUC 0.33–0.58). Choosing among the whole cast's references, with no text, did much better in one run (89.4% on a 3-way set, 17 of 22 other raccoons called none). #92 now also requires catching a record whose text disagrees with its references.
+
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
 #27 measured gateway decision models on image questions and closes with these outcomes:
