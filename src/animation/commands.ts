@@ -5,6 +5,8 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { Budget } from "../budget.ts";
+import { ledgerFor } from "../spend.ts";
+import type { SpendLedger } from "../spend.ts";
 import { Caller } from "../calls.ts";
 import { InputError } from "../errors.ts";
 import type { GenerationProvider } from "../gateway/provider.ts";
@@ -193,13 +195,19 @@ export async function runAnimationQa(options: {
   routes: Routes;
   capUsd: number;
   provider?: { provider: GenerationProvider; name: string };
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   now?: () => Date;
 }): Promise<{ results: StripQaResult[]; spentUsd: number }> {
   const vision = options.provider !== undefined;
   const plan = await planAnimationQa(options.targets, options.routes, options.capUsd, vision);
-  const budget = new Budget(options.capUsd);
+  const ledger = options.targets.reduce<SpendLedger | undefined>(
+    (l, t) => l?.forProfile(t.profile),
+    ledgerFor(options.ledger, options.provider?.name),
+  );
+  const budget = new Budget(options.capUsd, ledger);
   // Refuse up front when the whole run would not fit, before any provider call.
-  budget.settle(budget.reserve(plan.estimateUsd, "the identity-flicker and holes calls"), 0);
+  budget.check(plan.estimateUsd, "the identity-flicker and holes calls");
   const call = options.provider
     ? new Caller({
         provider: options.provider.provider,
@@ -281,6 +289,8 @@ export async function runFixFrame(options: {
   routes: Routes;
   capUsd: number;
   provider: { provider: GenerationProvider; name: string };
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   now?: () => Date;
 }): Promise<FixFrameRun> {
   const { target } = options;
@@ -318,7 +328,10 @@ export async function runFixFrame(options: {
     "keyPose" in options.from
       ? await loadReference(options.from.keyPose, "approved key pose", process.cwd())
       : undefined;
-  const budget = new Budget(options.capUsd);
+  const budget = new Budget(
+    options.capUsd,
+    ledgerFor(options.ledger, options.provider.name, target.profile),
+  );
   const call = new Caller({
     provider: options.provider.provider,
     providerName: options.provider.name,

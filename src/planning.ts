@@ -9,6 +9,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Budget } from "./budget.ts";
+import { ledgerFor } from "./spend.ts";
+import type { SpendLedger } from "./spend.ts";
 import { Caller } from "./calls.ts";
 import { InputError, ProviderError } from "./errors.ts";
 import { licenseFields, requireGrant } from "./license.ts";
@@ -147,6 +149,8 @@ export interface CreatePlanOptions {
   routes?: Routes;
   provider?: GenerationProvider;
   providerName?: string;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   profile?: TargetProfile;
   specDir?: string;
   /** Overrides the profile's identity mode: off, shadow or enforce. */
@@ -603,11 +607,11 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
       settings.qaRoute.estimatedCostUsd +
       (identityCheck?.route.estimatedCostUsd ?? 0));
   const compilerEstimate = options.provider ? settings.llmRoute.estimatedCostUsd : 0;
-  const budget = new Budget(settings.capUsd);
-  budget.settle(
-    budget.reserve(generationUsd + compilerEstimate, "planned compiler and generation calls"),
-    0,
+  const budget = new Budget(
+    settings.capUsd,
+    ledgerFor(options.ledger, options.providerName, options.profile),
   );
+  budget.check(generationUsd + compilerEstimate, "planned compiler and generation calls");
   const caller = options.provider
     ? new Caller({
         provider: options.provider,
@@ -771,6 +775,8 @@ export async function savePlan(plan: GenerationPlan, path: string): Promise<void
 export interface ApplyPlanOptions {
   provider: GenerationProvider;
   providerName?: string;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   autoApprove?: boolean;
   outDir?: string;
   /** Receives one line per provider decision call. */
@@ -829,12 +835,13 @@ export async function applyPlan(
     throw new InputError(
       "plan is not approved; record human approval in approved or use --auto-approve for unattended generation",
     );
-  const budget = new Budget(plan.settings.capUsd);
-  budget.settle(
-    budget.reserve(plan.compiler.spentUsd, "prior prompt compilation"),
-    plan.compiler.spentUsd,
+  const budget = new Budget(
+    plan.settings.capUsd,
+    ledgerFor(options.ledger, options.providerName, plan.profile),
   );
-  budget.settle(budget.reserve(plan.forecast.generationUsd, "planned generation"), 0);
+  // The compilation was spent (and recorded in any ledger) when the plan was made.
+  budget.addPrior(plan.compiler.spentUsd, "prior prompt compilation");
+  budget.check(plan.forecast.generationUsd, "planned generation");
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
   const runDir = resolve(options.outDir ?? ".assetforge/runs", runId);
   await mkdir(runDir, { recursive: true });

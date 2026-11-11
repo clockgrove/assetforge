@@ -8,11 +8,14 @@ import { readJson } from "./loop.ts";
 import { applyPlan, createPlan, savePlan } from "./planning.ts";
 import type { GenerationBrief, RunSettings } from "./planning.ts";
 import { loadRoutes } from "./routes.ts";
+import type { SpendLedger } from "./spend.ts";
 import type { AssetSpec, TargetProfile } from "./types.ts";
 
 export interface ToolContext {
   provider?: GenerationProvider;
   providerName?: string;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   /** Receives one line per provider decision call during apply. */
   log?: (message: string) => void;
 }
@@ -87,6 +90,7 @@ export async function generationTool(
     const result = await applyPlan(stringArg(args, "plan")!, {
       provider: context.provider,
       providerName: context.providerName,
+      ...(context.ledger && { ledger: context.ledger }),
       ...(context.log && { log: context.log }),
       autoApprove: args["autoApprove"] === true,
       ...(stringArg(args, "out", false) && { outDir: args["out"] as string }),

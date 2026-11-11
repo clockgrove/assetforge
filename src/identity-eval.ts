@@ -6,6 +6,8 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { loadBible } from "./bible.ts";
 import { Budget } from "./budget.ts";
+import { ledgerFor } from "./spend.ts";
+import type { SpendLedger } from "./spend.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
 import type { GenerationProvider } from "./gateway/provider.ts";
@@ -83,11 +85,13 @@ export async function readEvalCases(path: string): Promise<{ cases: EvalCase[]; 
 export async function evaluateIdentity(options: {
   biblePath: string;
   casesPath: string;
-  profile: Pick<TargetProfile, "identity">;
+  profile: Pick<TargetProfile, "identity" | "spend">;
   routes: Routes;
   provider: GenerationProvider;
   providerName: string;
   capUsd: number;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   /** JSON Lines log: one line per case with its score, label, confidence, latency and cost. */
   logPath?: string;
   log?: (message: string) => void;
@@ -96,13 +100,13 @@ export async function evaluateIdentity(options: {
   const { cases, dir } = await readEvalCases(options.casesPath);
   // The eval measures; it never filters, so it runs in shadow mode at the configured threshold.
   const settings = { ...identitySettings(options.profile, "shadow") };
-  const budget = new Budget(options.capUsd);
-  budget.settle(
-    budget.reserve(
-      cases.length * options.routes.identity.estimatedCostUsd,
-      `${cases.length} identity calls`,
-    ),
-    0,
+  const budget = new Budget(
+    options.capUsd,
+    ledgerFor(options.ledger, options.providerName, options.profile),
+  );
+  budget.check(
+    cases.length * options.routes.identity.estimatedCostUsd,
+    `${cases.length} identity calls`,
   );
   const caller = new Caller({
     provider: options.provider,

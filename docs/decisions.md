@@ -56,7 +56,7 @@ Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetfor
 ## CLI contract (assetforge#21, 2026-11-07)
 
 - With `--json`, stdout is one JSON document: `ok`, `exitCode`, `command` and, on refusal, `error` with `code` and `message`. Logs go to stderr. Nothing prompts.
-- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused (also a dry-run forecast over the cap), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`), 7 licence refused: the provider's output grant does not let the target declare the output (`license_refused`, nothing written; assetforge#47).
+- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused: the run's cap or a cross-run spend limit (also a dry-run forecast over either; assetforge#74), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`), 7 licence refused: the provider's output grant does not let the target declare the output (`license_refused`, nothing written; assetforge#47).
 - `--dry-run` (on `stage` and `generate-sheet`, the commands that generate) spends nothing and needs no key.
 - `--provider-script` runs a scripted provider for offline runs.
 - Every future command follows this contract.

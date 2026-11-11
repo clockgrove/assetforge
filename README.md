@@ -51,6 +51,7 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 - Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetforge never prompts.
 - Run `stage --dry-run` first. It spends nothing and needs no key.
+- Name the work item (`ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective). Paid calls across runs are capped at $10 a day and $5 per work item by default; see [Spend limits](#spend-limits).
 - Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetforge reaches.
 - Agents stage, humans pick (PRD §5.7). Agents never run `pick` or `write-families` and never confirm a grouping.
 
@@ -73,11 +74,24 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 | 0    | Success                                                                                                            |
 | 1    | Unexpected internal error                                                                                          |
 | 2    | Invalid input, including a reference image that does not decode (an unfetched Git LFS pointer: run `git lfs pull`) |
-| 3    | Cap refused (also a dry-run forecast over the cap)                                                                 |
+| 3    | Cap refused: the run's cap or a spend limit across runs (also a dry-run forecast over either)                      |
 | 4    | Provider error (missing `AI_GATEWAY_API_KEY`, or every candidate failed)                                           |
 | 5    | QA found nothing                                                                                                   |
 | 6    | The target's validator rejected what was written                                                                   |
 | 7    | Licence refused: the provider's output grant does not let the target declare the output (nothing written)          |
+
+## Spend limits
+
+`--cap` bounds one run. Every paid call (not scripted ones, `--provider-script`) is also recorded in a spend ledger shared by every run on the machine (or in the CI job), and refused (exit 3) before it is made when it would cross a daily limit or the limit of its work item. `--dry-run` shows the spend left under each.
+
+| Variable                         | Default                                                         |
+| -------------------------------- | --------------------------------------------------------------- |
+| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`) |
+| `ASSETFORGE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset: daily limit only) |
+| `ASSETFORGE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                      |
+| `ASSETFORGE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                |
+
+A target profile can set `spend.dailyLimitUsd` and `spend.workItemLimitUsd`; the stricter of the profile and the environment applies. See [docs/target-profile.md](docs/target-profile.md#spend-limits-across-runs).
 
 ## Develop
 

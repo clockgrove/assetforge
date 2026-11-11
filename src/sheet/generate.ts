@@ -6,6 +6,8 @@
 import { InputError } from "../errors.ts";
 import type { PlannedCall } from "../generators/generator.ts";
 import { Budget } from "../budget.ts";
+import { ledgerFor } from "../spend.ts";
+import type { SpendLedger } from "../spend.ts";
 import { Caller } from "../calls.ts";
 import type { GenerationProvider } from "../gateway/provider.ts";
 import { DEFAULT_CAP_USD } from "../loop.ts";
@@ -35,6 +37,8 @@ export interface GenerateSheetOptions {
   provider: GenerationProvider;
   /** Recorded in each call's route, for example `vercel-ai-gateway`. */
   providerName: string;
+  /** The cross-run spend ledger every paid call also reserves against (src/spend.ts). */
+  ledger?: SpendLedger;
   importsDir: string;
   capUsd?: number;
   importId?: string;
@@ -179,12 +183,12 @@ export async function generateSheet(
   const plan = planSheet(spec, profile, routes);
   const grid = frameGrid(spec, profile, 1);
   const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
-  const budget = new Budget(capUsd);
+  const budget = new Budget(capUsd, ledgerFor(options.ledger, options.providerName, profile));
   const scoring = options.identity !== undefined && options.identity.settings.mode !== "off";
   const estimate =
     plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0) +
     (scoring ? routes.identity.estimatedCostUsd : 0);
-  budget.settle(budget.reserve(estimate, "a sheet and its grouping proposal"), 0);
+  budget.check(estimate, "a sheet and its grouping proposal");
 
   const call = new Caller({
     provider: options.provider,

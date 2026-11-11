@@ -30,6 +30,16 @@ import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from 
 import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
 import { loadRoutes } from "./routes.ts";
+import {
+  SPEND_ENV,
+  SpendLedger,
+  SpendLimitError,
+  UNPAID_PROVIDER,
+  isPaidProvider,
+  ledgerFor,
+  limitLabel,
+} from "./spend.ts";
+import type { SpendStatus } from "./spend.ts";
 import { runMaterials } from "./material/pipeline.ts";
 import { resolveMaterialProfile } from "./material/profile.ts";
 import type { MaterialDerivation } from "./material/pipeline.ts";
@@ -84,7 +94,21 @@ interface Outcome {
   exitCode: number;
   fields: Record<string, unknown>;
   human: string;
-  error?: { code: ErrorCode; message: string };
+  error?: Failure;
+}
+
+/** A refusal's code and message; a spend-limit refusal also names the limit and its numbers. */
+interface Failure {
+  code: ErrorCode;
+  message: string;
+  limit?: {
+    name: string;
+    workItem?: string;
+    limitUsd: number;
+    spentUsd: number;
+    requestedUsd: number;
+    ledger: string;
+  };
 }
 
 type Values = Record<string, string | boolean | undefined>;
@@ -148,6 +172,87 @@ function gatewayProvider(): GenerationProvider {
   } catch (error) {
     throw new ProviderError((error as Error).message, { cause: error });
   }
+}
+
+/** The `--work-item` option every paid command takes. */
+const workItemOption = { "work-item": { type: "string" } } as const;
+
+/**
+ * The cross-run spend ledger of this invocation (src/spend.ts): its path and limits from the
+ * environment, the work item from --work-item or ASSETFORGE_WORK_ITEM.
+ */
+function spendLedger(values: Values): SpendLedger {
+  const workItem = values["work-item"] as string | undefined;
+  return SpendLedger.fromEnv(process.env, workItem !== undefined ? { workItem } : {});
+}
+
+function formatSpend(spend: SpendStatus, counted: boolean): string[] {
+  return [
+    `spend ledger ${spend.ledger}` + (counted ? "" : " (scripted provider: not counted)"),
+    ...spend.limits.map(
+      (l) =>
+        `  ${limitLabel(l)} (${l.source}): ${usd(l.spentUsd)} spent, ${usd(l.remainingUsd)} left`,
+    ),
+    ...(spend.workItem === null
+      ? [`  no work item named (--work-item or ${SPEND_ENV.workItem}); the daily limit applies`]
+      : []),
+  ];
+}
+
+/**
+ * The outcome of a dry run: the plan, the spend left under each ledger limit, and a refusal (exit
+ * 3) when the forecast is over the run's cap or, for a paid provider, over what is left under a
+ * limit. A scripted run's calls are not counted (`spend.counted` false), so the limits never
+ * refuse it.
+ */
+function dryRunOutcome(
+  plan: { estimateUsd: number; capUsd: number; withinCap: boolean },
+  human: string,
+  ledger: SpendLedger,
+  providerName: string | undefined,
+): Outcome {
+  const counted = isPaidProvider(providerName);
+  const spend = { ...ledger.status(), counted };
+  const over = counted
+    ? spend.limits.find((l) => plan.estimateUsd > l.remainingUsd + 1e-9)
+    : undefined;
+  const fields = { dryRun: true, plan, spend, withinLimits: over === undefined };
+  const text = [human, ...formatSpend(spend, counted)].join("\n");
+  if (!plan.withinCap)
+    return refusal(
+      "cap_refused",
+      `forecast ${usd(plan.estimateUsd)} exceeds the $${plan.capUsd.toFixed(2)} cap`,
+      fields,
+      text,
+    );
+  if (over)
+    return refusal(
+      "cap_refused",
+      `forecast ${usd(plan.estimateUsd)} exceeds the ${usd(over.remainingUsd)} left under the ${limitLabel(over)}`,
+      fields,
+      text,
+    );
+  return { exitCode: 0, fields, human: text };
+}
+
+/**
+ * The scripted provider of --provider-script, under its unpaid name; a script that declares
+ * `paid: true` (tests only) runs as `scripted-paid`, whose calls the spend ledger counts.
+ */
+function scriptedProvider(script: Script): { provider: GenerationProvider; name: string } {
+  return {
+    provider: new ScriptedProvider(script),
+    name: script.paid === true ? `${UNPAID_PROVIDER}-paid` : UNPAID_PROVIDER,
+  };
+}
+
+/**
+ * The provider name a dry run would use, loading (and so checking) --provider-script when given:
+ * undefined, a real paid provider, without one.
+ */
+async function dryRunProvider(values: Values): Promise<string | undefined> {
+  const path = values["provider-script"] as string | undefined;
+  return path === undefined ? undefined : scriptedProvider(await loadScript(path)).name;
 }
 
 /** Every generator `stage` runs: the image kinds and 3D characters. */
@@ -235,11 +340,13 @@ const stageCommand: Command = {
   summary: "generate candidates within a cost cap and stage those that pass QA",
   usage: `Usage: assetforge stage --spec <spec.json> --bible <bible.json> --profile <profile.json>
                        [--candidates ${DEFAULT_CANDIDATES}] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                       [--runs .assetforge/runs] [--provider-script <module>] [--dry-run] [--json]
+                       [--runs .assetforge/runs] [--work-item <label>] [--provider-script <module>]
+                       [--dry-run] [--json]
 
 Generates candidates through the Vercel AI Gateway (AI_GATEWAY_API_KEY from the environment)
 within the cost cap in USD, and stages only the ones that pass QA.
---dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
+--dry-run prints the planned calls, the cost forecast and the spend left under the daily and
+work-item limits, writes nothing and needs no key.
 --provider-script answers every model call from a module whose default export is
 { image, vision } instead of calling the gateway.
 A character-3d spec makes rigged, animated .glb candidates from the subject's approved
@@ -255,6 +362,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
     cap: { type: "string" },
     routes: { type: "string" },
     runs: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -262,6 +370,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
   },
   async run(values) {
     const files = required(values, ["spec", "bible", "profile"]);
+    const ledger = spendLedger(values);
     const candidates = numberOption(values, "candidates", DEFAULT_CANDIDATES);
     const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
     const spec = await readJson<AssetSpec>(files["spec"] as string);
@@ -277,17 +386,14 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       capUsd,
     });
     const scriptPath = values["provider-script"] as string | undefined;
-    const script = scriptPath ? await loadScript(scriptPath) : undefined;
+    const scripted = scriptPath ? scriptedProvider(await loadScript(scriptPath)) : undefined;
 
     if (values["dry-run"]) {
-      const fields = { dryRun: true, plan };
-      const human = formatPlan(plan);
-      if (plan.withinCap) return { exitCode: 0, fields, human };
-      return refusal(
-        "cap_refused",
-        `forecast ${usd(plan.estimateUsd)} exceeds the $${plan.capUsd.toFixed(2)} cap`,
-        fields,
-        human,
+      return dryRunOutcome(
+        plan,
+        formatPlan(plan),
+        ledger.forProfile(profile.value),
+        scripted?.name,
       );
     }
 
@@ -298,13 +404,14 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       bibleDir: bible.dir,
       profile: profile.value,
       routes,
-      ...(script
-        ? { provider: new ScriptedProvider(script), providerName: "scripted" }
+      ...(scripted
+        ? { provider: scripted.provider, providerName: scripted.name }
         : stageProvider(spec.value)),
       generators: stageGenerators,
       runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
       candidates,
       capUsd,
+      ledger,
       log: (m) => console.error(m),
     });
     const fields = { runDir, ...run };
@@ -370,8 +477,7 @@ async function providerFor(
   values: Values,
 ): Promise<{ provider: GenerationProvider; name: string }> {
   const scriptPath = values["provider-script"] as string | undefined;
-  if (scriptPath)
-    return { provider: new ScriptedProvider(await loadScript(scriptPath)), name: "scripted" };
+  if (scriptPath) return scriptedProvider(await loadScript(scriptPath));
   return { provider: gatewayProvider(), name: "vercel-ai-gateway" };
 }
 
@@ -469,7 +575,7 @@ const importCommand: Command = {
   usage: `Usage: assetforge import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>
                         [--bible <bible.json>] [--subject <name>] [--hints idle,walk-right,...]
                         [--frames <count>] [--grid <columns>] [--components] [--no-propose]
-                        [--cap ${DEFAULT_CAP_USD}]
+                        [--cap ${DEFAULT_CAP_USD}] [--work-item <label>]
                         [--routes <routes.json>] [--imports .assetforge/imports]
                         [--digital-source-type <IPTC code or URI>] [--provider-script <module>]
                         [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>] [--json]
@@ -506,6 +612,7 @@ below the threshold, off skips scoring.`,
     cap: { type: "string" },
     routes: { type: "string" },
     imports: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean" },
@@ -536,7 +643,7 @@ below the threshold, off skips scoring.`,
         shared = new Caller({
           provider,
           providerName: name,
-          budget: new Budget(capUsd),
+          budget: new Budget(capUsd, ledgerFor(spendLedger(values), name, profile.value)),
           routes,
           log: (m) => console.error(m),
         });
@@ -594,14 +701,16 @@ const generateSheetCommand: Command = {
   usage: `Usage: assetforge generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>
                                 [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--imports .assetforge/imports]
                                 [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>]
-                                [--brief <brief.json>] [--provider-script <module>] [--dry-run] [--json]
+                                [--brief <brief.json>] [--work-item <label>] [--provider-script <module>]
+                                [--dry-run] [--json]
 
 Asks the model for a whole animation cycle as one sheet within the cost cap in USD, then
 imports it as the import command does, with a proposed grouping for a human to confirm.
 A sheet that does not slice into exactly the spec's frames.count figures fails QA (exit 5),
 naming the cells or figures behind the difference; the sheet and its generation record are
 kept in the import directory.
---dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
+--dry-run prints the planned calls, the cost forecast and the spend left under the daily and
+work-item limits, writes nothing and needs no key.
 --lock-bible and --identity-mode score the generated sheet against the subject's identity lock
 as the import command does; the scoring call is part of the forecast and the cap.
 The prompt states the family's motion template (its beats, a held pose, the loop). --brief adds
@@ -616,6 +725,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
     imports: { type: "string" },
     "lock-bible": { type: "string" },
     "identity-mode": { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -623,6 +733,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
   },
   async run(values) {
     const files = required(values, ["spec", "bible", "profile"]);
+    const ledger = spendLedger(values);
     const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
     const spec = await readJson<AssetSpec>(files["spec"] as string);
     const bible = await readJson<StyleBible>(files["bible"] as string);
@@ -646,7 +757,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         : []),
     ];
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const estimateUsd = perCall.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
       const plan = {
         kind: "sheet",
@@ -662,14 +773,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         `forecast ${usd(estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
-      const fields = { dryRun: true, plan };
-      if (plan.withinCap) return { exitCode: 0, fields, human };
-      return refusal(
-        "cap_refused",
-        `forecast ${usd(estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
-        fields,
-        human,
-      );
+      return dryRunOutcome(plan, human, ledger.forProfile(profile.value), providerName);
     }
     const { provider, name } = await providerFor(values);
     let generated: Awaited<ReturnType<typeof generateSheet>>;
@@ -686,6 +790,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         providerName: name,
         importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
         capUsd,
+        ledger,
         ...(lock && {
           identity: { record: lock.record, references: lock.references, settings: lock.settings },
         }),
@@ -844,7 +949,7 @@ const animationQaCommand: Command = {
                               [--out .assetforge/animation] [--subject <name>] [--spec <spec.json>]
                               [--anchor x,y]
                               [--no-vision] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                              [--provider-script <module>] [--dry-run] [--json]
+                              [--work-item <label>] [--provider-script <module>] [--dry-run] [--json]
 
 Checks each strip against its family's motion template (beats, timing, contact frames,
 silhouette variation) and runs loop and continuity QA on pixels (loop seam, ground line,
@@ -857,7 +962,8 @@ sheet <family>.onion.png and the looping preview <family>.webp into --out.
 --import checks every family write-families wrote from that import.
 --spec reads the asset spec's gait (and its subject, unless --subject is given); the gait
 picks the motion template's footprint rule for it, over the profile's animation.gait.
---dry-run prints the planned calls and the cost forecast, writes nothing and needs no key.
+--dry-run prints the planned calls, the cost forecast and the spend left under the daily and
+work-item limits, writes nothing and needs no key.
 Exits 5 when any check fails; every failed check names its frame.`,
   options: {
     strip: { type: "string" },
@@ -871,6 +977,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
     "no-vision": { type: "boolean" },
     cap: { type: "string" },
     routes: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -905,7 +1012,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
       if (spec.gait !== undefined) t.gait = spec.gait;
     }
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const plan = await planAnimationQa(targets, routes, capUsd, vision);
       const human = [
         `dry run: ${targets.length} strip(s), ${plan.calls} planned vision call(s), nothing spent`,
@@ -916,14 +1023,8 @@ Exits 5 when any check fails; every failed check names its frame.`,
         `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
-      const fields = { dryRun: true, plan };
-      if (plan.withinCap) return { exitCode: 0, fields, human };
-      return refusal(
-        "cap_refused",
-        `forecast ${usd(plan.estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
-        fields,
-        human,
-      );
+      const ledger = targets.reduce((l, t) => l.forProfile(t.profile), spendLedger(values));
+      return dryRunOutcome(plan, human, ledger, providerName);
     }
     const outDir = resolve((values["out"] as string | undefined) ?? ".assetforge/animation");
     const { results, spentUsd } = await runAnimationQa({
@@ -931,6 +1032,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
       outDir,
       routes,
       capUsd,
+      ledger: spendLedger(values),
       ...(vision && { provider: await providerFor(values) }),
     });
     const lines: string[] = [];
@@ -972,7 +1074,7 @@ const fixFrameCommand: Command = {
                            [--subject <name>] [--spec <spec.json>] [--note <text>]
                            [--provenance <strip>.provenance.json]
                            [--bible <bible.json>] [--anchor x,y] [--cap ${DEFAULT_FIX_CAP_USD}] [--routes <routes.json>]
-                           [--provider-script <module>] [--dry-run] [--json]
+                           [--work-item <label>] [--provider-script <module>] [--dry-run] [--json]
 
 Edits frame <n> (1-based) with one reference-guided edit call, from an approved neighbour
 frame (--from) or the approved key pose (--key-pose), within the cost cap in USD. Only that
@@ -981,7 +1083,8 @@ fixes entry added) and its QA report and previews into --out. --provenance (defa
 <strip>.provenance.json when it exists) is the strip's own provenance or the record recipe or op
 wrote for it; any other file is refused (exit 2) before the call. Never writes into a target and
 never sets a review value. --spec reads the asset spec's gait (and subject) for that QA.
---dry-run prints the planned call and forecast and needs no key.`,
+--dry-run prints the planned call, the forecast and the spend left under the daily and work-item
+limits, and needs no key.`,
   options: {
     strip: { type: "string" },
     family: { type: "string" },
@@ -998,6 +1101,7 @@ never sets a review value. --spec reads the asset spec's gait (and subject) for 
     anchor: { type: "string" },
     cap: { type: "string" },
     routes: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -1026,7 +1130,7 @@ never sets a review value. --spec reads the asset spec's gait (and subject) for 
       ...(spec.gait !== undefined && { gait: spec.gait }),
     });
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const plan = planFrameFix(routes, capUsd);
       const human = [
         `dry run: fix frame ${index}, ${plan.calls} planned call(s), nothing spent`,
@@ -1034,13 +1138,11 @@ never sets a review value. --spec reads the asset spec's gait (and subject) for 
         `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
-      const fields = { dryRun: true, plan };
-      if (plan.withinCap) return { exitCode: 0, fields, human };
-      return refusal(
-        "cap_refused",
-        `forecast ${usd(plan.estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
-        fields,
+      return dryRunOutcome(
+        plan,
         human,
+        spendLedger(values).forProfile(profile.value),
+        providerName,
       );
     }
     const bible =
@@ -1057,6 +1159,7 @@ never sets a review value. --spec reads the asset spec's gait (and subject) for 
       outDir: resolve(o["out"] as string),
       routes,
       capUsd,
+      ledger: spendLedger(values),
       provider: await providerFor(values),
     });
     const human = [
@@ -1188,7 +1291,7 @@ const materialsCommand: Command = {
   summary: "derive and check material maps, native renditions and target lit previews",
   usage: `Usage: assetforge materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
                            --derivation <derivation.json> --out <directory>
-                           [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
+                           [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--work-item <label>]
                            [--digital-source-type <IPTC code or URI>] [--provider-script <module>] [--dry-run] [--json]
 
 Derives the channels requested by style.materials, checks alignment and temporal stability,
@@ -1204,6 +1307,7 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
     out: { type: "string" },
     cap: { type: "string" },
     routes: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     "dry-run": { type: "boolean" },
     json: { type: "boolean" },
@@ -1218,6 +1322,7 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
     routes["material-qa"] ??= routes.vision;
     const config = resolveMaterialProfile(profile.value.style?.materials);
     const capUsd = numberOption(values, "cap", DEFAULT_CAP_USD);
+    const ledger = spendLedger(values).forProfile(profile.value);
     new Budget(capUsd);
     if (values["dry-run"]) {
       const needed = new Set(config.channels);
@@ -1247,21 +1352,14 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
         capUsd,
         withinCap: estimateUsd <= capUsd + 1e-9,
       };
-      const fields = { dryRun: true, plan };
       const human = `dry run: materials, ${plan.calls} planned call(s), nothing spent\nforecast ${usd(estimateUsd)} against a $${capUsd.toFixed(2)} cap`;
-      if (plan.withinCap) return { exitCode: 0, fields, human };
-      return refusal(
-        "cap_refused",
-        `forecast ${usd(estimateUsd)} exceeds the $${capUsd.toFixed(2)} cap`,
-        fields,
-        human,
-      );
+      return dryRunOutcome(plan, human, ledger, await dryRunProvider(values));
     }
     const { provider, name } = await providerFor(values);
     const call = new Caller({
       provider,
       providerName: name,
-      budget: new Budget(capUsd),
+      budget: new Budget(capUsd, ledgerFor(ledger, name)),
       routes,
     });
     const result = await runMaterials({
@@ -1284,15 +1382,15 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
 };
 
 async function planningContext(values: Values): Promise<ToolContext> {
+  const ledger = spendLedger(values);
   const scriptPath = values["provider-script"] as string | undefined;
-  if (scriptPath)
-    return {
-      provider: new ScriptedProvider(await loadScript(scriptPath)),
-      providerName: "scripted",
-    };
+  if (scriptPath) {
+    const { provider, name } = scriptedProvider(await loadScript(scriptPath));
+    return { provider, providerName: name, ledger };
+  }
   if (process.env["AI_GATEWAY_API_KEY"])
-    return { provider: gatewayProvider(), providerName: "vercel-ai-gateway" };
-  return {};
+    return { provider: gatewayProvider(), providerName: "vercel-ai-gateway", ledger };
+  return { ledger };
 }
 
 const bibleCommand: Command = {
@@ -1327,7 +1425,8 @@ const planCommand: Command = {
   usage: `Usage: assetforge plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
                        --out <plan.json> [--brief <brief.json>] [--settings <settings.json>]
                        [--template <template.md>] [--routes <routes.json>]
-                       [--identity-mode <off|shadow|enforce>] [--provider-script <module>] [--json]
+                       [--identity-mode <off|shadow|enforce>] [--work-item <label>]
+                       [--provider-script <module>] [--json]
 
 --identity-mode overrides the profile's identity.mode for a character with an identity lock:
 shadow (the default) scores candidates beside QA without filtering, enforce filters those below
@@ -1345,6 +1444,7 @@ Review the saved plan before apply; this command never generates images.`,
     template: { type: "string" },
     routes: { type: "string" },
     "identity-mode": { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean" },
@@ -1365,7 +1465,7 @@ const applyCommand: Command = {
   summary: "generate exactly a saved plan after explicit spend approval",
   positionals: true,
   usage: `Usage: assetforge apply <plan.json> [--auto-approve] [--out <runs directory>]
-                        [--provider-script <module>] [--json]
+                        [--work-item <label>] [--provider-script <module>] [--json]
 
 Refuses stale bible, template and identity inputs before generation.
 Set the plan's approved field to true after review, or use --auto-approve for unattended runs.
@@ -1373,6 +1473,7 @@ Approval authorizes this generation spend; resulting assets remain pending revie
   options: {
     "auto-approve": { type: "boolean" },
     out: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean" },
@@ -1399,11 +1500,11 @@ Approval authorizes this generation spend; resulting assets remain pending revie
 const mcpCommand: Command = {
   name: "mcp",
   summary: "serve bible, plan and apply tools over MCP stdio",
-  usage: `Usage: assetforge mcp [--provider-script <module>]
+  usage: `Usage: assetforge mcp [--work-item <label>] [--provider-script <module>]
 
 Serves newline-delimited MCP JSON-RPC over stdin/stdout. Model keys come from the environment.
 Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are local to this server.`,
-  options: { "provider-script": { type: "string" }, help: { type: "boolean" } },
+  options: { ...workItemOption, "provider-script": { type: "string" }, help: { type: "boolean" } },
   async run(values) {
     // Decision-call log lines go to stderr; stdout carries only JSON-RPC.
     await serveMcp({ ...(await planningContext(values)), log: (m) => console.error(m) });
@@ -1416,7 +1517,7 @@ const identityEvalCommand: Command = {
   summary: "score a local labelled image set against identity locks and recommend a threshold",
   usage: `Usage: assetforge identity-eval --bible <BIBLE.md> --cases <cases.json> [--profile <profile.json>]
                               [--log <identity-eval.jsonl>] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                              [--provider-script <module>] [--json]
+                              [--work-item <label>] [--provider-script <module>] [--json]
 
 Scores every case of a labelled set against its subject's identity lock through the identity
 route. cases.json is a list (or {"cases": [...]}) of {"image", "subject", "same": true|false,
@@ -1432,6 +1533,7 @@ hold a game's private art. See docs/generation-knobs.md.`,
     log: { type: "string" },
     cap: { type: "string" },
     routes: { type: "string" },
+    ...workItemOption,
     "provider-script": { type: "string" },
     json: { type: "boolean" },
     help: { type: "boolean" },
@@ -1449,6 +1551,7 @@ hold a game's private art. See docs/generation-knobs.md.`,
       provider,
       providerName: name,
       capUsd: numberOption(values, "cap", DEFAULT_CAP_USD),
+      ledger: spendLedger(values),
       ...(values["log"] !== undefined && { logPath: values["log"] as string }),
       log: (m) => console.error(m),
     });
@@ -1505,6 +1608,11 @@ function mainUsage(): string {
     "  --help, -h   print usage; with a command, that command's usage",
     "  --version    print the version",
     "",
+    "Spend: every paid call also reserves against a ledger shared by every run on this machine",
+    `(${SPEND_ENV.ledger}): a daily limit (${SPEND_ENV.dailyLimit}, default $10) and,`,
+    `with --work-item or ${SPEND_ENV.workItem}, a work-item limit (${SPEND_ENV.workItemLimit},`,
+    "default $5). A call that would cross either is refused with exit 3.",
+    "",
     "Exit codes: 0 success, 1 internal error, 2 invalid input, 3 cap refused,",
     "4 provider error, 5 QA found nothing, 6 validator rejected the write,",
     "7 licence refused (provider grant does not allow the target's licence).",
@@ -1519,12 +1627,23 @@ function version(): string {
   return pkg.version;
 }
 
-function classify(error: unknown): { code: ErrorCode; message: string } {
+function classify(error: unknown): Failure {
   const message = error instanceof Error ? error.message : String(error);
   const code = (error as { code?: unknown } | null)?.code;
   if (error instanceof InputError) return { code: "invalid_input", message };
   if (typeof code === "string" && code.startsWith("ERR_PARSE_ARGS")) {
     return { code: "invalid_input", message };
+  }
+  if (error instanceof SpendLimitError) {
+    const limit = {
+      name: error.limit,
+      ...(error.workItem !== undefined && { workItem: error.workItem }),
+      limitUsd: error.limitUsd,
+      spentUsd: error.spentUsd,
+      requestedUsd: error.requestedUsd,
+      ledger: error.ledger,
+    };
+    return { code: "cap_refused", message, limit };
   }
   if (error instanceof BudgetExceededError) return { code: "cap_refused", message };
   if (error instanceof ProviderError) return { code: "provider_error", message };
