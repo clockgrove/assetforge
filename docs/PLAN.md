@@ -32,6 +32,7 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Objectives:**
 - Clips for idle, walk, sniff, eat, play and shelter on Stevie's rig, with loop and foot-contact QA on rendered frames. First: a custom quadruped idle, since Tripo's clip library has none (Kirk, 2026-11-10); custom clips only where the library has nothing close.
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
+- Character look-dev (assetforge#82): a painted albedo in the bible's style, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
 - Juniper, a kit and Jimothy as rigged models from their approved references.
 - Raccoon World: the cast approved and committed to clockgrove/raccoon-world.
 
