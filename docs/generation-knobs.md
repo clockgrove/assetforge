@@ -103,12 +103,12 @@ Model credentials come from `AI_GATEWAY_API_KEY`. Tests and offline harnesses ca
 
 A character with an identity lock in the bible (`identities.<subject>`) has an identity record: the approved turnaround, any further approved `references` (paths relative to the bible), and the fingerprint a model checks for: `signatureFeatures`, `proportions` and `palette`. The record is versioned with the lock. Bump the lock's `version` when you change it; every score names the lock version and the hash of the whole lock, so an edit is visible even without a bump.
 
-Every candidate of a locked character is scored against its record by a typed decision model through the gateway (the `identity` route, default `perplexity/pplx-decider-v1.2`). The call is a Score question over five levels, from "a different character" to "the same character: every signature feature, the proportions and the colours match". The identity score is the answer's position over those levels, from 0 to 1. The reason shown is the matching level with the score, threshold, lock version and confidence. With `identity.question: "boolean"` the score is the model's probability that the candidate is the same character. Images under 384 px on a side are upscaled before the call, because some decision models reject small images. Every call logs its label, confidence, latency and cost on stderr and in its call record (`decision`).
+Every candidate of a locked character is scored against its record by a typed decision model through the gateway (the `identity` route, default `google/gemini-decision-1`). The call is a Score question over five levels, from "a different character" to "the same character: every signature feature, the proportions and the colours match". The identity score is the answer's position over those levels, from 0 to 1. The reason shown is the matching level with the score, threshold, lock version and confidence. With `identity.question: "boolean"` the score is the model's probability that the candidate is the same character. Images under 384 px on a side are upscaled before the call, because some decision models reject small images. Every call logs its label, confidence, latency and cost on stderr and in its call record (`decision`).
 
 The target profile configures it:
 
 ```json
-{ "identity": { "mode": "shadow", "threshold": 0.68, "question": "score" } }
+{ "identity": { "mode": "shadow", "threshold": 0.74, "question": "score" } }
 ```
 
 - `shadow` (the default) scores every candidate beside the current QA and filters nothing. The reason is marked `shadow`, and `run.json` counts how often the identity verdict agreed with QA (`identity.agreement`).

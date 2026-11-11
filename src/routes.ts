@@ -125,17 +125,21 @@ export const defaultRoutes: Routes = {
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
   identity: {
-    // #27's image eval: best on identity with reference images; `openai/gpt-6-luna-decisions`
-    // is the alternate. About $0.00003 per answer; the estimate is a deliberate upper bound.
-    model: "perplexity/pplx-decider-v1.2",
-    estimatedCostUsd: 0.001,
+    // Identity on 3D turntable renders (2026-11-11): only gemini-decision-1 separates Stevie's
+    // four wave 0 renders (front and three-quarter 0.73-0.84) from Gracie's turnaround (at most
+    // 0.70); pplx-decider-v1.2 scored Gracie above most of Stevie's renders. Same accuracy on #27's
+    // 2D set (41/44). About $0.00026 per answer; the estimate is a deliberate upper bound.
+    // `perplexity/pplx-decider-v1.2` is the cheaper alternate for 2D-only targets.
+    model: "google/gemini-decision-1",
+    estimatedCostUsd: 0.002,
     outputGrant: {
-      license: "LicenseRef-perplexity-api",
+      license: "LicenseRef-google-api",
       plan: "api",
       commercial: true,
       relabel: true,
     },
-    providerTerms: "Perplexity API Terms of Service, via Vercel AI Gateway (as of 2026-11-08)",
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-11)",
   },
   // Identity-flicker judgement between consecutive animation frames.
   flicker: {

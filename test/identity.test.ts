@@ -151,8 +151,8 @@ test("a Score decision becomes a 0..1 identity score with its label, confidence,
   assert.equal(score.passed, true);
   assert.equal(score.filtered, false);
   assert.equal(score.lockVersion, "fox-1");
-  assert.equal(score.model, "perplexity/pplx-decider-v1.2");
-  assert.match(score.reason, /identity 0\.75 >= threshold 0\.68 against "fox" lock fox-1/);
+  assert.equal(score.model, "google/gemini-decision-1");
+  assert.match(score.reason, /identity 0\.75 >= threshold 0\.74 against "fox" lock fox-1/);
   const record = call.records[0]!;
   assert.equal(record.operation, "identity");
   assert.equal(record.decision?.label, IDENTITY_LEVELS[3]);
@@ -162,7 +162,7 @@ test("a Score decision becomes a 0..1 identity score with its label, confidence,
   assert.equal(lines.length, 1);
   assert.match(
     lines[0]!,
-    /identity perplexity\/pplx-decider-v1\.2: .*confidence 0\.66, \d+ ms, \$0\.000030 provider/,
+    /identity google\/gemini-decision-1: .*confidence 0\.66, \d+ ms, \$0\.000030 provider/,
   );
   // The request is typed, carries the candidate first and every reference, all upscaled.
   const sent = provider.calls[0]!;
@@ -239,7 +239,7 @@ test("a Boolean decision uses the probability of true; a failed call fails close
   assert.equal(failedLogs.length, 1);
   assert.match(
     failedLogs[0]!,
-    /^identity perplexity\/pplx-decider-v1\.2: failed \(\d+ ms, \$\d+\.\d{6} estimate\): .*429 rate limited/,
+    /^identity google\/gemini-decision-1: failed \(\d+ ms, \$\d+\.\d{6} estimate\): .*429 rate limited/,
   );
   const shadow = await scoreIdentity({
     caller: caller(failing()),
