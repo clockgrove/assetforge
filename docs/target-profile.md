@@ -18,6 +18,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 
 - `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose), `still` (one image) or `character-3d` (a rigged, animated `.glb`; its fields `gait`, `clips` and `heightM` and the profile's `model3d` section are in [characters-3d.md](characters-3d.md)). A new kind is a new generator.
 - `subject` names the bible subject; it defaults to `assetId`.
+- `look` (optional) names one of the bible's `looks`, such as `character` or `environment`. The asset gets that look's notes and references on top of the shared ones. An unknown look is refused before any spend.
 - `frames.width` and `frames.height` default to the profile's frame size; `frames.count` defaults to 1.
 - `anchor` is the pivot in frame coordinates: the bottom centre of the subject is aligned to it. It defaults to the bottom centre of the frame.
 - `keyPose` (required for `sprite-strip`) is the author-approved key pose image; every frame becomes a reference-guided edit of it. A strip spec without one is refused before any spend. To make one through Assetforge, stage a `still` spec of the pose (set `frames.width` and `frames.height` larger than the profile's frame size for a detailed reference), look at the staged candidates, and name the chosen file as `keyPose`.
@@ -38,6 +39,16 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
   "subjects": { "stevie": { "description": "a grey adult raccoon with a dark mask" } },
   "mood": ["quiet", "mature", "storybook realism"],
   "notes": ["warm lantern light against cool dusk rain"]
+}
+```
+
+`looks` (optional) gives each domain of a world its own style, for example characters in naturalistic fur within a lightly painted yard. Each look has its own `notes`. A reference with a `look` is sent only for specs of that look; one without is sent for every look. A spec with no `look` gets only the shared notes and untagged references. Assetforge assumes no look names or styles: the target defines both.
+
+```json
+"notes": ["warm lantern light against cool dusk rain"],
+"looks": {
+  "character": { "notes": ["naturalistic illustrated fur, no visible brushwork"] },
+  "environment": { "notes": ["soft visible brushwork, never photo-accurate"] }
 }
 ```
 
