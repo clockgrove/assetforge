@@ -53,7 +53,21 @@ export const SPEND_ENV = {
   workItem: "ASSETFORGE_WORK_ITEM",
   dailyLimit: "ASSETFORGE_DAILY_LIMIT_USD",
   workItemLimit: "ASSETFORGE_WORK_ITEM_LIMIT_USD",
+  /** Set by Factory in a worker's environment on every route: the Objective's issue number. */
+  factoryIssue: "FACTORY_ISSUE",
 } as const;
+
+/**
+ * The work item when none is named: a Factory worker's Objective, from `FACTORY_ISSUE` (digits
+ * only), as `<GITHUB_REPOSITORY>#<n>` on Actions or `factory#<n>` elsewhere. Two repositories'
+ * Objectives with the same number on one machine then share a limit, which only makes it stricter.
+ */
+export function factoryWorkItem(env: NodeJS.ProcessEnv): string | undefined {
+  const issue = env[SPEND_ENV.factoryIssue]?.trim();
+  if (!issue || !/^[0-9]+$/.test(issue)) return undefined;
+  const repo = env["GITHUB_REPOSITORY"]?.trim();
+  return `${repo && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) ? repo : "factory"}#${issue}`;
+}
 
 export type SpendLimitName = "daily" | "work-item";
 export type LimitSource = "environment" | "profile" | "default";
@@ -138,7 +152,8 @@ export class SpendLedger {
   /**
    * The ledger and limits from the environment: `ASSETFORGE_SPEND_LEDGER` (default
    * `$XDG_STATE_HOME/assetforge/spend.jsonl`, or `~/.local/state/...`), `ASSETFORGE_WORK_ITEM`
-   * (or `workItem`, from `--work-item`), `ASSETFORGE_DAILY_LIMIT_USD` and
+   * (or `workItem`, from `--work-item`; else a Factory worker's Objective from `FACTORY_ISSUE`),
+   * `ASSETFORGE_DAILY_LIMIT_USD` and
    * `ASSETFORGE_WORK_ITEM_LIMIT_USD`.
    */
   static fromEnv(
@@ -154,7 +169,8 @@ export class SpendLedger {
           "assetforge",
           "spend.jsonl",
         );
-    const workItem = (options.workItem ?? env[SPEND_ENV.workItem])?.trim() || undefined;
+    const workItem =
+      (options.workItem ?? env[SPEND_ENV.workItem])?.trim() || factoryWorkItem(env) || undefined;
     const daily = envLimit(env, SPEND_ENV.dailyLimit);
     const item = envLimit(env, SPEND_ENV.workItemLimit);
     return new SpendLedger({

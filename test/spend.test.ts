@@ -400,3 +400,20 @@ test("scripted runs over the limits are not refused and write nothing to the led
   assert.equal(JSON.parse(capped.stdout).error.limit, undefined);
   assert.equal(existsSync(path), false);
 });
+
+test("a Factory worker's Objective is the work item when none is named", () => {
+  const item = (env: NodeJS.ProcessEnv, workItem?: string) =>
+    SpendLedger.fromEnv(env, workItem !== undefined ? { workItem } : {}).status().workItem;
+  assert.equal(
+    item({ FACTORY_ISSUE: "72", GITHUB_REPOSITORY: "clockgrove/assetforge" }),
+    "clockgrove/assetforge#72",
+  );
+  assert.equal(item({ FACTORY_ISSUE: "72" }), "factory#72");
+  // Named explicitly, the name wins.
+  assert.equal(item({ FACTORY_ISSUE: "72", ASSETFORGE_WORK_ITEM: "campaign-a" }), "campaign-a");
+  assert.equal(item({ FACTORY_ISSUE: "72" }, "obj-1"), "obj-1");
+  // Only a plain issue number counts; anything else names no work item.
+  assert.equal(item({ FACTORY_ISSUE: "72; rm" }), null);
+  assert.equal(item({ FACTORY_ISSUE: "" }), null);
+  assert.equal(item({}), null);
+});

@@ -11,9 +11,11 @@ process.env["ASSETFORGE_SPEND_LEDGER"] = join(
   mkdtempSync(join(tmpdir(), "assetforge-spend-")),
   "spend.jsonl",
 );
-// The caller's own work item and limits would change what the tests measure.
+// The caller's own work item and limits would change what the tests measure; a Factory worker's
+// FACTORY_ISSUE would name a work item too.
 for (const name of [
   "ASSETFORGE_WORK_ITEM",
+  "FACTORY_ISSUE",
   "ASSETFORGE_DAILY_LIMIT_USD",
   "ASSETFORGE_WORK_ITEM_LIMIT_USD",
 ])
