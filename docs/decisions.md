@@ -105,16 +105,16 @@ Same-character scores bunch at 0.61–0.65, so lower thresholds let many wrong-c
 
 #27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
 
-## Identity route on 3D renders (2026-11-11)
+## Identity locks cannot tell raccoons apart yet (2026-11-11)
 
-The identity route moves to `google/gemini-decision-1`, and the default threshold moves from 0.68 to **0.74**. Identity is now scored on 3D turntable renders, and pplx-decider-v1.2 cannot tell those apart. On a 3D set (Stevie's four wave 0 Tripo candidates, 16 renders, against Gracie's approved turnaround, 4 views) the scores were:
+The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode. **Enforce mode must not be used for a cast of one species.** A wider eval found that the lock-score route can tell a raccoon from something else, but not one raccoon from another. The set had 44 images of Stevie (2D strips, turntable views, 3D renders, photos) against 67 other raccoons (44 Jimothy, 16 Gracie including all three turnaround candidates, plus kits and Peanut), every one scored against Stevie's lock:
 
-| Model                        | Stevie, front and three-quarter renders | Gracie's views | At its threshold                       |
-| ---------------------------- | --------------------------------------- | -------------- | -------------------------------------- |
-| google/gemini-decision-1     | 0.73–0.84                               | 0.59–0.70      | 0.74: 0 false accepts, 1 of 8 rejected |
-| perplexity/pplx-decider-v1.2 | 0.55–0.68                               | 0.61–0.68      | 0.68: 1 false accept, 7 of 8 rejected  |
+| Model                        | ROC AUC | False accepts at 0.74 | False rejects at 0.74 |
+| ---------------------------- | ------- | --------------------- | --------------------- |
+| perplexity/pplx-decider-v1.2 | 0.55    | 0 of 67               | 34 of 44              |
+| google/gemini-decision-1     | 0.49    | 26 of 67              | 21 of 44              |
 
-On #27's 2D set (44 cases, measured by the Clockgrove owner session on 2026-11-10), Gemini at 0.74 makes 41/44 with 0 false accepts, against pplx's 40/44 at 0.68. It costs about $0.00026 an answer, against $0.00003: about a quarter of a cent across a 4-candidate run. pplx stays the cheaper alternate for 2D-only targets. Shadow mode remains the default. The sets are small (20 and 44 cases), so shadow runs on real art keep measuring before enforce mode becomes the default.
+An AUC of 0.5 is chance. The same raccoon features (mask, brows, ringed tail, grey coat) satisfy every level of the Score question for any raccoon. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. An identity check that tells individuals apart is a separate capability, and it must reach a high AUC on this set before enforce mode is allowed.
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
