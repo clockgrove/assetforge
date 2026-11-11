@@ -105,16 +105,16 @@ Same-character scores bunch at 0.61–0.65, so lower thresholds let many wrong-c
 
 #27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
 
-## Identity locks cannot tell raccoons apart yet (2026-11-11)
+## Identity locks cannot tell look-alike characters apart yet (2026-11-11)
 
-The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode. **Enforce mode must not be used for a cast of one species.** A wider eval found that the lock-score route can tell a raccoon from something else, but not one raccoon from another. The set had 44 images of Stevie (2D strips, turntable views, 3D renders, photos) against 67 other raccoons (44 Jimothy, 16 Gracie including all three turnaround candidates, plus kits and Peanut), every one scored against Stevie's lock:
+The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode. **Enforce mode must not be used for a cast of look-alike characters.** A wider eval found that the lock-score route can tell a character's kind from something else, but not one look-alike cast member from another. Raccoon World was the fixture: 44 images of Stevie (2D strips, turntable views, 3D renders, photos) against 67 images of other raccoons in the cast (44 Jimothy, 16 Gracie including all three turnaround candidates, plus kits and Peanut), every one scored against Stevie's lock:
 
 | Model                        | ROC AUC | False accepts at 0.74 | False rejects at 0.74 |
 | ---------------------------- | ------- | --------------------- | --------------------- |
 | perplexity/pplx-decider-v1.2 | 0.55    | 0 of 67               | 34 of 44              |
 | google/gemini-decision-1     | 0.49    | 26 of 67              | 21 of 44              |
 
-An AUC of 0.5 is chance. The same raccoon features (mask, brows, ringed tail, grey coat) satisfy every level of the Score question for any raccoon. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. An identity check that tells individuals apart is a separate capability, and it must reach a high AUC on this set before enforce mode is allowed.
+An AUC of 0.5 is chance. The features the cast shares satisfy every level of the Score question for any of its members. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. Keeping characters on-model is assetforge#92. It is cast-agnostic, and is measured on drift of the same character, generic members of the type and look-alike cast members, for more than one cast. Enforce mode waits for its measured bar.
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
