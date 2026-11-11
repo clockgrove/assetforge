@@ -17,11 +17,11 @@ export type IdentityMode = "off" | "shadow" | "enforce";
 export const IDENTITY_MODES: readonly IdentityMode[] = ["off", "shadow", "enforce"];
 export const DEFAULT_IDENTITY_MODE: IdentityMode = "shadow";
 /**
- * The default identity threshold, for `google/gemini-decision-1` (2026-11-11). At 0.74 it accepts no
- * wrong character on #27's 2D set (41/44 correct) or on the 3D set (Stevie's wave 0 turntable renders
- * against Gracie's turnaround), and rejects 1 of 8 of Stevie's front and three-quarter renders.
+ * Chosen by the owner from `assetforge identity-eval` on #27's identity set (44 cases): at 0.68
+ * pplx-decider-v1.2 accepts no wrong character and rejects 4 of 19 same-character crops. See
+ * docs/decisions.md. Shadow mode, the default, filters nothing.
  */
-export const DEFAULT_IDENTITY_THRESHOLD = 0.74;
+export const DEFAULT_IDENTITY_THRESHOLD = 0.68;
 /** Images shorter than this on a side are upscaled first; some decision models reject small images (#27). */
 export const MIN_DECISION_EDGE = 384;
 export const IDENTITY_OPERATION = "identity";
