@@ -1,17 +1,5 @@
 {
-  "run": "assetforge rig (no provider calls, $0)",
-  "sourceModelSha256": "209db8115d4de1ae0a8288f1e4a8e22767a39201c43e2875a37f0a938da226bb",
-  "templateSha256": "8b6c62d8034b462a595b32f214471d5e4aec537113bb0bf3857aa57d256d622a",
-  "walkGaitSha256": "9993df60fd687d0deee07a5493d203be3f78e83d9d9d598c0f2c028812818687",
-  "clips": [
-    {
-      "name": "walk",
-      "durationMs": 714,
-      "loop": true,
-      "generated": true,
-      "speedMps": 0.267756
-    }
-  ],
+  "candidate": "c1",
   "reasons": [
     {
       "check": "gltf-validator",
@@ -28,25 +16,25 @@
     {
       "check": "budget-triangles",
       "passed": true,
-      "reason": "triangles 59847 within 200000",
+      "reason": "triangles 59847 within 60000",
       "source": "deterministic"
     },
     {
       "check": "budget-textureMaxPx",
       "passed": true,
-      "reason": "textureMaxPx 2048 within 4096",
+      "reason": "textureMaxPx 2048 within 2048",
       "source": "deterministic"
     },
     {
       "check": "budget-materials",
       "passed": true,
-      "reason": "materials 1 within 8",
+      "reason": "materials 1 within 4",
       "source": "deterministic"
     },
     {
       "check": "budget-bones",
       "passed": true,
-      "reason": "bones 28 within 80",
+      "reason": "bones 30 within 80",
       "source": "deterministic"
     },
     {
@@ -58,13 +46,13 @@
     {
       "check": "skeleton",
       "passed": true,
-      "reason": "1 skin(s), 28 bone(s)",
+      "reason": "1 skin(s), 30 bone(s)",
       "source": "deterministic"
     },
     {
       "check": "clip-walk",
       "passed": true,
-      "reason": "\"walk\" plays on the skeleton: 714 ms, 28 joint(s) animated",
+      "reason": "\"walk\" plays on the skeleton: 743 ms, 30 joint(s) animated",
       "source": "deterministic"
     },
     {
@@ -76,7 +64,7 @@
     {
       "check": "contact-walk",
       "passed": true,
-      "reason": "stance feet planted on the ground line: fore_l sole 0.0000 m from the ground, slides 0.0006 m, heel 0.0001 m above toe (0.0015 m at rest); hind_l sole 0.0000 m from the ground, slides 0.0010 m, heel 0.0000 m above toe (-0.0008 m at rest); fore_r sole -0.0000 m from the ground, slides 0.0003 m, heel 0.0000 m above toe (0.0022 m at rest); hind_r sole -0.0000 m from the ground, slides 0.0014 m, heel 0.0000 m above toe (-0.0017 m at rest)",
+      "reason": "stance feet planted on the ground line: fore_l sole 0.0000 m from the ground, slides 0.0003 m, heel 0.0000 m above toe (0.0015 m at rest); hind_l sole 0.0000 m from the ground, slides 0.0010 m, heel 0.0000 m above toe (-0.0008 m at rest); fore_r sole 0.0000 m from the ground, slides 0.0002 m, heel 0.0000 m above toe (0.0022 m at rest); hind_r sole 0.0000 m from the ground, slides 0.0015 m, heel 0.0000 m above toe (-0.0017 m at rest)",
       "source": "deterministic"
     },
     {
@@ -88,13 +76,13 @@
     {
       "check": "skinning-walk",
       "passed": true,
-      "reason": "girth at bent leg joints kept at 91% of rest or more (minimum 70%)",
+      "reason": "girth at bent leg joints kept at 92% of rest or more (minimum 70%)",
       "source": "deterministic"
     },
     {
       "check": "compare-walk",
       "passed": true,
-      "reason": "the source's own \"walk\" \u2192 the generated one, on the deformed sole: ground-line spread 0.0572 \u2192 0.0000 m; fore_l heel above toe while down 0.0042 (worst 0.0055) \u2192 0.0012 (worst 0.0119) m; hind_l heel above toe while down 0.0372 (worst 0.0401) \u2192 0.0003 (worst 0.0036) m; fore_r heel above toe while down 0.0078 (worst 0.0227) \u2192 0.0013 (worst 0.0136) m; hind_r heel above toe while down 0.0384 (worst 0.0398) \u2192 0.0003 (worst 0.0041) m",
+      "reason": "the source's own \"walk\" \u2192 the generated one, on the deformed sole: ground-line spread 0.0572 \u2192 0.0000 m; fore_l heel above toe while down 0.0042 (worst 0.0055) \u2192 0.0009 (worst 0.0097) m; hind_l heel above toe while down 0.0372 (worst 0.0401) \u2192 0.0003 (worst 0.0032) m; fore_r heel above toe while down 0.0078 (worst 0.0227) \u2192 0.0010 (worst 0.0112) m; hind_r heel above toe while down 0.0384 (worst 0.0398) \u2192 0.0003 (worst 0.0036) m",
       "source": "deterministic",
       "shadow": true
     },

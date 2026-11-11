@@ -24,3 +24,12 @@ The walk is plantigrade: the whole hind foot goes down, the front paws land flat
 Make a copy of Raccoon World's profile, and merge in the `model3d` fragment from `profile-fragment.json`. Place `raccoon-template.json` so the template path resolves relative to that profile. Add `"reference": "<dir of frames>"` to the walk gait (relative to the profile) for the side-by-side. Then run:
 
     assetforge rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
+
+## Tuning pass (2026-11-10)
+
+After Kirk's read of the first proof ("much better", but too upright next to his photos), the walk was re-tuned on c3 against the gait reference frames. Every QA check still passes:
+
+- `backArchDeg` 12 → 22, `hipHeightRatio` 1.04 → 1.10, `headPitchDeg` 14 → 28 and `tailPitchDeg` 10 → 18, for the hunched back, high rump and low head of `adult-fence-walk.png` and `roof-ridge-walk-hd.png`;
+- `strideBodyLengths` 0.25 → 0.26 and the fore swing curl 55° → 45°.
+
+A deeper hunch (arch 24–26°, head 30–32°) pushes the stance wrist's yaw just past ±15° and fails joint-limit QA. The template also gains `ear_l` and `ear_r`, parented to the head. Before, the ear vertices were skinned partly to the neck bone beside them, so an ear bent like a flat panel when the head pitched down. Now they ride rigidly on the head. `c3-proof/` holds the tuned renders and QA. `before-after.png` is still the first proof's.
