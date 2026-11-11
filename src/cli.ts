@@ -30,7 +30,15 @@ import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from 
 import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
 import { loadRoutes } from "./routes.ts";
-import { SPEND_ENV, SpendLedger, SpendLimitError, limitLabel } from "./spend.ts";
+import {
+  SPEND_ENV,
+  SpendLedger,
+  SpendLimitError,
+  UNPAID_PROVIDER,
+  isPaidProvider,
+  ledgerFor,
+  limitLabel,
+} from "./spend.ts";
 import type { SpendStatus } from "./spend.ts";
 import { runMaterials } from "./material/pipeline.ts";
 import { resolveMaterialProfile } from "./material/profile.ts";
@@ -178,9 +186,9 @@ function spendLedger(values: Values): SpendLedger {
   return SpendLedger.fromEnv(process.env, workItem !== undefined ? { workItem } : {});
 }
 
-function formatSpend(spend: SpendStatus): string[] {
+function formatSpend(spend: SpendStatus, counted: boolean): string[] {
   return [
-    `spend ledger ${spend.ledger}`,
+    `spend ledger ${spend.ledger}` + (counted ? "" : " (scripted provider: not counted)"),
     ...spend.limits.map(
       (l) =>
         `  ${limitLabel(l)} (${l.source}): ${usd(l.spentUsd)} spent, ${usd(l.remainingUsd)} left`,
@@ -193,17 +201,23 @@ function formatSpend(spend: SpendStatus): string[] {
 
 /**
  * The outcome of a dry run: the plan, the spend left under each ledger limit, and a refusal (exit
- * 3) when the forecast is over the run's cap or over what is left under a limit.
+ * 3) when the forecast is over the run's cap or, for a paid provider, over what is left under a
+ * limit. A scripted run's calls are not counted (`spend.counted` false), so the limits never
+ * refuse it.
  */
 function dryRunOutcome(
   plan: { estimateUsd: number; capUsd: number; withinCap: boolean },
   human: string,
   ledger: SpendLedger,
+  providerName: string | undefined,
 ): Outcome {
-  const spend = ledger.status();
-  const over = spend.limits.find((l) => plan.estimateUsd > l.remainingUsd + 1e-9);
+  const counted = isPaidProvider(providerName);
+  const spend = { ...ledger.status(), counted };
+  const over = counted
+    ? spend.limits.find((l) => plan.estimateUsd > l.remainingUsd + 1e-9)
+    : undefined;
   const fields = { dryRun: true, plan, spend, withinLimits: over === undefined };
-  const text = [human, ...formatSpend(spend)].join("\n");
+  const text = [human, ...formatSpend(spend, counted)].join("\n");
   if (!plan.withinCap)
     return refusal(
       "cap_refused",
@@ -219,6 +233,26 @@ function dryRunOutcome(
       text,
     );
   return { exitCode: 0, fields, human: text };
+}
+
+/**
+ * The scripted provider of --provider-script, under its unpaid name; a script that declares
+ * `paid: true` (tests only) runs as `scripted-paid`, whose calls the spend ledger counts.
+ */
+function scriptedProvider(script: Script): { provider: GenerationProvider; name: string } {
+  return {
+    provider: new ScriptedProvider(script),
+    name: script.paid === true ? `${UNPAID_PROVIDER}-paid` : UNPAID_PROVIDER,
+  };
+}
+
+/**
+ * The provider name a dry run would use, loading (and so checking) --provider-script when given:
+ * undefined, a real paid provider, without one.
+ */
+async function dryRunProvider(values: Values): Promise<string | undefined> {
+  const path = values["provider-script"] as string | undefined;
+  return path === undefined ? undefined : scriptedProvider(await loadScript(path)).name;
 }
 
 /** Every generator `stage` runs: the image kinds and 3D characters. */
@@ -352,10 +386,15 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       capUsd,
     });
     const scriptPath = values["provider-script"] as string | undefined;
-    const script = scriptPath ? await loadScript(scriptPath) : undefined;
+    const scripted = scriptPath ? scriptedProvider(await loadScript(scriptPath)) : undefined;
 
     if (values["dry-run"]) {
-      return dryRunOutcome(plan, formatPlan(plan), ledger.forProfile(profile.value));
+      return dryRunOutcome(
+        plan,
+        formatPlan(plan),
+        ledger.forProfile(profile.value),
+        scripted?.name,
+      );
     }
 
     const { run, runDir } = await stage({
@@ -365,8 +404,8 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       bibleDir: bible.dir,
       profile: profile.value,
       routes,
-      ...(script
-        ? { provider: new ScriptedProvider(script), providerName: "scripted" }
+      ...(scripted
+        ? { provider: scripted.provider, providerName: scripted.name }
         : stageProvider(spec.value)),
       generators: stageGenerators,
       runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
@@ -438,8 +477,7 @@ async function providerFor(
   values: Values,
 ): Promise<{ provider: GenerationProvider; name: string }> {
   const scriptPath = values["provider-script"] as string | undefined;
-  if (scriptPath)
-    return { provider: new ScriptedProvider(await loadScript(scriptPath)), name: "scripted" };
+  if (scriptPath) return scriptedProvider(await loadScript(scriptPath));
   return { provider: gatewayProvider(), name: "vercel-ai-gateway" };
 }
 
@@ -605,7 +643,7 @@ below the threshold, off skips scoring.`,
         shared = new Caller({
           provider,
           providerName: name,
-          budget: new Budget(capUsd, spendLedger(values).forProfile(profile.value)),
+          budget: new Budget(capUsd, ledgerFor(spendLedger(values), name, profile.value)),
           routes,
           log: (m) => console.error(m),
         });
@@ -719,7 +757,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         : []),
     ];
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const estimateUsd = perCall.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
       const plan = {
         kind: "sheet",
@@ -735,7 +773,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         `forecast ${usd(estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
-      return dryRunOutcome(plan, human, ledger.forProfile(profile.value));
+      return dryRunOutcome(plan, human, ledger.forProfile(profile.value), providerName);
     }
     const { provider, name } = await providerFor(values);
     let generated: Awaited<ReturnType<typeof generateSheet>>;
@@ -974,7 +1012,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
       if (spec.gait !== undefined) t.gait = spec.gait;
     }
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const plan = await planAnimationQa(targets, routes, capUsd, vision);
       const human = [
         `dry run: ${targets.length} strip(s), ${plan.calls} planned vision call(s), nothing spent`,
@@ -986,7 +1024,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
       const ledger = targets.reduce((l, t) => l.forProfile(t.profile), spendLedger(values));
-      return dryRunOutcome(plan, human, ledger);
+      return dryRunOutcome(plan, human, ledger, providerName);
     }
     const outDir = resolve((values["out"] as string | undefined) ?? ".assetforge/animation");
     const { results, spentUsd } = await runAnimationQa({
@@ -1092,7 +1130,7 @@ limits, and needs no key.`,
       ...(spec.gait !== undefined && { gait: spec.gait }),
     });
     if (values["dry-run"]) {
-      if (values["provider-script"]) await loadScript(values["provider-script"] as string);
+      const providerName = await dryRunProvider(values);
       const plan = planFrameFix(routes, capUsd);
       const human = [
         `dry run: fix frame ${index}, ${plan.calls} planned call(s), nothing spent`,
@@ -1100,7 +1138,12 @@ limits, and needs no key.`,
         `forecast ${usd(plan.estimateUsd)} against a $${capUsd.toFixed(2)} cap` +
           (plan.withinCap ? "" : " (over the cap)"),
       ].join("\n");
-      return dryRunOutcome(plan, human, spendLedger(values).forProfile(profile.value));
+      return dryRunOutcome(
+        plan,
+        human,
+        spendLedger(values).forProfile(profile.value),
+        providerName,
+      );
     }
     const bible =
       typeof values["bible"] === "string"
@@ -1310,13 +1353,13 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
         withinCap: estimateUsd <= capUsd + 1e-9,
       };
       const human = `dry run: materials, ${plan.calls} planned call(s), nothing spent\nforecast ${usd(estimateUsd)} against a $${capUsd.toFixed(2)} cap`;
-      return dryRunOutcome(plan, human, ledger);
+      return dryRunOutcome(plan, human, ledger, await dryRunProvider(values));
     }
     const { provider, name } = await providerFor(values);
     const call = new Caller({
       provider,
       providerName: name,
-      budget: new Budget(capUsd, ledger),
+      budget: new Budget(capUsd, ledgerFor(ledger, name)),
       routes,
     });
     const result = await runMaterials({
@@ -1341,12 +1384,10 @@ unapproved. Model calls reserve against --cap. See docs/materials.md.`,
 async function planningContext(values: Values): Promise<ToolContext> {
   const ledger = spendLedger(values);
   const scriptPath = values["provider-script"] as string | undefined;
-  if (scriptPath)
-    return {
-      provider: new ScriptedProvider(await loadScript(scriptPath)),
-      providerName: "scripted",
-      ledger,
-    };
+  if (scriptPath) {
+    const { provider, name } = scriptedProvider(await loadScript(scriptPath));
+    return { provider, providerName: name, ledger };
+  }
   if (process.env["AI_GATEWAY_API_KEY"])
     return { provider: gatewayProvider(), providerName: "vercel-ai-gateway", ledger };
   return { ledger };

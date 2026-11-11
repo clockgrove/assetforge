@@ -82,7 +82,7 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 ## Spend limits
 
-`--cap` bounds one run. Every paid call is also recorded in a spend ledger shared by every run on the machine (or in the CI job), and refused (exit 3) before it is made when it would cross a daily limit or the limit of its work item. `--dry-run` shows the spend left under each.
+`--cap` bounds one run. Every paid call (not scripted ones, `--provider-script`) is also recorded in a spend ledger shared by every run on the machine (or in the CI job), and refused (exit 3) before it is made when it would cross a daily limit or the limit of its work item. `--dry-run` shows the spend left under each.
 
 | Variable                         | Default                                                         |
 | -------------------------------- | --------------------------------------------------------------- |

@@ -36,6 +36,11 @@ export interface Script {
   rig?(request: RigRequest, index: number): Scripted<ModelResult>;
   /** Answers clip retargeting calls. */
   animate?(request: AnimateRequest, index: number): Scripted<ModelResult>;
+  /**
+   * Test only: the CLI runs this script under the provider name `scripted-paid`, whose calls count
+   * as paid spend in the cross-run ledger, so tests can prove the limits offline.
+   */
+  paid?: boolean;
 }
 
 type Scripted<T extends { requestId: string }> = Omit<T, "requestId"> & { requestId?: string };

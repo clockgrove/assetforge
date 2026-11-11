@@ -70,7 +70,7 @@ for the brief, run settings and versioned target template formats.
 ## Environment and network
 
 - Reads `AI_GATEWAY_API_KEY` (Vercel AI Gateway key), from the environment only. Not needed for `--dry-run` or `--provider-script`.
-- Records every paid call in a spend ledger shared across runs (`ASSETFORGE_SPEND_LEDGER`, default `~/.local/state/assetforge/spend.jsonl`) and refuses a call (exit 3) that would cross the daily limit (`ASSETFORGE_DAILY_LIMIT_USD`, default $10) or the work item's limit (`ASSETFORGE_WORK_ITEM_LIMIT_USD`, default $5). Name your work item with `ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective. `--dry-run` shows the spend left under each. Never raise a limit yourself; ask the human.
+- Records every paid call in a spend ledger shared across runs (`ASSETFORGE_SPEND_LEDGER`, default `~/.local/state/assetforge/spend.jsonl`) and refuses a call (exit 3) that would cross the daily limit (`ASSETFORGE_DAILY_LIMIT_USD`, default $10) or the work item's limit (`ASSETFORGE_WORK_ITEM_LIMIT_USD`, default $5). Name your work item with `ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective. `--dry-run` shows the spend left under each. Scripted runs (`--provider-script`) are not counted or refused by these limits; their `--cap` still applies. Never raise a limit yourself; ask the human.
 - Reaches only `ai-gateway.vercel.sh` (HTTPS), and only for `plan`, `apply`, `stage`, `generate-sheet` and `import` (without `--no-propose`), or their MCP equivalents, never with `--dry-run` or `--provider-script`. `pick` and `write-families` run the target profile's own validator command locally. A sandbox can allow just that host.
 
 ## The rule (PRD section 5.7)

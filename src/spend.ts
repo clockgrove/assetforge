@@ -16,11 +16,35 @@ import type { TargetProfile } from "./types.ts";
  * against the entries before it in the file, so concurrent runs are ordered by their appends and
  * can never both fit into the same remaining spend; a reservation that does not fit is cancelled
  * (settled at 0) and the call is refused. A reservation never settled (a crashed run) keeps its
- * estimate, as a failed call does in `Budget`.
+ * estimate, as a failed call does in `Budget`. Scripted calls cost nothing and are never recorded
+ * (`isPaidProvider`).
  */
 
 export const DEFAULT_DAILY_LIMIT_USD = 10;
 export const DEFAULT_WORK_ITEM_LIMIT_USD = 5;
+
+/** The provider name whose calls cost no money: the scripted provider of tests and offline runs. */
+export const UNPAID_PROVIDER = "scripted";
+
+/**
+ * Whether a provider's calls are real spend, decided on its name alone. Every name but the
+ * scripted provider's is paid, and an unknown provider (undefined) counts as paid.
+ */
+export function isPaidProvider(providerName: string | undefined): boolean {
+  return providerName !== UNPAID_PROVIDER;
+}
+
+/**
+ * The ledger a run with this provider reserves against, with the profile's limits: none for the
+ * scripted provider, whose runs keep only their own cap.
+ */
+export function ledgerFor(
+  ledger: SpendLedger | undefined,
+  providerName: string | undefined,
+  profile?: Pick<TargetProfile, "spend">,
+): SpendLedger | undefined {
+  return isPaidProvider(providerName) ? ledger?.forProfile(profile) : undefined;
+}
 const DAY_MS = 24 * 60 * 60 * 1000;
 const EPSILON = 1e-9;
 

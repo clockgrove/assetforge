@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Budget } from "./budget.ts";
+import { ledgerFor } from "./spend.ts";
 import type { SpendLedger } from "./spend.ts";
 import { Caller } from "./calls.ts";
 import { InputError, ProviderError } from "./errors.ts";
@@ -606,7 +607,10 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
       settings.qaRoute.estimatedCostUsd +
       (identityCheck?.route.estimatedCostUsd ?? 0));
   const compilerEstimate = options.provider ? settings.llmRoute.estimatedCostUsd : 0;
-  const budget = new Budget(settings.capUsd, options.ledger?.forProfile(options.profile));
+  const budget = new Budget(
+    settings.capUsd,
+    ledgerFor(options.ledger, options.providerName, options.profile),
+  );
   budget.check(generationUsd + compilerEstimate, "planned compiler and generation calls");
   const caller = options.provider
     ? new Caller({
@@ -831,7 +835,10 @@ export async function applyPlan(
     throw new InputError(
       "plan is not approved; record human approval in approved or use --auto-approve for unattended generation",
     );
-  const budget = new Budget(plan.settings.capUsd, options.ledger?.forProfile(plan.profile));
+  const budget = new Budget(
+    plan.settings.capUsd,
+    ledgerFor(options.ledger, options.providerName, plan.profile),
+  );
   // The compilation was spent (and recorded in any ledger) when the plan was made.
   budget.addPrior(plan.compiler.spentUsd, "prior prompt compilation");
   budget.check(plan.forecast.generationUsd, "planned generation");

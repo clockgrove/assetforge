@@ -1,5 +1,6 @@
 import type { Budget } from "./budget.ts";
 import { InputError, ProviderError } from "./errors.ts";
+import { isPaidProvider } from "./spend.ts";
 import type {
   DecisionQuestion,
   DecisionResult,
@@ -60,7 +61,10 @@ export class Caller {
     const reservation = this.budget.reserve(
       route.estimatedCostUsd,
       `the ${operation} call`,
-      `${this.providerName}:${operation}:${route.model}`,
+      // Scripted calls cost nothing: they never reach the cross-run ledger.
+      isPaidProvider(this.providerName)
+        ? `${this.providerName}:${operation}:${route.model}`
+        : undefined,
     );
     const startedAt = this.now().toISOString();
     let result: T;

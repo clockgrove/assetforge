@@ -6,6 +6,7 @@
 import { InputError } from "../errors.ts";
 import type { PlannedCall } from "../generators/generator.ts";
 import { Budget } from "../budget.ts";
+import { ledgerFor } from "../spend.ts";
 import type { SpendLedger } from "../spend.ts";
 import { Caller } from "../calls.ts";
 import type { GenerationProvider } from "../gateway/provider.ts";
@@ -182,7 +183,7 @@ export async function generateSheet(
   const plan = planSheet(spec, profile, routes);
   const grid = frameGrid(spec, profile, 1);
   const capUsd = options.capUsd ?? DEFAULT_CAP_USD;
-  const budget = new Budget(capUsd, options.ledger?.forProfile(profile));
+  const budget = new Budget(capUsd, ledgerFor(options.ledger, options.providerName, profile));
   const scoring = options.identity !== undefined && options.identity.settings.mode !== "off";
   const estimate =
     plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0) +

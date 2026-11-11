@@ -58,11 +58,12 @@ export class Budget {
 
   /**
    * Throws `BudgetExceededError` when the amount does not fit beside what is spent and reserved,
-   * or would cross a ledger limit; `route` names the call in the ledger.
+   * or would cross a ledger limit. Only a paid call names its `route`, and only a call with a
+   * route is reserved in the ledger; a scripted call reserves against the run's cap alone.
    */
-  reserve(amountUsd: number, what = "the call", route = what): Reservation {
+  reserve(amountUsd: number, what = "the call", route?: string): Reservation {
     this.fitCap(amountUsd, what);
-    const ledgerId = this.ledger?.reserve(amountUsd, what, route);
+    const ledgerId = route === undefined ? undefined : this.ledger?.reserve(amountUsd, what, route);
     this.reserved += amountUsd;
     return { amountUsd, settled: false, ...(ledgerId !== undefined && { ledgerId }) };
   }

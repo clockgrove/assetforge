@@ -11,6 +11,7 @@ import type { DigitalSourceType } from "./metadata.ts";
 import { decodeImage } from "./image/raster.ts";
 import { pixelHash } from "./transform/run.ts";
 import { Budget, BudgetExceededError } from "./budget.ts";
+import { ledgerFor } from "./spend.ts";
 import type { SpendLedger } from "./spend.ts";
 import { Caller } from "./calls.ts";
 import { InputError } from "./errors.ts";
@@ -208,7 +209,7 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
   const { requested, capUsd, estimateUsd } = plan;
   const generator = options.generators.find((g) => g.kind === spec.kind) as Generator;
 
-  const budget = new Budget(capUsd, options.ledger?.forProfile(profile));
+  const budget = new Budget(capUsd, ledgerFor(options.ledger, options.providerName, profile));
   // The run-level check: refuse the whole run, before any call, if it would exceed the cap or
   // cross a spend ledger limit.
   budget.check(estimateUsd, `a run of ${requested} candidates`);

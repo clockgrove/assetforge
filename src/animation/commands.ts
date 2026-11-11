@@ -5,6 +5,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { Budget } from "../budget.ts";
+import { ledgerFor } from "../spend.ts";
 import type { SpendLedger } from "../spend.ts";
 import { Caller } from "../calls.ts";
 import { InputError } from "../errors.ts";
@@ -202,7 +203,7 @@ export async function runAnimationQa(options: {
   const plan = await planAnimationQa(options.targets, options.routes, options.capUsd, vision);
   const ledger = options.targets.reduce<SpendLedger | undefined>(
     (l, t) => l?.forProfile(t.profile),
-    options.ledger,
+    ledgerFor(options.ledger, options.provider?.name),
   );
   const budget = new Budget(options.capUsd, ledger);
   // Refuse up front when the whole run would not fit, before any provider call.
@@ -327,7 +328,10 @@ export async function runFixFrame(options: {
     "keyPose" in options.from
       ? await loadReference(options.from.keyPose, "approved key pose", process.cwd())
       : undefined;
-  const budget = new Budget(options.capUsd, options.ledger?.forProfile(target.profile));
+  const budget = new Budget(
+    options.capUsd,
+    ledgerFor(options.ledger, options.provider.name, target.profile),
+  );
   const call = new Caller({
     provider: options.provider.provider,
     providerName: options.provider.name,

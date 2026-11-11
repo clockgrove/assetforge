@@ -117,7 +117,9 @@ A call or run that would cross either limit is refused before any provider call 
 | `ASSETFORGE_DAILY_LIMIT_USD`     | The daily limit in USD                                                     | $10                                                                                    |
 | `ASSETFORGE_WORK_ITEM_LIMIT_USD` | The limit per work item in USD                                             | $5                                                                                     |
 
-When both the environment and the target profile's `spend` set a limit, the stricter applies; when neither does, the default does, so a run is never uncapped. An invalid value is invalid input (exit 2). The ledger is append-only JSON Lines; concurrent runs order their reservations by their appends and never reserve past a limit together. A reservation never settled (a run that crashed) keeps its estimate. Scripted runs (`--provider-script`) record their scripted costs too: point `ASSETFORGE_SPEND_LEDGER` at a scratch file for offline runs that should not count. The ledger holds no keys or prompts.
+When both the environment and the target profile's `spend` set a limit, the stricter applies; when neither does, the default does, so a run is never uncapped. An invalid value is invalid input (exit 2). The ledger is append-only JSON Lines; concurrent runs order their reservations by their appends and never reserve past a limit together. A reservation never settled (a run that crashed) keeps its estimate. The ledger holds no keys or prompts.
+
+Scripted runs (`--provider-script`) are not real spend, so they are excluded: their calls are never written to the ledger and the limits never refuse them, while the run's own `--cap` applies as before. A dry run with a script still prints the limits, with `spend.counted` false. The rule is structural: the provider named `scripted` is unpaid and every other provider name is paid. Tests that prove the limits offline use a script that exports `paid: true`, which the CLI runs under the paid name `scripted-paid`.
 
 ## Relightable materials
 
