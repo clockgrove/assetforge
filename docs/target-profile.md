@@ -87,7 +87,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 }
 ```
 
-An optional `identity` object configures identity lock scoring: `mode` (`shadow`, the default, scores without filtering; `enforce` filters candidates below the threshold; `off`), `threshold` (0 to 1, default 0.68, chosen from eval data; see [decisions.md](decisions.md)) and `question` (`score` or `boolean`). See [generation-knobs.md](generation-knobs.md#identity-lock-scoring).
+An optional `identity` object configures identity lock scoring: `mode` (`shadow`, the default, scores without filtering; `enforce` filters candidates below the threshold; `off`), `threshold` (0 to 1, default 0.74, chosen from eval data; see [decisions.md](decisions.md)) and `question` (`score` or `boolean`). See [generation-knobs.md](generation-knobs.md#identity-lock-scoring).
 
 This example follows the public manifest shape in Clockgrove's `packages/assets/docs/pipeline.md`; The paths are illustrative. Raccoon World's real profile and layout live in clockgrove/raccoon-world (raccoon-world#2); Clockgrove's validator support for external worlds is clockgrove/clockgrove#61.
 
