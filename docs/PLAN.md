@@ -30,7 +30,7 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Outcome:** animation that holds together on one rig, and Raccoon World's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
 
 **Objectives:**
-- Clips for idle, walk, sniff, eat, play and shelter on Stevie's rig, with loop and foot-contact QA on rendered frames. First: a custom quadruped idle, since Tripo's clip library has none (Kirk, 2026-11-10); custom clips only where the library has nothing close.
+- A shared raccoon rig and generated gait (assetforge#84): one skeleton template fitted to every raccoon, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom (Kirk, 2026-11-10).
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
 - Character look-dev (assetforge#82): a painted albedo in the bible's style, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
 - Juniper, a kit and Jimothy as rigged models from their approved references.

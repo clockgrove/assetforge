@@ -19,6 +19,10 @@ Raccoon World's characters are rigged models in Clockgrove's live renderer, with
 
 Wave 0 proves the loop with a walk clip: Tripo's clip library has no quadruped idle, so `idle` is reported missing rather than faked. A custom quadruped idle is the first item of wave 1 (Kirk, 2026-11-10). Animation is the provider's auto-rig plus its clip library, retargeted per family; custom clips only where the library has nothing close (Kirk, 2026-11-10).
 
+## Shared rig and generated gait (Kirk, 2026-11-10)
+
+Characters of one kind share a skeleton template fitted to each model, and their locomotion is generated from a gait profile the target declares, with foot-contact, joint-limit and skinning QA (assetforge#84). This replaces the provider's auto-rig plus clip library for any kind whose target declares a template. The trigger was Kirk's read of wave 0's picked Stevie (c3): Tripo's library walk is dog-like, with raised hind ankles, front wrists that fold and pinched ankles. Real raccoon kits, in his porch footage (clockgrove/raccoon-world `references/stevie/gait-reference/`, frames only, never the clip), walk plantigrade, with flat hand-like front paws, a hunched back and a low swaying tail.
+
 ## Animation (owner, 2026-11-07)
 
 Key pose first, then each frame a reference-guided edit of it. The key pose is approved by the author before any frame is edited: a sprite-strip spec must name it as `keyPose`, and Assetforge refuses a strip spec without one before any spend. The approved path is two runs: stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. Video-to-frames comes later as another generator.
