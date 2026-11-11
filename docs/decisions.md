@@ -17,6 +17,8 @@ Chosen so the first adopter, Clockgrove (Node 24, pnpm, TypeScript), runs Assetf
 
 Raccoon World's characters are rigged models in Clockgrove's live renderer, with an animation clip per family. Not 3D rendered to sprites, and not 2D sprites. Zoom, lighting and camera come from the renderer, and a new animation is a clip on the same rig rather than new art. Assetforge's waves 0 and 1 moved to 3D characters. The 2D path (sheet generation and import, transformation core, loop QA, identity lock v1) stays for props, terrain, effects, UI and targets that use sprites. The first 2D shelter run (clockgrove/raccoon-world PR #21) is kept as the record of the 2D try. A 3D asset ships only under an output grant the target accepts (assetforge#47): Meshy's free-plan CC BY 4.0 output is accepted by Raccoon World with its credit line, while non-commercial or provider-retained output is refused.
 
+Wave 0 proves the loop with a walk clip: Tripo's clip library has no quadruped idle, so `idle` is reported missing rather than faked. A custom quadruped idle is the first item of wave 1 (Kirk, 2026-11-10). Animation is the provider's auto-rig plus its clip library, retargeted per family; custom clips only where the library has nothing close (Kirk, 2026-11-10).
+
 ## Animation (owner, 2026-11-07)
 
 Key pose first, then each frame a reference-guided edit of it. The key pose is approved by the author before any frame is edited: a sprite-strip spec must name it as `keyPose`, and Assetforge refuses a strip spec without one before any spend. The approved path is two runs: stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. Video-to-frames comes later as another generator.

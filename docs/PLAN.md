@@ -11,14 +11,14 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md](decisions.md)), so the first loop is a character model, not a sprite strip.
 
-**Outcome:** one character end to end in real-time 3D. Stevie's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against his identity lock. A person picks one, and the pick, rigged and with an idle clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
+**Outcome:** one character end to end in real-time 3D. Stevie's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against his identity lock. A person picks one, and the pick, rigged and with a walk clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
 
 **Objectives:**
-- Assetforge: image-to-3D characters. Generation from the approved turnaround, a rig, an idle clip, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetforge#47).
+- Assetforge: image-to-3D characters (assetforge#72, merged). Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetforge#47).
 - clockgrove/raccoon-world: a target profile that declares 3D characters, and Stevie's spec.
 - clockgrove/clockgrove: the live renderer shows a world's rigged characters through its world-content extension point (clockgrove/clockgrove#112).
 
-**Exit:** a rigged Stevie `.glb` with an idle clip, made by Assetforge:
+**Exit:** a rigged Stevie `.glb` with a walk clip, made by Assetforge:
 - the target validator accepts it on the first try;
 - it costs at most $5 for 4 candidates;
 - it has complete provenance, including the provider's output grant;
@@ -30,7 +30,7 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Outcome:** animation that holds together on one rig, and Raccoon World's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
 
 **Objectives:**
-- Clips for idle, walk, sniff, eat, play and shelter on Stevie's rig, with loop and foot-contact QA on rendered frames.
+- Clips for idle, walk, sniff, eat, play and shelter on Stevie's rig, with loop and foot-contact QA on rendered frames. First: a custom quadruped idle, since Tripo's clip library has none (Kirk, 2026-11-10); custom clips only where the library has nothing close.
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
 - Juniper, a kit and Jimothy as rigged models from their approved references.
 - Raccoon World: the cast approved and committed to clockgrove/raccoon-world.
