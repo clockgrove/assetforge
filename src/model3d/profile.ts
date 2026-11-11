@@ -31,6 +31,14 @@ export interface Model3dProfile {
    * degrees, and the largest joint translation as a fraction of the model's height.
    */
   loopTolerance?: { rotationDeg?: number; translationFraction?: number };
+  /**
+   * A skeleton template for this kind of character (assetforge#84). When set, Assetforge fits the
+   * template and generates the clips that `gaits` declares instead of the provider's auto-rig and
+   * clip library.
+   */
+  rig?: import("./rig/template.ts").RigProfile;
+  /** Gait profiles per clip family, for example `walk` (assetforge#84). */
+  gaits?: Record<string, import("./rig/template.ts").GaitProfile>;
 }
 
 export interface ResolvedModel3d {

@@ -403,6 +403,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       bible: bible.value,
       bibleDir: bible.dir,
       profile: profile.value,
+      profileDir: profile.dir,
       routes,
       ...(scripted
         ? { provider: scripted.provider, providerName: scripted.name }

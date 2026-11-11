@@ -40,6 +40,8 @@ export interface StageOptions {
   bible: StyleBible;
   bibleDir: string;
   profile: TargetProfile;
+  /** Directory the profile's relative paths resolve against (the profile file's directory). */
+  profileDir?: string;
   routes: Routes;
   provider: GenerationProvider;
   /** Recorded in each call's route, for example `vercel-ai-gateway`. */
@@ -258,6 +260,7 @@ export async function stage(options: StageOptions): Promise<{ run: RunRecord; ru
         call,
         index,
         seed,
+        ...(options.profileDir !== undefined && { profileDir: options.profileDir }),
       });
       const id = `c${index + 1}`;
       const artifacts: string[] = [];
