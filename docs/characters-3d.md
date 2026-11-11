@@ -203,9 +203,9 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 ### What the rig does
 
-1. **Fit.** The model is normalised as above and baked at its rest pose. Its own skins, joints and clips are dropped; its materials and textures are kept. The template's rest positions are scaled by body length. Each foot first goes to its ground contact on the mesh: the centroid of the ground-contact vertices (within 0.03 body lengths of the lowest) nearest that foot's template contact, searched within 0.15 body lengths. The template contact is the point between ankle and toe for a plantigrade foot, and the toe for a digitigrade one. The ankle and toe move by the whole offset and the knee or elbow by half; the hip or shoulder stays put. Across the foot (x) the offset is applied in full; along it (z), only beyond 0.02 body lengths. A posed scan with a splayed foot is fitted to where the foot actually is. Each joint then moves to the centre of the mesh around it, at most 0.04 body lengths, and only across its bones, so a joint at a corner such as an ankle re-centres sideways.
+1. **Fit.** The model is normalised as above and baked at its rest pose. Its own skins, joints and clips are dropped; its materials and textures are kept. The template's rest positions are scaled by body length. Each foot first goes to its ground contact on the mesh: the centroid of the ground-contact vertices (within 0.03 body lengths of the lowest) nearest that foot's template contact, searched within 0.15 body lengths. The template contact is the point between ankle and toe for a plantigrade foot, and the toe for a digitigrade one. The ankle and toe move by the whole offset and the knee or elbow by half; the hip or shoulder stays put. Across the foot (x) the offset is applied in full; along it (z), only beyond 0.02 body lengths. A posed scan with a splayed foot is fitted to where the foot actually is. A plantigrade foot whose heel rests raised (its underside's heel end more than 0.02 body lengths above its toe end, sampled on the mesh's surface across the footprint) touches the ground only at its toe, so it is placed by its underside instead: along the foot by the underside's middle, and its ankle and toe stand as far above the underside as the template has them above the ground, so the ankle sits in the mesh's heel. Each joint then moves to the centre of the mesh around it, at most 0.04 body lengths, and only across its bones, so a joint at a corner such as an ankle re-centres sideways.
 2. **Skin.** Smooth weights:
-   - inverse distance (to the 4th power) to each bone;
+   - inverse distance (to the 4th power) to each bone; a plantigrade foot's bone starts 0.35 of its length behind the ankle, so the heel moves with the foot rather than the shin;
    - four rounds of averaging across the mesh, with vertices welded by position;
    - the four largest weights, normalised.
 
@@ -213,14 +213,16 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 3. **Generate.** Each clip is deterministic and in place, keyed at 30 frames per second, and its last key is its first. The body carries the profile's arch, head, tail, hip sway and a small bob. Each leg is solved by two-bone inverse kinematics, bending in its rest-pose plane:
    - The body stands as high as the shortest leg of each pair reaches at the ends of its stance, so every foot can reach the ground.
-   - In stance, the foot is planted on the ground line. Its sole (the lowest of the vertices the ankle and toe carry) touches y = 0, and it moves back at exactly the clip's speed. A plantigrade foot is flat.
+   - In stance, the foot is planted on the ground line. Its sole (the lowest of the vertices the ankle and toe carry, and for a plantigrade foot also the lowest along its whole length, heel to toe) touches y = 0, and it moves back at exactly the clip's speed. A plantigrade foot is flat: its underside, heel end to toe end, is turned level.
+   - The sole is placed as skinned, not as a rigid foot: each frame, each ankle target is corrected until the skinned sole meets the ground line (or the swing's height), and a plantigrade stance foot is turned until its skinned heel end is level with its toe end. So a heel that the shin carries in part does not lift, and a toe does not sink, as the leg swings back.
    - In the swing, the foot lifts and swings forward, and the paw curls down by `swingCurlDeg`.
-4. **QA**, recorded per clip, on the written file's deformed mesh at 24 frames per cycle:
-   - `contact-<clip>`: in stance, each foot's sole is within `contactBodyLengths` of the ground (neither floating nor sinking). It slides no more than `slideBodyLengths` in the ground frame that moves at the clip's speed. A plantigrade heel sits no more than `heelBodyLengths` above its toe.
+4. **QA**, recorded per clip, on the written file's deformed mesh at 24 frames per cycle (more when a low duty factor would leave a foot fewer than four stance frames):
+   - `contact-<clip>`: in stance, each foot's sole is within `contactBodyLengths` of the ground (neither floating nor sinking). It slides no more than `slideBodyLengths` in the ground frame that moves at the clip's speed. A plantigrade heel sits no more than `heelBodyLengths` above its toe, measured on the deformed sole: the lowest vertex of its heel end (the rear third of the sole) above the lowest of its toe end (the front third). The reason also gives the heel's height above the toe at rest. A foot with fewer than two stance frames to measure fails.
    - `joint-limits-<clip>`: no joint leaves its `limits`. A weight-bearing ankle or wrist stays within its `stanceLimits` while its foot is down. In the swing only `limits` apply, so a front wrist may curl the paw down. Each failing joint is reported at its worst frame.
    - `skinning-<clip>`: at each knee or elbow and ankle or wrist, the skin's mean distance from the joint's two bones stays at least `minGirthRatio` of its rest value. A lower value means volume is collapsing at the bend.
    - `clip-<clip>` and `loop-<clip>`, as for library clips.
-   - `turntable`, as above, plus `<clip>-side.png`, 8 side-view frames of each clip. When the gait has `reference` frames, `<clip>-vs-reference.png` shows those frames under the clip's.
+   - `turntable`, as above, plus `<clip>-side.png`, 8 side-view frames of each clip. When the gait has `reference` frames, `<clip>-vs-reference.png` shows those frames under the clip's. A declared `reference` that cannot be read, or holds no frame that decodes, fails `reference-<clip>` with the reason.
+   - `compare-<clip>`, when the source model carries its own clip of the family (a provider's library walk): both clips measured the same way on the deformed sole, on the frames each foot is down. It gives the spread of the feet's ground lines and each plantigrade foot's heel above its toe, mean and worst. It is recorded beside QA (`shadow`) and never filters.
 
    A failing check filters the candidate, and its renders are kept.
 
@@ -232,7 +234,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
    - the QA tolerances;
    - the fit.
 
-   They also record `targetProfileSha256`. A `rig` run keeps the source's provenance, with its calls, cost and output grant, and adds `parameters.rerig` and a `rig-generated-gait` step. That step's input is the source model's hash and its output is the re-rigged model's hash.
+   They also record `targetProfileSha256`. A `rig` run keeps the source's provenance, with its calls, cost and output grant, and adds `parameters.rerig` (`sourceModel`, the source file's name only, and `sourceModelSha256`) and a `rig-generated-gait` step. That step's input is the source model's hash and its output is the re-rigged model's hash.
 
 ## Spend
 

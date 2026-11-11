@@ -14,10 +14,18 @@ import type { Glb } from "../glb.ts";
 import { renderView } from "../render.ts";
 import { boundsOf, posedPrimitives, samplePose } from "../scene.ts";
 import { buildRiggedGlb } from "./build.ts";
-import { bakeMesh, fitSkeleton, skinWeights, soles } from "./fit.ts";
+import { bakeMesh, fitSkeleton, skinWeights, soleEnds, soles } from "./fit.ts";
 import { generateGait } from "./gait.ts";
 import type { GeneratedClip } from "./gait.ts";
-import { contactCheck, jointLimitCheck, sampleClip, skinningCheck } from "./qa.ts";
+import {
+  comparisonCheck,
+  contactCheck,
+  jointLimitCheck,
+  qaSampleCount,
+  sampleClip,
+  sampleSourceClip,
+  skinningCheck,
+} from "./qa.ts";
 import type { LoadedRig } from "./template.ts";
 
 /** Side-view frames rendered per generated clip, and in its comparison with the reference. */
@@ -52,11 +60,12 @@ export async function rigCharacter(options: {
   const skeleton = fitSkeleton(rig.template, mesh);
   const skin = skinWeights(skeleton, mesh);
   const sole = soles(skeleton, mesh, skin);
+  const ends = soleEnds(skeleton, mesh, sole);
   const clips: GeneratedClip[] = [];
   const missing: RiggedCharacter["missing"] = [];
   for (const family of options.families) {
     const gait = rig.gaits[family];
-    if (gait) clips.push(generateGait(family, gait, skeleton, mesh, sole));
+    if (gait) clips.push(generateGait(family, gait, skeleton, mesh, sole, skin));
     else {
       missing.push({
         family,
@@ -69,12 +78,26 @@ export async function rigCharacter(options: {
 
   const reasons: Reason[] = [];
   clips.forEach((clip, index) => {
-    const samples = sampleClip(glb, index, clip, skeleton, options.yaw);
+    const samples = sampleClip(
+      glb,
+      index,
+      clip,
+      skeleton,
+      options.yaw,
+      qaSampleCount(clip.dutyFactor),
+    );
     reasons.push(
-      contactCheck(clip.family, samples, clip, skeleton, sole, rig.qa),
+      contactCheck(clip.family, samples, clip, skeleton, sole, ends, rig.qa),
       jointLimitCheck(clip.family, samples, clip, skeleton),
       skinningCheck(clip.family, samples, skeleton, mesh, skin, rig.qa),
     );
+    // When the source carries its own clip of this family (a provider's library walk), the
+    // person also gets both measured the same way, so what the generated clip fixed is recorded.
+    const before = sampleSourceClip(options.source, clip.family, options.yaw);
+    if (before) {
+      const after = samples.map((s) => s.vertices);
+      reasons.push(comparisonCheck(clip.family, before, after, skeleton, sole, ends, rig.qa));
+    }
   });
 
   const artifacts: RiggedCharacter["artifacts"] = [];
@@ -96,11 +119,20 @@ export async function rigCharacter(options: {
       const referenceDir = rig.gaits[clip.family]?.reference;
       if (referenceDir !== undefined) {
         const references = await referenceFrames(resolve(rig.baseDir, referenceDir));
-        if (references.length > 0) {
-          const scaled = references.map((r) => toHeight(r, options.sizePx));
+        if (references.frames.length > 0) {
+          const scaled = references.frames.map((r) => toHeight(r, options.sizePx));
           artifacts.push({
             name: `${clip.family}-vs-reference.png`,
             bytes: encodePng(column([row(frames), row(scaled)])),
+          });
+        } else {
+          // A declared reference that yields nothing is not silently skipped: the person would
+          // get no comparison and nothing saying why.
+          reasons.push({
+            check: `reference-${clip.family}`,
+            passed: false,
+            reason: `model3d.gaits.${clip.family}.reference "${referenceDir}" ${references.problem}, so ${clip.family}-vs-reference.png could not be made`,
+            source: "deterministic",
           });
         }
       }
@@ -124,23 +156,34 @@ export async function rigCharacter(options: {
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
 
-/** The reference frames in a directory: PNG and JPEG files, by name. Absent directory: none. */
-export async function referenceFrames(dir: string): Promise<Raster[]> {
+/**
+ * The reference frames in a directory: PNG and JPEG files, by name. When there are none, `problem`
+ * says why (the directory cannot be read, holds no image, or none of its images decodes).
+ */
+export async function referenceFrames(
+  dir: string,
+): Promise<{ frames: Raster[]; problem?: string }> {
   let names: string[];
   try {
     names = await readdir(dir);
-  } catch {
-    return [];
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return { frames: [], problem: `cannot be read (${code ?? "unreadable"})` };
   }
-  const out: Raster[] = [];
-  for (const name of names.filter((n) => IMAGE_EXTENSIONS.has(extname(n).toLowerCase())).sort()) {
+  const images = names.filter((n) => IMAGE_EXTENSIONS.has(extname(n).toLowerCase())).sort();
+  if (images.length === 0) return { frames: [], problem: "holds no PNG or JPEG frame" };
+  const frames: Raster[] = [];
+  const undecodable: string[] = [];
+  for (const name of images) {
     try {
-      out.push(decodeImage(new Uint8Array(await readFile(join(dir, name)))));
+      frames.push(decodeImage(new Uint8Array(await readFile(join(dir, name)))));
     } catch {
-      // An undecodable file is not a frame.
+      undecodable.push(name);
     }
   }
-  return out;
+  return frames.length > 0
+    ? { frames }
+    : { frames, problem: `holds no frame that decodes (${undecodable.join(", ")})` };
 }
 
 function toHeight(src: Raster, height: number): Raster {

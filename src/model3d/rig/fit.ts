@@ -190,6 +190,84 @@ function footShifts(
   });
 }
 
+/** How high a raised heel's underside is looked for above the ground, in body lengths. */
+const UNDERSIDE_HEIGHT_BODY_LENGTHS = 0.12;
+/** Half the width of a foot's footprint, and the step along it, in body lengths. */
+const UNDERSIDE_HALF_WIDTH_BODY_LENGTHS = 0.04;
+const UNDERSIDE_STEP_BODY_LENGTHS = 0.01;
+/** How far behind the ankle and ahead of the toe the underside is looked for, in body lengths. */
+const UNDERSIDE_BEHIND_BODY_LENGTHS = 0.08;
+const UNDERSIDE_AHEAD_BODY_LENGTHS = 0.04;
+/** A heel end this much above the toe end (in body lengths) rests raised. */
+const RAISED_HEEL_BODY_LENGTHS = 0.02;
+
+/**
+ * A plantigrade foot's underside when its heel rests raised: the lowest point of each step along
+ * the foot's footprint (around the ankle and toe, below a raised heel's height), its extent along
+ * the foot and its height above the ground there. Undefined when the foot rests flat, or has no
+ * underside to measure.
+ */
+function raisedUnderside(
+  mesh: BakedMesh,
+  ankle: V3,
+  toe: V3,
+  L: number,
+  groundY: number,
+): { from: number; to: number; heightAt: (z: number) => number } | undefined {
+  const x = (ankle[0] + toe[0]) / 2;
+  const start = Math.min(ankle[2], toe[2]) - UNDERSIDE_BEHIND_BODY_LENGTHS * L;
+  const end = Math.max(ankle[2], toe[2]) + UNDERSIDE_AHEAD_BODY_LENGTHS * L;
+  const step = UNDERSIDE_STEP_BODY_LENGTHS * L;
+  const lowest = new Map<number, number>();
+  const consider = ([vx, vy, vz]: V3) => {
+    if (Math.abs(vx - x) > UNDERSIDE_HALF_WIDTH_BODY_LENGTHS * L) return;
+    if (vz < start || vz > end) return;
+    const y = vy - groundY;
+    if (y > UNDERSIDE_HEIGHT_BODY_LENGTHS * L) return;
+    const bin = Math.floor((vz - start) / step);
+    if (y < (lowest.get(bin) ?? Infinity)) lowest.set(bin, y);
+  };
+  // The surface, not only its vertices: a low-poly sole has none between heel and toe, so each
+  // triangle edge is also sampled where it crosses the middle of each step.
+  for (const prim of mesh.primitives) {
+    for (let t = 0; t + 2 < prim.indices.length; t += 3) {
+      const tri = [0, 1, 2].map((k) => vertex(mesh, prim.first + prim.indices[t + k]!));
+      for (let e = 0; e < 3; e++) {
+        const a = tri[e]!;
+        const b = tri[(e + 1) % 3]!;
+        consider(a);
+        const lo = Math.max(Math.min(a[2], b[2]), start);
+        const hi = Math.min(Math.max(a[2], b[2]), end);
+        if (hi <= lo || a[2] === b[2]) continue;
+        for (let k = Math.ceil((lo - start) / step - 0.5); start + (k + 0.5) * step <= hi; k++) {
+          const z = start + (k + 0.5) * step;
+          const u = (z - a[2]) / (b[2] - a[2]);
+          if (u < 0 || u > 1) continue;
+          consider(add(a, scale(sub(b, a), u)));
+        }
+      }
+    }
+  }
+  const points = [...lowest.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([bin, y]) => ({ z: start + (bin + 0.5) * step, y }));
+  if (points.length < 3) return undefined;
+  const from = points[0]!.z;
+  const to = points.at(-1)!.z;
+  const third = (to - from) / 3;
+  const endY = (lo: number, hi: number) =>
+    Math.min(...points.filter((p) => p.z >= lo && p.z <= hi).map((p) => p.y));
+  if (endY(from, from + third) - endY(to - third, to) <= RAISED_HEEL_BODY_LENGTHS * L) {
+    return undefined;
+  }
+  const heightAt = (z: number) => {
+    let best = points[0]!;
+    for (const p of points) if (Math.abs(p.z - z) < Math.abs(best.z - z)) best = p;
+    return best.y;
+  };
+  return { from, to, heightAt };
+}
+
 const SEARCH_BODY_LENGTHS = 0.1;
 const SLAB_BODY_LENGTHS = 0.02;
 const MAX_MOVE_BODY_LENGTHS = 0.04;
@@ -209,15 +287,27 @@ export function fitSkeleton(template: SkeletonTemplate, mesh: BakedMesh): Skelet
   const initial = template.joints.map((j) => add(origin, scale(j.rest, L)) as V3);
   // Each foot first goes to its ground contact on the mesh: the ankle and toe by the whole shift,
   // the knee (or elbow) by half, the hip (or shoulder) not at all.
-  footShifts(template, initial, index, mesh, L).forEach(([dx, dz], f) => {
-    const [, lower, ankle, toe] = template.feet[f]!.joints.map((n) => index.get(n)!);
-    for (const [j, k] of [
-      [lower!, 0.5],
-      [ankle!, 1],
-      [toe!, 1],
-    ] as const) {
-      initial[j]![0] += dx * k;
-      initial[j]![2] += dz * k;
+  let groundY = Infinity;
+  for (let v = 0; v < mesh.count; v++) groundY = Math.min(groundY, mesh.facing[v * 3 + 1]!);
+  footShifts(template, initial, index, mesh, L).forEach(([dx, shiftZ], f) => {
+    const foot = template.feet[f]!;
+    const [, lower, ankle, toe] = foot.joints.map((n) => index.get(n)!);
+    for (const j of [lower!, ankle!, toe!]) initial[j]![0] += dx * (j === lower ? 0.5 : 1);
+    // A plantigrade foot that rests with its heel raised touches the ground only at its toe, so
+    // its ground contact is not its middle: its underside, heel to toe, places it instead, and
+    // the ankle and toe stand that far above the underside, so the ankle sits in the mesh's heel.
+    const under = foot.plantigrade
+      ? raisedUnderside(mesh, initial[ankle!]!, initial[toe!]!, L, groundY)
+      : undefined;
+    let dz = shiftZ;
+    if (under) {
+      const off = (under.from + under.to) / 2 - (initial[ankle!]![2] + initial[toe!]![2]) / 2;
+      const dead = FOOT_DEAD_ZONE_BODY_LENGTHS * L;
+      dz = Math.sign(off) * Math.max(0, Math.abs(off) - dead);
+    }
+    for (const j of [lower!, ankle!, toe!]) initial[j]![2] += dz * (j === lower ? 0.5 : 1);
+    if (under) {
+      for (const j of [ankle!, toe!]) initial[j]![1] += under.heightAt(initial[j]![2]);
     }
   });
   const children = names.map((_, i) => parent.flatMap((p, c) => (p === i ? [c] : [])));
@@ -298,9 +388,17 @@ const SMOOTHING_ROUNDS = 4;
  * Smooth weights: inverse distance to each bone (power 4), then rounds of averaging across the
  * mesh with vertices welded by position, then the four largest, normalised.
  */
+/** A plantigrade foot's bone reaches this share of its length behind the ankle, to the heel. */
+const HEEL_SHARE = 0.6;
+
 export function skinWeights(skeleton: Skeleton, mesh: BakedMesh): SkinWeights {
   const J = skeleton.names.length;
-  const segments = bones(skeleton);
+  // The heel lies behind a plantigrade ankle and moves with the foot, not the shin, so the foot's
+  // bone starts behind the ankle.
+  const heels = new Set(skeleton.feet.filter((f) => f.plantigrade).map((f) => f.chain[2]));
+  const segments = bones(skeleton).map((s) =>
+    heels.has(s.joint) ? { ...s, a: sub(s.a, scale(sub(s.b, s.a), HEEL_SHARE)) } : s,
+  );
   const epsilon = 0.01 * skeleton.bodyLength;
   const dense = new Float64Array(mesh.count * J);
   for (let v = 0; v < mesh.count; v++) {
@@ -396,9 +494,23 @@ export function dominantJoint(skin: SkinWeights, v: number): number {
   return skin.joints[v * 4 + best]!;
 }
 
+/** Bins along a plantigrade foot, heel to toe, whose lowest vertices make up its underside. */
+const SOLE_BINS = 8;
+/** The share of the foot's length, at each end, whose underside is its heel or its toe. */
+const SOLE_END_SHARE = 1 / 3;
+
+/** The foot's forward direction at rest, level: ankle to toe in x-z (else +z). */
+function footForward(skeleton: Skeleton, ankle: number, toe: number): V3 {
+  const d = sub(skeleton.rest[toe]!, skeleton.rest[ankle]!);
+  const flat: V3 = [d[0], 0, d[2]];
+  return length(flat) > 1e-9 ? normalize(flat) : [0, 0, 1];
+}
+
 /**
  * Each foot's sole: of the vertices the ankle (or wrist) and toe carry at least three quarters of
- * (else those they carry most), the lowest tenth at rest, at least three. Indices into the mesh.
+ * (else those they carry most), the lowest tenth at rest, at least three. A plantigrade foot's
+ * sole also takes the lowest of the vertices they carry most along its whole length, heel to toe,
+ * so a heel that rests raised is part of the sole and is measured. Indices into the mesh.
  */
 export function soles(skeleton: Skeleton, mesh: BakedMesh, skin: SkinWeights): number[][] {
   return skeleton.feet.map((foot) => {
@@ -417,7 +529,50 @@ export function soles(skeleton: Skeleton, mesh: BakedMesh, skin: SkinWeights): n
     }
     const own = firm.length >= 3 ? firm : dominant;
     own.sort((a, b) => mesh.facing[a * 3 + 1]! - mesh.facing[b * 3 + 1]! || a - b);
-    return own.slice(0, Math.max(3, Math.ceil(own.length / 10)));
+    const lowest = own.slice(0, Math.max(3, Math.ceil(own.length / 10)));
+    if (!foot.plantigrade || dominant.length === 0) return lowest;
+    // Along the foot: the lowest tenth (at least one) of each bin, heel to toe, of the vertices
+    // the ankle and toe carry most (a heel is carried partly by the shin too).
+    dominant.sort((a, b) => mesh.facing[a * 3 + 1]! - mesh.facing[b * 3 + 1]! || a - b);
+    const forward = footForward(skeleton, ankle, toe);
+    const along = dominant.map((v) => dot(vertex(mesh, v), forward));
+    const lo = Math.min(...along);
+    const span = Math.max(...along) - lo;
+    const bins: number[][] = Array.from({ length: SOLE_BINS }, () => []);
+    dominant.forEach((v, i) => {
+      const b =
+        span > 0 ? Math.min(SOLE_BINS - 1, Math.floor(((along[i]! - lo) / span) * SOLE_BINS)) : 0;
+      bins[b]!.push(v); // `own` is sorted lowest first, so each bin is too.
+    });
+    const sole = new Set(lowest);
+    for (const bin of bins) for (const v of bin.slice(0, Math.ceil(bin.length / 10))) sole.add(v);
+    return [...sole].sort((a, b) => a - b);
+  });
+}
+
+/**
+ * A plantigrade foot's sole split into its heel end and its toe end (the rear and front third of
+ * the sole's length at rest), so a heel held above the toe can be measured on the mesh and laid
+ * flat, and how far the heel end's lowest vertex rests above the toe end's. A digitigrade foot has
+ * no ends: both are empty.
+ */
+export function soleEnds(
+  skeleton: Skeleton,
+  mesh: BakedMesh,
+  soleVertices: number[][],
+): Array<{ heel: number[]; toe: number[]; restRise: number }> {
+  return skeleton.feet.map((foot, f) => {
+    const sole = soleVertices[f]!;
+    if (!foot.plantigrade || sole.length === 0) return { heel: [], toe: [], restRise: 0 };
+    const forward = footForward(skeleton, foot.chain[2], foot.chain[3]);
+    const along = sole.map((v) => dot(vertex(mesh, v), forward));
+    const lo = Math.min(...along);
+    const hi = Math.max(...along);
+    const cut = (hi - lo) * SOLE_END_SHARE;
+    const heel = sole.filter((_, i) => along[i]! <= lo + cut);
+    const toe = sole.filter((_, i) => along[i]! >= hi - cut);
+    const lowest = (vs: number[]) => Math.min(...vs.map((v) => mesh.facing[v * 3 + 1]!));
+    return { heel, toe, restRise: heel.length && toe.length ? lowest(heel) - lowest(toe) : 0 };
   });
 }
 

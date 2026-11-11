@@ -94,7 +94,9 @@ export async function rerig(
     ...provenance.parameters,
     ...candidate.parameters,
     targetProfileSha256: profileSha256(profile),
-    rerig: { sourceModel: options.model.path, sourceModelSha256: sourceSha256 },
+    // The file name only: a local absolute path would leak into the target's public provenance,
+    // and the hash already identifies the model.
+    rerig: { sourceModel: basename(options.model.path), sourceModelSha256: sourceSha256 },
   };
   delete (parameters as Record<string, unknown>)["rigType"];
   delete (parameters as Record<string, unknown>)["loopClosedChannels"];

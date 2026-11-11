@@ -5,7 +5,7 @@
  */
 import type { Reason } from "../../types.ts";
 import type { Glb } from "../glb.ts";
-import { posedPrimitives, samplePose, worldMatrices } from "../scene.ts";
+import { clips as clipsOf, posedPrimitives, samplePose, worldMatrices } from "../scene.ts";
 import type { BakedMesh, Skeleton, SkinWeights } from "./fit.ts";
 import { dominantJoint } from "./fit.ts";
 import { footPhase } from "./gait.ts";
@@ -54,16 +54,7 @@ export function sampleClip(
     const phase = k / samples;
     const timeS = phase * clip.durationS;
     const pose = samplePose(glb, clipIndex, timeS);
-    const prims = posedPrimitives(glb, pose);
-    const count = prims.reduce((n, p) => n + p.positions.length / 3, 0);
-    const vertices = new Float64Array(count * 3);
-    let at = 0;
-    for (const p of prims) {
-      for (let i = 0; i < p.positions.length; i += 3) {
-        vertices.set(rotate(back, [p.positions[i]!, p.positions[i + 1]!, p.positions[i + 2]!]), at);
-        at += 3;
-      }
-    }
+    const vertices = facingVertices(glb, pose, yaw);
     const world = worldMatrices(glb.json, pose);
     const joints = skeleton.names.map((_, j) => {
       const m = world.get(jointNode(j))!;
@@ -79,13 +70,61 @@ export function sampleClip(
 
 const fmt = (v: number, digits = 4) => v.toFixed(digits);
 
-/** Stance feet on the ground line within tolerance, not sliding, and plantigrade heels down. */
+/** Deformed vertices in the facing frame, in baked-mesh order, for one pose of a model. */
+function facingVertices(glb: Glb, pose: ReturnType<typeof samplePose>, yaw: number): Float64Array {
+  const back = rotY(-yaw);
+  const prims = posedPrimitives(glb, pose);
+  const count = prims.reduce((n, p) => n + p.positions.length / 3, 0);
+  const vertices = new Float64Array(count * 3);
+  let at = 0;
+  for (const p of prims) {
+    for (let i = 0; i < p.positions.length; i += 3) {
+      vertices.set(rotate(back, [p.positions[i]!, p.positions[i + 1]!, p.positions[i + 2]!]), at);
+      at += 3;
+    }
+  }
+  return vertices;
+}
+
+/**
+ * The source model's own clip of a family (a provider's library walk, say), as deformed vertices
+ * over one cycle in baked-mesh order; undefined when the source has no clip of that name.
+ */
+export function sampleSourceClip(
+  source: Glb,
+  family: string,
+  yaw: number,
+  samples = QA_SAMPLES,
+): Float64Array[] | undefined {
+  const clip = clipsOf(source).find((c) => c.name === family);
+  if (!clip || !(clip.durationS > 0)) return undefined;
+  return Array.from({ length: samples }, (_, k) =>
+    facingVertices(source, samplePose(source, clip.index, (k / samples) * clip.durationS), yaw),
+  );
+}
+
+/** A foot measured on fewer stance frames than this is not measured: it fails. */
+export const MIN_STANCE_SAMPLES = 2;
+
+/** Frames per cycle so every foot has at least four stance frames inside the margins. */
+export function qaSampleCount(dutyFactor: number): number {
+  const window = dutyFactor - 2 * STANCE_MARGIN;
+  return window > 0 ? Math.max(QA_SAMPLES, Math.ceil(4 / window)) : QA_SAMPLES;
+}
+
+/**
+ * Stance feet on the ground line within tolerance, not sliding, and plantigrade heels down. The
+ * heel is measured on the deformed mesh: the lowest vertex of the sole's heel end above the lowest
+ * of its toe end (`ends`, from `soleEnds`), so a mesh heel that stays up is seen even when the
+ * joints are level.
+ */
 export function contactCheck(
   family: string,
   samples: ClipSample[],
   clip: GeneratedClip,
   skeleton: Skeleton,
   soleVertices: number[][],
+  ends: Array<{ heel: number[]; toe: number[]; restRise: number }>,
   tolerances: RigQaTolerances,
 ): Reason {
   const L = skeleton.bodyLength;
@@ -97,6 +136,16 @@ export function contactCheck(
       failures.push(`${foot.name} has no skin under its foot to measure`);
       return;
     }
+    const { heel, toe } = ends[f]!;
+    if (foot.plantigrade && (heel.length === 0 || toe.length === 0)) {
+      failures.push(`${foot.name} is plantigrade but its sole has no heel and toe end to measure`);
+      return;
+    }
+    const lowestY = (s: ClipSample, vertices: number[]) => {
+      let y = Infinity;
+      for (const v of vertices) y = Math.min(y, s.vertices[v * 3 + 1]!);
+      return y;
+    };
     let worstGround = 0;
     let worstHeel = -Infinity;
     const ground: Array<[number, number]> = [];
@@ -114,10 +163,14 @@ export function contactCheck(
       if (Math.abs(minY) > Math.abs(worstGround)) worstGround = minY;
       // In the ground frame the in-place clip moves forward at its speed since touchdown.
       ground.push([cx / sole.length, cz / sole.length + clip.speedMps * p * clip.durationS]);
-      if (foot.plantigrade) {
-        const [, , ankle, toe] = foot.chain;
-        worstHeel = Math.max(worstHeel, s.joints[ankle]![1] - s.joints[toe]![1]);
-      }
+      if (foot.plantigrade) worstHeel = Math.max(worstHeel, lowestY(s, heel) - lowestY(s, toe));
+    }
+    if (ground.length < MIN_STANCE_SAMPLES) {
+      failures.push(
+        `${foot.name} has ${ground.length} stance frame${ground.length === 1 ? "" : "s"} to measure ` +
+          `of ${samples.length} (needs ${MIN_STANCE_SAMPLES}): sample the clip more densely`,
+      );
+      return;
     }
     let slide = 0;
     for (const a of ground) {
@@ -128,7 +181,9 @@ export function contactCheck(
     const heelOk = !foot.plantigrade || worstHeel <= tolerances.heelBodyLengths * L;
     summary.push(
       `${foot.name} sole ${fmt(worstGround)} m from the ground, slides ${fmt(slide)} m` +
-        (foot.plantigrade ? `, heel ${fmt(worstHeel)} m above toe` : ""),
+        (foot.plantigrade
+          ? `, heel ${fmt(worstHeel)} m above toe (${fmt(ends[f]!.restRise)} m at rest)`
+          : ""),
     );
     if (!groundOk) {
       failures.push(
@@ -155,6 +210,89 @@ export function contactCheck(
       ? `stance feet planted on the ground line: ${summary.join("; ")}`
       : failures.join("; "),
   );
+}
+
+interface DownFoot {
+  /** Mean height of the foot's lowest sole point on the frames it is down. */
+  ground: number;
+  /** Heel end above toe end on those frames, mean and worst (plantigrade feet only). */
+  heel?: { mean: number; max: number };
+}
+
+/**
+ * Each foot on the frames it is down (its sole's lowest point within `contact` of its lowest over
+ * the cycle), measured on the deformed sole. Needs no footfall, so a clip from elsewhere (a
+ * provider's library walk) is measured the same way as a generated one.
+ */
+function downFeet(
+  frames: Float64Array[],
+  skeleton: Skeleton,
+  soleVertices: number[][],
+  ends: Array<{ heel: number[]; toe: number[] }>,
+  contact: number,
+): Array<DownFoot | undefined> {
+  const lowestY = (vertices: Float64Array, vs: number[]) => {
+    let y = Infinity;
+    for (const v of vs) y = Math.min(y, vertices[v * 3 + 1]!);
+    return y;
+  };
+  return skeleton.feet.map((foot, f) => {
+    const sole = soleVertices[f]!;
+    if (sole.length === 0 || frames.length === 0) return undefined;
+    const lows = frames.map((vertices) => lowestY(vertices, sole));
+    const floor = Math.min(...lows);
+    const down = frames.filter((_, k) => lows[k]! <= floor + contact);
+    const ground = down.reduce((sum, vertices) => sum + lowestY(vertices, sole), 0) / down.length;
+    const { heel, toe } = ends[f]!;
+    if (!foot.plantigrade || heel.length === 0 || toe.length === 0) return { ground };
+    const rises = down.map((vertices) => lowestY(vertices, heel) - lowestY(vertices, toe));
+    return {
+      ground,
+      heel: { mean: rises.reduce((a, b) => a + b, 0) / rises.length, max: Math.max(...rises) },
+    };
+  });
+}
+
+/**
+ * The source's own clip beside the generated one, measured the same way on the deformed sole:
+ * the spread of the feet's ground lines, and each plantigrade foot's heel above its toe while
+ * down. Recorded for the person beside QA (shadow), never used to filter: it shows what the
+ * generated clip changed.
+ */
+export function comparisonCheck(
+  family: string,
+  sourceFrames: Float64Array[],
+  generatedFrames: Float64Array[],
+  skeleton: Skeleton,
+  soleVertices: number[][],
+  ends: Array<{ heel: number[]; toe: number[] }>,
+  tolerances: RigQaTolerances,
+): Reason {
+  const contact = tolerances.contactBodyLengths * skeleton.bodyLength;
+  const before = downFeet(sourceFrames, skeleton, soleVertices, ends, contact);
+  const after = downFeet(generatedFrames, skeleton, soleVertices, ends, contact);
+  const spread = (feet: Array<DownFoot | undefined>) => {
+    const g = feet.flatMap((d) => (d ? [d.ground] : []));
+    return g.length ? Math.max(...g) - Math.min(...g) : 0;
+  };
+  const parts = [`ground-line spread ${fmt(spread(before))} → ${fmt(spread(after))} m`];
+  skeleton.feet.forEach((foot, f) => {
+    const b = before[f]?.heel;
+    const a = after[f]?.heel;
+    if (b && a) {
+      parts.push(
+        `${foot.name} heel above toe while down ${fmt(b.mean)} (worst ${fmt(b.max)}) → ` +
+          `${fmt(a.mean)} (worst ${fmt(a.max)}) m`,
+      );
+    }
+  });
+  return {
+    check: `compare-${family}`,
+    passed: true,
+    reason: `the source's own "${family}" → the generated one, on the deformed sole: ${parts.join("; ")}`,
+    source: "deterministic",
+    shadow: true,
+  };
 }
 
 /** The axis furthest outside its range, and by how many degrees; undefined when all are within. */

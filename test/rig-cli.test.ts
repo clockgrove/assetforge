@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { encodePng } from "../src/image/raster.ts";
@@ -306,10 +306,17 @@ test("rig re-rigs a picked model with raised heels; the walk plants them and pic
   const checks = Object.fromEntries(
     c1.reasons.map((x: { check: string; passed: boolean; reason: string }) => [x.check, x]),
   );
-  assert.match(checks["contact-walk"].reason, /hind_l .* heel 0\.0\d+ m above toe/);
+  // The model's hind heels rest raised; measured on the deformed sole, they are down in stance.
+  const heel = /hind_l sole .*?heel (-?[\d.]+) m above toe \((-?[\d.]+) m at rest\)/.exec(
+    checks["contact-walk"].reason,
+  );
+  assert.ok(heel, checks["contact-walk"].reason);
+  assert.ok(Number(heel[2]) > 0.01, `rest heel ${heel[2]} m`);
+  assert.ok(Math.abs(Number(heel[1])) < 0.005, `stance heel ${heel[1]} m`);
+  assert.equal(checks["contact-walk"].passed, true, checks["contact-walk"].reason);
   assert.equal(checks["joint-limits-walk"].passed, true, checks["joint-limits-walk"].reason);
   assert.equal(c1.provenance.parameters.rig.sourceModelSha256, sha256(bytes));
-  assert.equal(c1.provenance.parameters.rerig.sourceModel, model);
+  assert.equal(c1.provenance.parameters.rerig.sourceModel, basename(model));
   assert.equal(c1.provenance.parameters.rigType, undefined, "the provider rig is gone");
   const step = c1.provenance.steps.find((s: { op: string }) => s.op === "rig-generated-gait");
   assert.equal(step.inputs[0], sha256(bytes));

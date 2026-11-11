@@ -5,8 +5,8 @@
  * plantigrade foot) and swings forward, curling, through the rest. Deterministic: no randomness and
  * no provider call.
  */
-import type { BakedMesh, Skeleton } from "./fit.ts";
-import { bendNormal, topological } from "./fit.ts";
+import type { BakedMesh, Skeleton, SkinWeights } from "./fit.ts";
+import { bendNormal, soleEnds, topological } from "./fit.ts";
 import {
   QUAT_IDENTITY,
   add,
@@ -93,6 +93,8 @@ export function generateGait(
   skeleton: Skeleton,
   mesh: BakedMesh,
   soleVertices: number[][],
+  /** The mesh's skin: when given, each foot is planted by its skinned sole, not a rigid one. */
+  skin?: SkinWeights,
 ): GeneratedClip {
   const L = skeleton.bodyLength;
   const stride = gait.strideBodyLengths * L;
@@ -115,11 +117,15 @@ export function generateGait(
   const hipSway = gait.hipSwayDeg ?? gait.tailSwayDeg / 3;
 
   // Per foot: rest geometry and the sole relative to the ankle.
+  const ends = soleEnds(skeleton, mesh, soleVertices);
   const feet = skeleton.feet.map((foot, f) => {
     const [u, l, a, t] = foot.chain;
     const P = skeleton.rest;
-    const toeDir = sub(P[t]!, P[a]!);
-    // Plantigrade feet stand flat: the ankle-to-toe line turned level about the lateral axis.
+    // Plantigrade feet stand flat: the underside of the mesh's foot, heel end to toe end, turned
+    // level about the lateral axis, so a heel that rests raised goes down with the toe. Without a
+    // measurable underside, the ankle-to-toe line is levelled instead.
+    const line = soleLine(mesh, ends[f]!);
+    const toeDir = line ?? sub(P[t]!, P[a]!);
     const pitch =
       foot.plantigrade && toeDir[2] > 1e-9 ? Math.atan2(toeDir[1], Math.hypot(toeDir[2])) : 0;
     const base = foot.plantigrade ? rotX(pitch) : QUAT_IDENTITY;
@@ -139,6 +145,8 @@ export function generateGait(
       base,
       bend,
       sole: sole.length > 0 ? sole : [sub(P[t]!, P[a]!)],
+      /** The underside's heel and toe ends, and the distance between them, when measurable. */
+      ends: foot.plantigrade && line ? { ...ends[f]!, span: length(line) } : undefined,
       curl: rad(
         foot.pair === "fore" ? (gait.swingCurlDeg?.fore ?? 0) : (gait.swingCurlDeg?.hind ?? 0),
       ),
@@ -183,7 +191,7 @@ export function generateGait(
     const offset: V3 = [0, rootY + bob, 0];
     const body = forwardKinematics(skeleton, local, offset);
 
-    feet.forEach((leg, f) => {
+    const targets = feet.map((leg, f) => {
       const p = footPhase(phase, touchdown[f]!);
       let dz: number;
       let up = 0;
@@ -202,8 +210,10 @@ export function generateGait(
         up - lowestSole(leg.sole, footWorld),
         leg.restAnkle[2] + dz,
       ];
-
-      // Two-bone IK from the posed hip (or shoulder) to the ankle target.
+      return { footWorld, target, up, stance: p < duty };
+    });
+    // Two-bone IK from the posed hip (or shoulder) to the ankle target.
+    const solve = (leg: (typeof feet)[number], footWorld: Quat, target: V3) => {
       const hip = body.position[leg.u]!;
       const parentRotation = body.rotation[skeleton.parent[leg.u]!] ?? QUAT_IDENTITY;
       const toTarget = sub(target, hip);
@@ -237,7 +247,38 @@ export function generateGait(
       local[leg.u] = quatMul(quatConj(parentRotation), upperWorld);
       local[leg.l] = quatMul(quatConj(upperWorld), lowerWorld);
       local[leg.a] = quatMul(quatConj(lowerWorld), footWorld);
-    });
+    };
+    feet.forEach((leg, f) => solve(leg, targets[f]!.footWorld, targets[f]!.target));
+    if (skin) {
+      // The sole is skinned, not rigid: a foot's vertices are carried partly by the shin, so the
+      // posed sole is measured as skinned and each ankle target corrected until it meets the
+      // ground line (or the swing's height), so the stance foot neither sinks nor floats.
+      for (let round = 0; round < SOLE_ROUNDS; round++) {
+        const fk = forwardKinematics(skeleton, local, offset);
+        let worst = 0;
+        feet.forEach((leg, f) => {
+          const planted = targets[f]!;
+          const { target, up } = planted;
+          // A plantigrade stance foot is also turned until its skinned heel end is level with its
+          // toe end, so a heel the shin carries partly does not lift as the shin swings back.
+          let tilt = 0;
+          if (leg.ends && planted.stance) {
+            const heel = skinnedLowest(skeleton, mesh, skin, leg.ends.heel, fk);
+            const toe = skinnedLowest(skeleton, mesh, skin, leg.ends.toe, fk);
+            if (Math.abs(heel - toe) > 1e-6 * L) tilt = -Math.atan2(heel - toe, leg.ends.span);
+            // A turn about +x lowers the toe, so a heel above the toe needs a negative one.
+            planted.footWorld = quatMul(rotX(tilt), planted.footWorld);
+            worst = Math.max(worst, Math.abs(heel - toe));
+          }
+          const error = skinnedLowest(skeleton, mesh, skin, soleVertices[f]!, fk) - up;
+          worst = Math.max(worst, Math.abs(error));
+          if (Math.abs(error) <= 1e-6 * L && tilt === 0) return;
+          target[1] -= error;
+          solve(leg, planted.footWorld, target);
+        });
+        if (worst <= 1e-6 * L) break;
+      }
+    }
 
     const previous = rotations.at(-1);
     rotations.push(local.map((q, j) => sameHemisphere(previous?.[j], q)));
@@ -257,6 +298,51 @@ export function generateGait(
     touchdown,
     dutyFactor: duty,
   };
+}
+
+/**
+ * The underside's direction at rest, from the heel end's lowest vertex to the toe end's lowest
+ * vertex; undefined when either end has no vertex.
+ */
+function soleLine(mesh: BakedMesh, ends: { heel: number[]; toe: number[] }): V3 | undefined {
+  const lowest = (vertices: number[]): V3 | undefined => {
+    let best: number | undefined;
+    for (const v of vertices) {
+      if (best === undefined || mesh.facing[v * 3 + 1]! < mesh.facing[best * 3 + 1]!) best = v;
+    }
+    return best === undefined
+      ? undefined
+      : [mesh.facing[best * 3]!, mesh.facing[best * 3 + 1]!, mesh.facing[best * 3 + 2]!];
+  };
+  const heel = lowest(ends.heel);
+  const toe = lowest(ends.toe);
+  return heel && toe ? sub(toe, heel) : undefined;
+}
+
+/** Rounds of correcting each ankle target by its skinned sole's height. */
+const SOLE_ROUNDS = 8;
+
+/** The lowest of a foot's sole vertices, skinned on the posed skeleton (rest rotations are identity). */
+function skinnedLowest(
+  skeleton: Skeleton,
+  mesh: BakedMesh,
+  skin: SkinWeights,
+  sole: number[],
+  fk: Fk,
+): number {
+  let lowest = Infinity;
+  for (const v of sole) {
+    const rest: V3 = [mesh.facing[v * 3]!, mesh.facing[v * 3 + 1]!, mesh.facing[v * 3 + 2]!];
+    let y = 0;
+    for (let k = 0; k < 4; k++) {
+      const w = skin.weights[v * 4 + k]!;
+      if (w === 0) continue;
+      const j = skin.joints[v * 4 + k]!;
+      y += w * (fk.position[j]![1] + rotate(fk.rotation[j]!, sub(rest, skeleton.rest[j]!))[1]);
+    }
+    lowest = Math.min(lowest, y);
+  }
+  return sole.length > 0 ? lowest : Infinity;
 }
 
 function lowestSole(sole: V3[], footWorld: Quat): number {

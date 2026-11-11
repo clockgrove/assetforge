@@ -76,7 +76,7 @@
     {
       "check": "contact-walk",
       "passed": true,
-      "reason": "stance feet planted on the ground line: fore_l sole -0.0019 m from the ground, slides 0.0012 m, heel 0.0000 m above toe; hind_l sole 0.0008 m from the ground, slides 0.0011 m, heel 0.0000 m above toe; fore_r sole -0.0018 m from the ground, slides 0.0015 m, heel 0.0000 m above toe; hind_r sole 0.0007 m from the ground, slides 0.0003 m, heel 0.0000 m above toe",
+      "reason": "stance feet planted on the ground line: fore_l sole 0.0000 m from the ground, slides 0.0006 m, heel 0.0001 m above toe (0.0015 m at rest); hind_l sole 0.0000 m from the ground, slides 0.0010 m, heel 0.0000 m above toe (-0.0008 m at rest); fore_r sole -0.0000 m from the ground, slides 0.0003 m, heel 0.0000 m above toe (0.0022 m at rest); hind_r sole -0.0000 m from the ground, slides 0.0014 m, heel 0.0000 m above toe (-0.0017 m at rest)",
       "source": "deterministic"
     },
     {
@@ -88,8 +88,15 @@
     {
       "check": "skinning-walk",
       "passed": true,
-      "reason": "girth at bent leg joints kept at 92% of rest or more (minimum 70%)",
+      "reason": "girth at bent leg joints kept at 91% of rest or more (minimum 70%)",
       "source": "deterministic"
+    },
+    {
+      "check": "compare-walk",
+      "passed": true,
+      "reason": "the source's own \"walk\" \u2192 the generated one, on the deformed sole: ground-line spread 0.0572 \u2192 0.0000 m; fore_l heel above toe while down 0.0042 (worst 0.0055) \u2192 0.0012 (worst 0.0119) m; hind_l heel above toe while down 0.0372 (worst 0.0401) \u2192 0.0003 (worst 0.0036) m; fore_r heel above toe while down 0.0078 (worst 0.0227) \u2192 0.0013 (worst 0.0136) m; hind_r heel above toe while down 0.0384 (worst 0.0398) \u2192 0.0003 (worst 0.0041) m",
+      "source": "deterministic",
+      "shadow": true
     },
     {
       "check": "turntable",

@@ -6,11 +6,13 @@ import { parseGlb, writeGlb } from "../src/model3d/glb.ts";
 import type { Glb } from "../src/model3d/glb.ts";
 import { normalize } from "../src/model3d/scene.ts";
 import { buildRiggedGlb } from "../src/model3d/rig/build.ts";
-import { bakeMesh, fitSkeleton, skinWeights, soles } from "../src/model3d/rig/fit.ts";
-import { generateGait } from "../src/model3d/rig/gait.ts";
+import { bakeMesh, fitSkeleton, skinWeights, soleEnds, soles } from "../src/model3d/rig/fit.ts";
+import type { BakedMesh, Skeleton } from "../src/model3d/rig/fit.ts";
+import { footPhase, generateGait } from "../src/model3d/rig/gait.ts";
 import type { GeneratedClip } from "../src/model3d/rig/gait.ts";
 import { quatMul, rotX } from "../src/model3d/rig/math.ts";
 import { contactCheck, jointLimitCheck, sampleClip, skinningCheck } from "../src/model3d/rig/qa.ts";
+import type { ClipSample } from "../src/model3d/rig/qa.ts";
 import { rigCharacter } from "../src/model3d/rig/rig.ts";
 import { DEFAULT_RIG_QA, parseGait, parseTemplate } from "../src/model3d/rig/template.ts";
 import type { GaitProfile, LoadedRig, SkeletonTemplate } from "../src/model3d/rig/template.ts";
@@ -50,18 +52,24 @@ function pipeline(
   template: SkeletonTemplate,
   gait: GaitProfile,
   spoil?: (clip: GeneratedClip, names: string[]) => void,
+  samplesPerCycle?: number,
 ) {
   const source = model(options);
   const mesh = bakeMesh(source, 0);
   const skeleton = fitSkeleton(template, mesh);
   const skin = skinWeights(skeleton, mesh);
   const sole = soles(skeleton, mesh, skin);
-  const clip = generateGait("walk", gait, skeleton, mesh, sole);
+  const clip = generateGait("walk", gait, skeleton, mesh, sole, skin);
   spoil?.(clip, skeleton.names);
   const glb = parseGlb(writeGlb(buildRiggedGlb(source, mesh, skeleton, skin, [clip])));
-  const samples = sampleClip(glb, 0, clip, skeleton, 0);
+  const samples = sampleClip(glb, 0, clip, skeleton, 0, samplesPerCycle);
+  const ends = soleEnds(skeleton, mesh, sole);
   return {
-    contact: contactCheck("walk", samples, clip, skeleton, sole, DEFAULT_RIG_QA),
+    mesh,
+    skeleton,
+    clip,
+    samples,
+    contact: contactCheck("walk", samples, clip, skeleton, sole, ends, DEFAULT_RIG_QA),
     limits: jointLimitCheck("walk", samples, clip, skeleton),
     skinning: skinningCheck("walk", samples, skeleton, mesh, skin, DEFAULT_RIG_QA),
   };
@@ -227,18 +235,97 @@ test("the same profile gives two characters of a kind the same rig and motion st
   }
 });
 
+/**
+ * Measured independently of the QA's sole: the hind foot's underside on the deformed mesh, as the
+ * lowest vertex near the back of its foot box above the lowest near the front, at its worst stance
+ * frame. The foot box is found on the rest mesh by position alone (around the fitted ankle and
+ * toe, below the knee), not from the skin.
+ */
+function worstMeshHeel(
+  mesh: BakedMesh,
+  skeleton: Skeleton,
+  clip: GeneratedClip,
+  samples: ClipSample[],
+  footName: string,
+): number {
+  const L = skeleton.bodyLength;
+  const f = skeleton.feet.findIndex((foot) => foot.name === footName);
+  const [, , ankle, toe] = skeleton.feet[f]!.chain;
+  const A = skeleton.rest[ankle]!;
+  const T = skeleton.rest[toe]!;
+  const back: number[] = [];
+  const front: number[] = [];
+  for (let v = 0; v < mesh.count; v++) {
+    const [x, y, z] = [mesh.facing[v * 3]!, mesh.facing[v * 3 + 1]!, mesh.facing[v * 3 + 2]!];
+    if (Math.abs(x - A[0]) > 0.05 * L || y > 0.13 * L) continue;
+    if (z < A[2] - 0.05 * L || z > T[2] + 0.05 * L) continue;
+    if (z < A[2]) back.push(v);
+    else if (z > T[2]) front.push(v);
+  }
+  assert.ok(back.length > 0 && front.length > 0, "the foot box is found on the rest mesh");
+  const lowest = (s: ClipSample, vs: number[]) =>
+    Math.min(...vs.map((v) => s.vertices[v * 3 + 1]!));
+  let worst = -Infinity;
+  for (const s of samples) {
+    const p = footPhase(s.phase, clip.touchdown[f]!);
+    if (p < 0.05 || p > clip.dutyFactor - 0.05) continue;
+    worst = Math.max(worst, lowest(s, back) - lowest(s, front));
+  }
+  return worst / L;
+}
+
 test("raised, dog-like heels on a plantigrade template are planted flat in stance", async () => {
-  const rig = loaded(quadrupedTemplate(), walkGait());
-  const r = await rigCharacter({
-    source: model({ raisedHeels: true }, 0.45),
-    yaw: 0,
-    rig,
-    families: ["walk"],
-    sizePx: 32,
+  const r = pipeline({ raisedHeels: true }, quadrupedTemplate(), walkGait());
+  // At rest the fixture's hind heel underside is 0.06 body lengths above its toe's.
+  const rest = worstMeshHeel(
+    r.mesh,
+    r.skeleton,
+    r.clip,
+    [{ ...r.samples[0]!, phase: r.clip.touchdown[0]! + 0.3, vertices: r.mesh.facing }],
+    "hind_l",
+  );
+  assert.ok(rest > 0.05, `rest heel ${rest}`);
+  for (const foot of ["hind_l", "hind_r"]) {
+    const heel = worstMeshHeel(r.mesh, r.skeleton, r.clip, r.samples, foot);
+    assert.ok(
+      Math.abs(heel) <= DEFAULT_RIG_QA.heelBodyLengths,
+      `${foot}'s mesh heel is ${heel.toFixed(4)} body lengths above its toe in stance`,
+    );
+  }
+  assert.equal(r.contact.passed, true, r.contact.reason);
+  // The QA's figure is the deformed sole's, and agrees with the independent measure.
+  const qa = /hind_l sole .*?heel (-?\d+\.\d+) m above toe \((-?\d+\.\d+) m at rest\)/.exec(
+    r.contact.reason,
+  );
+  assert.ok(qa, r.contact.reason);
+  assert.ok(Math.abs(Number(qa[2]) / r.skeleton.bodyLength - rest) < 0.01, r.contact.reason);
+  const independent = worstMeshHeel(r.mesh, r.skeleton, r.clip, r.samples, "hind_l");
+  assert.ok(Math.abs(Number(qa[1]) / r.skeleton.bodyLength - independent) < 0.01, r.contact.reason);
+});
+
+test("contact QA sees a mesh heel that stays raised while the joint line is level", () => {
+  // The joints are posed level (ankle and toe at one height), but the fixture's heel rests raised
+  // on the mesh: undoing the generator's sole levelling leaves the mesh heel up.
+  const raised = pipeline({ raisedHeels: true }, quadrupedTemplate(), walkGait());
+  const flat = pipeline({}, quadrupedTemplate(), walkGait());
+  const r = pipeline({ raisedHeels: true }, quadrupedTemplate(), walkGait(), (clip, names) => {
+    for (const name of ["ankle_l", "ankle_r"]) {
+      const j = names.indexOf(name);
+      clip.rotations.forEach((pose, k) => {
+        // Swap the raised model's ankle pose for the flat model's, whose joint line is level.
+        pose[j] = flat.clip.rotations[k]![j]!;
+      });
+    }
   });
-  const contact = checksOf(r.reasons)["contact-walk"]!;
-  assert.equal(contact.passed, true, contact.reason);
-  assert.match(contact.reason, /hind_l sole .* heel 0\.000\d m above toe/);
+  assert.ok(raised.contact.passed, raised.contact.reason);
+  assert.equal(r.contact.passed, false, r.contact.reason);
+  assert.match(r.contact.reason, /hind_l is plantigrade but its heel stays/);
+});
+
+test("contact QA fails a foot with too few stance frames to measure", () => {
+  const r = pipeline({}, quadrupedTemplate(), walkGait(), undefined, 3);
+  assert.equal(r.contact.passed, false);
+  assert.match(r.contact.reason, /stance frames? to measure of 3 \(needs 2\)/);
 });
 
 test("contact QA fails feet that float, sink or slide", () => {
@@ -293,6 +380,21 @@ test("skinning QA fails volume collapsing at a bent joint", () => {
   });
   assert.equal(r.skinning.passed, false, r.skinning.reason);
   assert.match(r.skinning.reason, /volume collapses at knee_l/);
+});
+
+test("a declared reference that yields no frames is a failing reason, not a silent skip", async () => {
+  for (const [reference, why] of [
+    ["no-such-reference-dir", /cannot be read \(ENOENT\)/],
+    ["src/model3d/rig", /holds no PNG or JPEG frame/],
+  ] as const) {
+    const rig = loaded(quadrupedTemplate(), { ...walkGait(), reference });
+    const r = await rigCharacter({ source: model(), yaw: 0, rig, families: ["walk"], sizePx: 16 });
+    const check = checksOf(r.reasons)["reference-walk"];
+    assert.equal(check?.passed, false, reference);
+    assert.match(check!.reason, why);
+    assert.match(check!.reason, /walk-vs-reference\.png could not be made/);
+    assert.ok(!r.artifacts.some((a) => a.name === "walk-vs-reference.png"));
+  }
 });
 
 test("families without a gait profile are reported missing, not faked", async () => {
