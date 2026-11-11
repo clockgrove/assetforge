@@ -20,6 +20,8 @@ export interface GeneratorContext {
   index: number;
   /** A per-candidate seed, sent to models whose route supports seeds. */
   seed: number;
+  /** Directory the profile's relative paths (a rig template, reference frames) resolve against. */
+  profileDir?: string;
 }
 
 export interface GeneratedCandidate {

@@ -58,6 +58,7 @@ import type { ImportOptions, ImportRecord } from "./sheet/import.ts";
 import { SliceError } from "./sheet/slice.ts";
 import type { Grouping, SliceOptions } from "./sheet/types.ts";
 import type { AssetSpec, StyleBible, TargetProfile } from "./types.ts";
+import { readProvenance, rerig } from "./model3d/rig/command.ts";
 import {
   DEFAULT_FIX_CAP_USD,
   importTargets,
@@ -403,6 +404,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
       bible: bible.value,
       bibleDir: bible.dir,
       profile: profile.value,
+      profileDir: profile.dir,
       routes,
       ...(scripted
         ? { provider: scripted.provider, providerName: scripted.name }
@@ -1576,6 +1578,54 @@ hold a game's private art. See docs/generation-knobs.md.`,
   },
 };
 
+const rigCommand: Command = {
+  name: "rig",
+  summary: "re-rig a 3D character on the target's shared rig with generated gaits",
+  usage: `Usage: assetforge rig --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+                     --profile <profile.json> [--runs .assetforge/runs] [--json]
+
+Fits the target profile's skeleton template (model3d.rig) to an existing character model, such
+as a picked candidate, skins it, generates the clips its gait profiles declare (model3d.gaits)
+for the spec's clips, and checks foot contact, joint limits, skinning and loops per clip. The
+result is staged as a one-candidate run, with turntable and walk renders, that pick hands off
+as for stage. The source's provenance is carried over with the rig's hashes. No model is called
+and nothing is spent (docs/characters-3d.md).`,
+  options: {
+    model: { type: "string" },
+    provenance: { type: "string" },
+    spec: { type: "string" },
+    profile: { type: "string" },
+    runs: { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const files = required(values, ["model", "provenance", "spec", "profile"]);
+    const modelPath = files["model"] as string;
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await readFile(modelPath));
+    } catch {
+      throw new InputError(`cannot read the model ${modelPath}`);
+    }
+    const spec = await readJson<AssetSpec>(files["spec"] as string);
+    const profile = await readJson<TargetProfile>(files["profile"] as string);
+    const { run, runDir, passed } = await rerig({
+      model: { bytes, path: modelPath },
+      provenance: await readProvenance(files["provenance"] as string),
+      spec: spec.value,
+      specDir: spec.dir,
+      profile: profile.value,
+      profileDir: profile.dir,
+      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
+    });
+    const fields = { runDir, ...run };
+    const human = formatRun(run, runDir);
+    if (passed) return { exitCode: 0, fields, human };
+    return refusal("qa_found_nothing", "the re-rigged model did not pass QA", fields, human);
+  },
+};
+
 const commands: Command[] = [
   bibleCommand,
   planCommand,
@@ -1584,6 +1634,7 @@ const commands: Command[] = [
   materialsCommand,
   stageCommand,
   pickCommand,
+  rigCommand,
   importCommand,
   generateSheetCommand,
   writeFamiliesCommand,

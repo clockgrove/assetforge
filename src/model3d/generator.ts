@@ -27,6 +27,9 @@ import {
 } from "./qa.ts";
 import type { ClipPlan } from "./qa.ts";
 import { renderTurntable } from "./render.ts";
+import type { TurntableFrame } from "./render.ts";
+import { profileSha256, riggedCandidate } from "./rig/candidate.ts";
+import { declaresRig, loadRig, rigProfileOf } from "./rig/template.ts";
 import {
   clips,
   closeLoop,
@@ -183,8 +186,13 @@ export const character3dGenerator: Generator = {
       calls.push({ operation, model: route.model, estimatedCostUsd: route.estimatedCostUsd });
     };
     add(MODEL_OPERATION);
-    add(RIG_OPERATION);
-    if (clipPlan(character, routes[CLIPS_OPERATION]).planned.length > 0) add(CLIPS_OPERATION);
+    if (declaresRig(profile)) {
+      // The target's shared rig and generated gaits replace the provider's rig and clips.
+      rigProfileOf(profile);
+    } else {
+      add(RIG_OPERATION);
+      if (clipPlan(character, routes[CLIPS_OPERATION]).planned.length > 0) add(CLIPS_OPERATION);
+    }
     if (identitySettings(profile).mode !== "off") add("identity");
     return calls;
   },
@@ -195,6 +203,10 @@ export const character3dGenerator: Generator = {
     const settings = model3dSettings(profile);
     const references = await subjectReferences(spec, bible, context.bibleDir);
     const text = prompt(spec, bible, character);
+    // A rig template that cannot be read is refused before the first call.
+    const rig = declaresRig(profile)
+      ? await loadRig(profile, context.profileDir ?? process.cwd())
+      : undefined;
 
     const made = await call.model3d(
       MODEL_OPERATION,
@@ -203,66 +215,113 @@ export const character3dGenerator: Generator = {
       context.seed,
       settings.budgets.triangles,
     );
-    const rigRoute = call.route(RIG_OPERATION);
-    const rigType = rigRoute.rigTypes?.[character.gait] ?? character.gait;
-    const rigged = await call.rig3d(RIG_OPERATION, made.handle, rigType);
-    const plan = clipPlan(character, call.route(CLIPS_OPERATION));
-    let source = rigged;
-    if (plan.planned.length > 0) {
-      source = await call.clips3d(
-        CLIPS_OPERATION,
-        rigged.handle,
-        plan.planned.map((p) => p.clip),
-      );
+    let rigged: Awaited<ReturnType<typeof riggedCandidate>> | undefined;
+    if (rig) {
+      let source: Glb;
+      try {
+        source = parseGlb(made.glb);
+      } catch (error) {
+        throw new ProviderError(
+          `the provider returned no usable glTF: ${(error as Error).message}`,
+        );
+      }
+      rigged = await riggedCandidate({
+        source,
+        sourceSha256: sha256(made.glb),
+        sourceForward: call.route(MODEL_OPERATION).forward ?? "+z",
+        settings,
+        character,
+        rig,
+      });
+    }
+    const built = rigged ? undefined : await providerRigged();
+    const reasons: Reason[] = rigged ? rigged.reasons : built!.reasons;
+    const renders: TurntableFrame[] = rigged ? rigged.renders : built!.renders;
+
+    async function providerRigged() {
+      const rigRoute = call.route(RIG_OPERATION);
+      const rigType = rigRoute.rigTypes?.[character.gait] ?? character.gait;
+      const rigged = await call.rig3d(RIG_OPERATION, made.handle, rigType);
+      const plan = clipPlan(character, call.route(CLIPS_OPERATION));
+      let source = rigged;
+      if (plan.planned.length > 0) {
+        source = await call.clips3d(
+          CLIPS_OPERATION,
+          rigged.handle,
+          plan.planned.map((p) => p.clip),
+        );
+      }
+
+      let glb: Glb;
+      try {
+        glb = parseGlb(source.glb);
+      } catch (error) {
+        throw new ProviderError(
+          `the provider returned no usable glTF: ${(error as Error).message}`,
+        );
+      }
+      const { matched, unmatched } = matchClips(glb, plan.planned);
+      keepClips(glb, [...matched.keys()]);
+      renameClips(glb, new Map([...matched.values()].map((family, i) => [i, family])));
+      const delivered = plan.planned.filter((p) => [...matched.values()].includes(p.family));
+      // Only families the library has no close clip for are excused; a library clip that was
+      // requested but not returned fails its clip check.
+      const missing = plan.missing;
+      const closed: Record<string, number> = {};
+      delivered.forEach((p, i) => {
+        if (p.loop) closed[p.family] = closeLoop(glb, i);
+      });
+      const bounds = normalize(glb, {
+        sourceForward: call.route(MODEL_OPERATION).forward ?? "+z",
+        forward: settings.forward,
+        ...(character.heightM !== undefined && { heightM: character.heightM }),
+      });
+      const bytes = writeGlb(glb);
+      const written = parseGlb(bytes);
+      const measures = measure(written);
+      const height = bounds.max[1] - bounds.min[1];
+
+      const reasons: Reason[] = [
+        await validatorCheck(bytes),
+        hierarchyCheck(written, measures),
+        ...budgetChecks(measures, settings),
+        skeletonCheck(measures),
+        ...clipChecks(written, plan.planned, missing, settings, height, unmatched),
+      ];
+
+      const renders = renderTurntable(written, {
+        sizePx: settings.turntablePx,
+        framesPerClip: FRAMES_PER_CLIP,
+        forwardYawDeg: (yawBetween("+z", settings.forward) * 180) / Math.PI,
+      });
+      reasons.push({
+        check: "turntable",
+        passed: renders.length >= 4,
+        reason: `${renders.length} render(s) from a fixed camera and light: ${renders.map((r) => r.name).join(", ")}`,
+        source: "deterministic",
+      });
+      return {
+        reasons,
+        renders,
+        bytes,
+        written,
+        measures,
+        bounds,
+        plan,
+        delivered,
+        missing,
+        unmatched,
+        closed,
+        rigType,
+      };
     }
 
-    let glb: Glb;
-    try {
-      glb = parseGlb(source.glb);
-    } catch (error) {
-      throw new ProviderError(`the provider returned no usable glTF: ${(error as Error).message}`);
-    }
-    const { matched, unmatched } = matchClips(glb, plan.planned);
-    keepClips(glb, [...matched.keys()]);
-    renameClips(glb, new Map([...matched.values()].map((family, i) => [i, family])));
-    const delivered = plan.planned.filter((p) => [...matched.values()].includes(p.family));
-    // Only families the library has no close clip for are excused; a library clip that was
-    // requested but not returned fails its clip check.
-    const missing = plan.missing;
-    const closed: Record<string, number> = {};
-    delivered.forEach((p, i) => {
-      if (p.loop) closed[p.family] = closeLoop(glb, i);
-    });
-    const bounds = normalize(glb, {
-      sourceForward: call.route(MODEL_OPERATION).forward ?? "+z",
-      forward: settings.forward,
-      ...(character.heightM !== undefined && { heightM: character.heightM }),
-    });
-    const bytes = writeGlb(glb);
-    const written = parseGlb(bytes);
-    const measures = measure(written);
-    const height = bounds.max[1] - bounds.min[1];
-
-    const reasons: Reason[] = [
-      await validatorCheck(bytes),
-      hierarchyCheck(written, measures),
-      ...budgetChecks(measures, settings),
-      skeletonCheck(measures),
-      ...clipChecks(written, plan.planned, missing, settings, height, unmatched),
-    ];
-
-    const renders = renderTurntable(written, {
-      sizePx: settings.turntablePx,
-      framesPerClip: FRAMES_PER_CLIP,
-      forwardYawDeg: (yawBetween("+z", settings.forward) * 180) / Math.PI,
-    });
-    reasons.push({
-      check: "turntable",
-      passed: renders.length >= 4,
-      reason: `${renders.length} render(s) from a fixed camera and light: ${renders.map((r) => r.name).join(", ")}`,
-      source: "deterministic",
-    });
-
+    const referenceParameters = references.map((r) => ({
+      role: r.role,
+      view: r.view,
+      path: r.path,
+      sha256: r.sha256,
+    }));
     let identity: IdentityScore | undefined;
     const identityMode = identitySettings(profile);
     if (identityMode.mode !== "off") {
@@ -290,17 +349,51 @@ export const character3dGenerator: Generator = {
       reasons.push(identityReason(identity));
     }
 
+    const round = (v: number) => Math.round(v * 1e6) / 1e6;
+    const identityFields = identity && { identity };
+    if (rigged) {
+      const { measures } = rigged;
+      return {
+        output: {
+          mediaType: GLB_MEDIA_TYPE,
+          extension: "glb",
+          bytes: rigged.bytes,
+          fields: {
+            triangles: measures.triangles,
+            textureMaxPx: measures.textureMaxPx,
+            materials: measures.materials,
+            bones: measures.bones,
+            lods: measures.lods,
+            ...rigged.fields,
+            gait: character.gait,
+            ...identityFields,
+          },
+        },
+        qa: { passed: qaPassed(reasons), reasons },
+        prompt: text,
+        parameters: {
+          gait: character.gait,
+          ...rigged.parameters,
+          targetProfileSha256: profileSha256(profile),
+          forward: settings.forward,
+          ...(character.heightM !== undefined && { heightM: character.heightM }),
+          references: referenceParameters,
+        },
+        artifacts: rigged.artifacts,
+      };
+    }
+    const { written, measures, bounds, plan, delivered, missing, unmatched, closed, rigType } =
+      built!;
     const clipFields = clips(written).map((c) => ({
       name: c.name,
       durationMs: Math.round(c.durationS * 1000),
       loop: delivered.find((p) => p.family === c.name)?.loop ?? false,
     }));
-    const round = (v: number) => Math.round(v * 1e6) / 1e6;
     return {
       output: {
         mediaType: GLB_MEDIA_TYPE,
         extension: "glb",
-        bytes,
+        bytes: built!.bytes,
         fields: {
           triangles: measures.triangles,
           textureMaxPx: measures.textureMaxPx,
@@ -312,7 +405,7 @@ export const character3dGenerator: Generator = {
           gait: character.gait,
           missingClips: missing,
           ...(unmatched.length > 0 && { unmatchedClips: unmatched }),
-          ...(identity && { identity }),
+          ...identityFields,
         },
       },
       qa: { passed: qaPassed(reasons), reasons },
@@ -326,12 +419,7 @@ export const character3dGenerator: Generator = {
         loopClosedChannels: closed,
         forward: settings.forward,
         ...(character.heightM !== undefined && { heightM: character.heightM }),
-        references: references.map((r) => ({
-          role: r.role,
-          view: r.view,
-          path: r.path,
-          sha256: r.sha256,
-        })),
+        references: referenceParameters,
       },
       artifacts: renders.map((r) => ({ name: r.name, bytes: r.png })),
     };
