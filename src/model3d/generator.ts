@@ -203,6 +203,10 @@ export const character3dGenerator: Generator = {
     const settings = model3dSettings(profile);
     const references = await subjectReferences(spec, bible, context.bibleDir);
     const text = prompt(spec, bible, character);
+    // A rig template that cannot be read is refused before the first call.
+    const rig = declaresRig(profile)
+      ? await loadRig(profile, context.profileDir ?? process.cwd())
+      : undefined;
 
     const made = await call.model3d(
       MODEL_OPERATION,
@@ -212,8 +216,7 @@ export const character3dGenerator: Generator = {
       settings.budgets.triangles,
     );
     let rigged: Awaited<ReturnType<typeof riggedCandidate>> | undefined;
-    if (declaresRig(profile)) {
-      const rig = await loadRig(profile, context.profileDir ?? process.cwd());
+    if (rig) {
       let source: Glb;
       try {
         source = parseGlb(made.glb);

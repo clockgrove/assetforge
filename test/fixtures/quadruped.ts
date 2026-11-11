@@ -22,6 +22,8 @@ export interface QuadrupedOptions {
   providerRig?: boolean;
   /** Sides of each tube. */
   segments?: number;
+  /** The way the model faces: +z (default), or +x as Tripo's models do (a root node turns it). */
+  facing?: "+z" | "+x";
 }
 
 const PLANTIGRADE_JOINTS: Record<string, Vec> = {
@@ -450,6 +452,15 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
         samplers: [{ input, output, interpolation: "LINEAR" }],
       },
     ];
+  }
+
+  if (options.facing === "+x") {
+    nodes.push({
+      name: "provider-root",
+      rotation: [0, Math.SQRT1_2, 0, Math.SQRT1_2],
+      children: sceneNodes,
+    });
+    sceneNodes = [nodes.length - 1];
   }
 
   const json: GltfDocument = {
