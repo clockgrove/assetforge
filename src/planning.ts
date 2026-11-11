@@ -408,9 +408,14 @@ async function referencesFor(
 ): Promise<{ references: LoadedReference[]; identity?: GenerationPlan["identity"] }> {
   const subject = subjectOf(spec);
   const lock = doc.data.identities[subject];
+  const forLook = (r: { look?: string }) => r.look === undefined || r.look === spec.look;
   const refs = await Promise.all([
-    ...doc.data.anchors.positive.map((r) => loadReference(r.path, `positive:${r.role}`, doc.dir)),
-    ...doc.data.anchors.negative.map((r) => loadReference(r.path, `negative:${r.role}`, doc.dir)),
+    ...doc.data.anchors.positive
+      .filter(forLook)
+      .map((r) => loadReference(r.path, `positive:${r.role}`, doc.dir)),
+    ...doc.data.anchors.negative
+      .filter(forLook)
+      .map((r) => loadReference(r.path, `negative:${r.role}`, doc.dir)),
     ...(lock ? [loadReference(lock.turnaround, "identity:approved-turnaround", doc.dir)] : []),
     ...(spec.keyPose ? [loadReference(spec.keyPose, "key-pose:approved", specDir)] : []),
   ]);
@@ -457,7 +462,11 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
   const allowedNames = [doc.data.world, subject, ...Object.keys(doc.data.identities)];
   const { brief, clamps } = prepareBrief(options.brief, doc.data, allowedNames);
   // Identity keys and paths are identifiers, not style prose. The constitution's prose is checked separately.
-  inspectStrings(doc.data.axes, allowedNames);
+  if (options.spec.look !== undefined && !Object.hasOwn(doc.data.looks ?? {}, options.spec.look))
+    throw new InputError(`the style bible declares no look "${options.spec.look}"`);
+  const forLook = (r: { look?: string }) => r.look === undefined || r.look === options.spec?.look;
+  const axes = { ...doc.data.axes, ...(options.spec.look && doc.data.looks?.[options.spec.look]) };
+  inspectStrings(axes, allowedNames);
   inspectStrings(doc.data.tone, allowedNames);
   if (doc.data.identities[subject]) {
     const identity = doc.data.identities[subject];
@@ -543,7 +552,7 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
   const uiColors = await loadDesignColors(resolve(doc.dir, "../.."), brief.purpose ?? "");
   const constitution = {
     dosAndDonts: doDontSection(doc.prose),
-    axes: doc.data.axes,
+    axes,
     tone: doc.data.tone,
     colorRule,
     palette: effectivePalette,
@@ -557,8 +566,8 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
         }
       : null,
     anchors: {
-      positive: doc.data.anchors.positive.map((r) => r.role),
-      negative: doc.data.anchors.negative.map((r) => r.role),
+      positive: doc.data.anchors.positive.filter(forLook).map((r) => r.role),
+      negative: doc.data.anchors.negative.filter(forLook).map((r) => r.role),
     },
     ...(uiColors !== undefined && { subordinateUiPaletteContext: uiColors }),
   };

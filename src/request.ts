@@ -3,7 +3,14 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRaster, decodeImage, encodePng, parseHex, setPixel } from "./image/raster.ts";
 import { InputError } from "./errors.ts";
-import type { AssetSpec, LoadedReference, Size, StyleBible, TargetProfile } from "./types.ts";
+import type {
+  AssetSpec,
+  BibleLook,
+  LoadedReference,
+  Size,
+  StyleBible,
+  TargetProfile,
+} from "./types.ts";
 
 /**
  * Request building: model inputs come from the asset spec and the style bible, never from freehand
@@ -126,7 +133,13 @@ export async function loadBibleInputs(
   bibleDir: string,
 ): Promise<BibleInputs> {
   const subject = subjectOf(spec);
-  const refs = bible.references.filter((r) => r.subject === subject && r.role !== "perspective");
+  lookOf(spec, bible);
+  const refs = bible.references.filter(
+    (r) =>
+      r.subject === subject &&
+      r.role !== "perspective" &&
+      (r.look === undefined || r.look === spec.look),
+  );
   if (refs.length === 0) {
     throw new InputError(`the style bible has no reference images for subject "${subject}"`);
   }
@@ -164,10 +177,22 @@ export function frameGrid(
   return durationMs === undefined ? { frame, count } : { frame, count, durationMs };
 }
 
-function styleLines(bible: StyleBible): string[] {
+function lookOf(spec: AssetSpec, bible: StyleBible): BibleLook | undefined {
+  if (spec.look === undefined) return undefined;
+  const look = bible.looks?.[spec.look];
+  if (!look) throw new InputError(`the style bible declares no look "${spec.look}"`);
+  return look;
+}
+
+/** The bible's shared style notes, then the notes of the spec's look, if it has one. */
+export function styleNotes(spec: AssetSpec, bible: StyleBible): string[] {
+  return [...(bible.notes ?? []), ...(lookOf(spec, bible)?.notes ?? [])];
+}
+
+function styleLines(spec: AssetSpec, bible: StyleBible): string[] {
   const lines = [`Palette, use only these colours: ${bible.palette.join(", ")}.`];
   if (bible.mood?.length) lines.push(`Mood: ${bible.mood.join(", ")}.`);
-  for (const note of bible.notes ?? []) lines.push(`Style note: ${note}`);
+  for (const note of styleNotes(spec, bible)) lines.push(`Style note: ${note}`);
   return lines;
 }
 
@@ -193,7 +218,7 @@ export function buildStillPrompt(
     pose,
     `It will be scaled to a ${grid.frame.width}x${grid.frame.height} px frame, so keep the silhouette readable.`,
     `Reference images, in order: ${[...refs.subject.map((r) => r.role), "perspective sample", "palette swatch"].join(", ")}. Match the subject's identity to the subject references and the camera angle to the perspective sample.`,
-    ...styleLines(bible),
+    ...styleLines(spec, bible),
   ].join("\n");
 }
 
@@ -208,6 +233,6 @@ export function buildFramePrompt(
     `Edit this key pose into frame ${index + 1} of ${grid.count} of the "${spec.animationFamily ?? "animation"}" animation loop.`,
     subjectLine(spec, bible),
     "Keep the same character, proportions, colours, camera angle, scale and background; change only the pose for this point in the motion.",
-    ...styleLines(bible),
+    ...styleLines(spec, bible),
   ].join("\n");
 }

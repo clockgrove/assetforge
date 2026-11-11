@@ -29,6 +29,8 @@ The bible is the constitution. Its YAML front matter declares `version`, `world`
 
 `axes` contains rendering, realism, proportions, outline weight and colour, shading, detail density, texture and the lighting key. Saturation bounds and outline colour are DTCG tokens; the outline axis references its colour token. `tone` declares audience, allowed moods and content limits. `anchors.positive` and `anchors.negative` contain image paths, roles and optional subjects. References resolve relative to the bible.
 
+`looks` (optional) maps a look name, such as `character` or `environment`, to the axes it overrides. A spec whose `look` names it is planned with those axes, and with the anchors that carry that `look` or none. Other specs ignore it. A look may override any axis, `rendering` included, so a world can pair characters of one rendering with an environment of another.
+
 Machine-readable colours, lighting, fog, value ranges and optional timing use [DTCG 2025.10 typed tokens](https://www.designtokens.org/tr/2025.10/format/), with `$type` and `$value`. The shipped bible provides the valid starting shape, including DTCG colour objects. For example:
 
 ```yaml

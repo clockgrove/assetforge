@@ -34,6 +34,11 @@ export interface ArtBible {
     moodRange: string[];
     contentLimits: string[];
   };
+  /**
+   * Looks per domain (characters, environment...), keyed by name: each overrides some axes for
+   * assets whose spec names it. Anchors with a `look` are used only for that look.
+   */
+  looks?: Record<string, Partial<ArtBible["axes"]>>;
   anchors: { positive: BibleReference[]; negative: BibleReference[] };
   colorRule: "full" | "palette";
   tokens: Record<string, unknown>;
@@ -235,19 +240,35 @@ export function biblePalette(bible: ArtBible): string[] {
         .join("")}`;
     });
 }
+const AXIS_TEXT = ["realism", "proportions", "detailDensity", "texture", "lightingKey"];
+function validateAxes(a: Obj, label: string, partial: boolean) {
+  const has = (key: string) => !partial || a[key] !== undefined;
+  for (const key of Object.keys(a))
+    if (![...AXIS_TEXT, "rendering", "outline", "shading"].includes(key))
+      throw new InputError(`${label}.${key} is not a style axis`);
+  if (has("rendering"))
+    choice(a["rendering"], ["painterly", "flat-cartoon", "pixel", "stylised-3d"], "rendering");
+  for (const key of AXIS_TEXT) if (has(key)) text(a[key], `${label}.${key}`);
+  if (has("outline")) {
+    const outline = object(a["outline"], `${label}.outline`);
+    choice(outline["weight"], ["none", "thin", "bold"], "outline.weight");
+    text(outline["colour"], "outline.colour");
+    if (!/^\{[^{}]+\}$/.test(outline["colour"] as string))
+      throw new InputError("outline.colour must reference a DTCG color token");
+  }
+  if (has("shading")) choice(a["shading"], ["soft", "cel-2-3-tone", "flat"], "shading");
+}
 export function validateBible(input: unknown): ArtBible {
   const b = object(input, "bible");
   for (const field of ["version", "world", "preset"]) text(b[field], field);
   const a = object(b["axes"], "axes");
-  choice(a["rendering"], ["painterly", "flat-cartoon", "pixel", "stylised-3d"], "rendering");
-  for (const key of ["realism", "proportions", "detailDensity", "texture", "lightingKey"])
-    text(a[key], `axes.${key}`);
+  validateAxes(a, "axes", false);
   const outline = object(a["outline"], "outline");
-  choice(outline["weight"], ["none", "thin", "bold"], "outline.weight");
-  text(outline["colour"], "outline.colour");
-  if (!/^\{[^{}]+\}$/.test(outline["colour"] as string))
-    throw new InputError("outline.colour must reference a DTCG color token");
-  choice(a["shading"], ["soft", "cel-2-3-tone", "flat"], "shading");
+  const looks = b["looks"] === undefined ? {} : object(b["looks"], "looks");
+  for (const [name, look] of Object.entries(looks)) {
+    text(name, "look name");
+    validateAxes(object(look, `looks.${name}`), `looks.${name}`, true);
+  }
   const tone = object(b["tone"], "tone");
   choice(tone["audience"], ["young-kids", "all-ages", "teen", "mature"], "audience");
   strings(tone["moodRange"], "moodRange");
@@ -260,12 +281,17 @@ export function validateBible(input: unknown): ArtBible {
       text(anchor["path"], "anchor.path");
       text(anchor["role"], "anchor.role");
       if (anchor["subject"] !== undefined) text(anchor["subject"], "anchor.subject");
+      if (anchor["look"] !== undefined && !Object.hasOwn(looks, anchor["look"] as string))
+        throw new InputError(`anchor ${anchor["path"]} names undeclared look ${anchor["look"]}`);
     }
   }
   choice(b["colorRule"], ["full", "palette"], "colorRule");
   validateTokens(b["tokens"]);
   const tokens = object(b["tokens"], "tokens");
-  for (const p of ["light", "rim", "fog.colour", (outline["colour"] as string).slice(1, -1)]) {
+  const outlineTokens = [outline, ...Object.values(looks).map((l) => (l as Obj)["outline"])]
+    .filter((o): o is Obj => o !== undefined)
+    .map((o) => (o["colour"] as string).slice(1, -1));
+  for (const p of ["light", "rim", "fog.colour", ...outlineTokens]) {
     if (tokenType(tokens, p) !== "color") throw new InputError(`tokens.${p} must have color type`);
     object(tokenValue(tokens, p), `tokens.${p}`);
   }

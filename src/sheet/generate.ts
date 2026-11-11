@@ -11,7 +11,14 @@ import type { SpendLedger } from "../spend.ts";
 import { Caller } from "../calls.ts";
 import type { GenerationProvider } from "../gateway/provider.ts";
 import { DEFAULT_CAP_USD } from "../loop.ts";
-import { frameGrid, loadBibleInputs, loadReference, sha256, subjectOf } from "../request.ts";
+import {
+  frameGrid,
+  loadBibleInputs,
+  loadReference,
+  sha256,
+  styleNotes,
+  subjectOf,
+} from "../request.ts";
 import type { BibleInputs, FrameGrid } from "../request.ts";
 import type { Routes } from "../routes.ts";
 import type { AssetSpec, LoadedReference, StyleBible, TargetProfile } from "../types.ts";
@@ -154,7 +161,7 @@ export function buildSheetPrompt(
     `Palette: ${bible.palette.join(", ")}.`,
     "Paint albedo under a neutral key light, without baked directional shadows, highlights or emissive glow.",
     ...(bible.mood?.length ? [`Mood: ${bible.mood.join(", ")}.`] : []),
-    ...(bible.notes ?? []).map((note) => `Style note: ${note}`),
+    ...styleNotes(spec, bible).map((note) => `Style note: ${note}`),
     "Plain flat uniform light background across the whole sheet, no grid lines, no borders, no text, no numbers, no shadow on the ground.",
   ].join("\n");
 }

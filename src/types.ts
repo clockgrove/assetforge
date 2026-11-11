@@ -23,6 +23,11 @@ export interface AssetSpec {
   assetId: string;
   /** The bible subject (character, prop) this asset depicts; defaults to `assetId`. */
   subject?: string;
+  /**
+   * The bible look this asset follows, for example `character` or `environment`, when the bible
+   * declares looks per domain. Unset uses only the bible's shared style.
+   */
+  look?: string;
   animationFamily?: string;
   /**
    * How the subject moves, for example `biped` or `quadruped`; animation QA uses the motion
@@ -48,6 +53,13 @@ export interface BibleReference {
   role: string;
   /** The bible subject this reference shows, if any. */
   subject?: string;
+  /** The look this reference belongs to; it is sent only for assets of that look. Unset: every look. */
+  look?: string;
+}
+
+/** A named look in the bible (characters, environment...): style notes for assets of that look. */
+export interface BibleLook {
+  notes?: string[];
 }
 
 export interface StyleBible {
@@ -60,7 +72,10 @@ export interface StyleBible {
   perspectiveDescription?: string;
   subjects?: Record<string, { description: string }>;
   mood?: string[];
+  /** Style notes for every asset. */
   notes?: string[];
+  /** Looks per domain, keyed by name; a spec's `look` adds that look's notes and references. */
+  looks?: Record<string, BibleLook>;
 }
 
 /** A reference image loaded from disk and sent to a model as an image input. */
