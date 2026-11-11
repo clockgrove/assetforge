@@ -27,7 +27,7 @@ This loads the preset from the target repository's sibling `presets/<preset>.md`
 
 The bible is the constitution. Its YAML front matter declares `version`, `world`, `preset`, `axes`, `tone`, `anchors`, `colorRule`, `tokens`, `adjustable` and `identities`. Markdown after the front matter preserves prose rationale and unknown sections. The Do's and Don'ts section describes how positive and negative image anchors should be interpreted.
 
-`axes` contains rendering, realism, proportions, outline weight and colour, shading, detail density, texture and the lighting key. Saturation bounds and outline colour are DTCG tokens; the outline axis references its colour token. `tone` declares audience, allowed moods and content limits. `anchors.positive` and `anchors.negative` contain image paths, roles and optional subjects. References resolve relative to the bible.
+`axes` contains rendering (`painterly`, `naturalistic`, `flat-cartoon`, `pixel` or `stylised-3d`), realism, proportions, outline weight and colour, shading, detail density, texture and the lighting key. Saturation bounds and outline colour are DTCG tokens; the outline axis references its colour token. `tone` declares audience, allowed moods and content limits. `anchors.positive` and `anchors.negative` contain image paths, roles and optional subjects. References resolve relative to the bible.
 
 `looks` (optional) maps a look name, such as `character` or `environment`, to the axes it overrides. A spec whose `look` names it is planned with those axes, and with the anchors that carry that `look` or none. Other specs ignore it. A look may override any axis, `rendering` included, so a world can pair characters of one rendering with an environment of another.
 

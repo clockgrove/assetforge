@@ -20,7 +20,7 @@ export interface ArtBible {
   world: string;
   preset: string;
   axes: {
-    rendering: "painterly" | "flat-cartoon" | "pixel" | "stylised-3d";
+    rendering: "painterly" | "naturalistic" | "flat-cartoon" | "pixel" | "stylised-3d";
     realism: string;
     proportions: string;
     outline: { weight: "none" | "thin" | "bold"; colour: string };
@@ -247,7 +247,11 @@ function validateAxes(a: Obj, label: string, partial: boolean) {
     if (![...AXIS_TEXT, "rendering", "outline", "shading"].includes(key))
       throw new InputError(`${label}.${key} is not a style axis`);
   if (has("rendering"))
-    choice(a["rendering"], ["painterly", "flat-cartoon", "pixel", "stylised-3d"], "rendering");
+    choice(
+      a["rendering"],
+      ["painterly", "naturalistic", "flat-cartoon", "pixel", "stylised-3d"],
+      "rendering",
+    );
   for (const key of AXIS_TEXT) if (has(key)) text(a[key], `${label}.${key}`);
   if (has("outline")) {
     const outline = object(a["outline"], `${label}.outline`);
