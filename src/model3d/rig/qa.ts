@@ -93,6 +93,10 @@ export function contactCheck(
   const summary: string[] = [];
   skeleton.feet.forEach((foot, f) => {
     const sole = soleVertices[f]!;
+    if (sole.length === 0) {
+      failures.push(`${foot.name} has no skin under its foot to measure`);
+      return;
+    }
     let worstGround = 0;
     let worstHeel = -Infinity;
     const ground: Array<[number, number]> = [];

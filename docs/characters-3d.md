@@ -103,6 +103,136 @@ Also available:
 
 A candidate that fails a filtering check is not staged. It is listed in the run's `rejections` with its reasons, its cost and its renders.
 
+## Shared rig and generated gait
+
+A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetforge#84; Kirk, 2026-11-10). For such a target, Assetforge does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetforge rig` does the same for a model that already exists, such as a wave 0 pick:
+
+```sh
+assetforge rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
+assetforge pick --run .assetforge/runs/<run> --candidate c1 --target ../raccoon-world
+```
+
+`rig` stages a one-candidate run, `c1`, with the same renders, reasons and provenance as a `stage` candidate. It calls no model and spends nothing. It exits 5 when the re-rigged model fails QA, and the renders are still written. A draft raccoon template and walk are in [examples/raccoon-rig/](examples/raccoon-rig/).
+
+### Contract
+
+The field names below are shared with clockgrove/raccoon-world#39. Names may be added, but none may be renamed without recording it on both issues.
+
+**Profile**
+
+```json
+"model3d": {
+  "rig": { "template": "rig/raccoon.json", "kind": "raccoon" },
+  "gaits": {
+    "walk": {
+      "footfall": ["hind_l", "fore_l", "hind_r", "fore_r"],
+      "dutyFactor": 0.68,
+      "strideBodyLengths": 0.3,
+      "stepHeightBodyLengths": 0.025,
+      "backArchDeg": 12,
+      "hipHeightRatio": 1.04,
+      "headPitchDeg": 14,
+      "tailPitchDeg": 10,
+      "tailSwayDeg": 8,
+      "speedBodyLengthsPerSecond": 0.35,
+      "swingCurlDeg": { "fore": 55, "hind": 12 },
+      "reference": "references/stevie/gait-reference"
+    }
+  }
+}
+```
+
+- `rig.template` is a path relative to the profile file. `rig.kind` names the kind of character it serves.
+- `rig.qa` (optional, added) sets the QA tolerances, in body lengths:
+  - `contactBodyLengths`, default 0.01;
+  - `slideBodyLengths`, default 0.01;
+  - `heelBodyLengths`, default 0.02;
+
+  and `minGirthRatio`, default 0.7.
+
+- `gaits.<family>` is the gait profile of one clip family. A spec family with no gait profile is reported in `missingClips`, never faked.
+  - `footfall`: every template foot, in the order the feet touch down. Foot _i_ touches down at phase _i_ ÷ count.
+  - `dutyFactor`: the fraction of the cycle each foot is on the ground.
+  - `strideBodyLengths`: the distance travelled per cycle, in body lengths. `stepHeightBodyLengths` is the peak swing lift. The cycle lasts stride ÷ speed.
+  - `backArchDeg`: positive hunches the back. It is spread over the `spine` joints, and the root tilts against it.
+  - `hipHeightRatio`: hip height over shoulder height (the hind legs' upper joints over the fore legs'), so above 1 carries the rump high. The body stands as tall as its legs reach at the ends of the stance with the feet planted. That is why a model whose rest pose has raised heels is lowered until its heels can go down.
+  - `headPitchDeg` and `tailPitchDeg`: positive lowers the head or tail. Tail pitch is measured from level.
+  - `tailSwayDeg`: the tail's yaw amplitude, in step with the hips.
+  - `speedBodyLengthsPerSecond`: the walking speed.
+  - Added, optional:
+    - `swingCurlDeg: { fore, hind }`: the paw's downward curl at mid-swing, default 0;
+    - `hipSwayDeg`: default a third of `tailSwayDeg`;
+    - `reference`: a directory of gait reference frames (PNG or JPEG, in name order), relative to the profile;
+    - `loop`: default true.
+
+**Template file**
+
+```json
+{
+  "kind": "raccoon",
+  "joints": [
+    { "name": "pelvis", "parent": null, "rest": [0, 0.26, -0.08], "role": "pelvis" },
+    {
+      "name": "wrist_l",
+      "parent": "elbow_l",
+      "rest": [0.055, 0.03, 0.17],
+      "limits": { "x": [-30, 80], "y": [-10, 10], "z": [-10, 10] },
+      "stanceLimits": { "x": [-25, 30], "y": [-10, 10], "z": [-10, 10] }
+    }
+  ],
+  "feet": [
+    {
+      "name": "fore_l",
+      "joints": ["shoulder_l", "elbow_l", "wrist_l", "paw_l"],
+      "plantigrade": true,
+      "pair": "fore"
+    }
+  ]
+}
+```
+
+- `rest` is the joint's position as fractions of **body length**, the model's front-to-back extent at rest, tail included. It is in the character's facing frame: +z forward, +y up, +x the character's left. The origin is the bounds' centre on x and z, at the ground.
+- `limits` and `stanceLimits` are degrees of the joint's local rotation from rest, read as X-Y-Z Euler angles. x is flex and extend; a positive x pitches a forward-pointing bone down. An axis without a range is free. `limits` holds in every phase. `stanceLimits` (added) holds for a foot's ankle or wrist while that foot bears weight.
+- `role` (added) is `pelvis`, `spine`, `neck`, `head` or `tail`. It tells the gait where the arch, head carriage and tail go.
+- `feet[].joints` is the leg chain: upper (hip or shoulder), lower (knee or elbow), ankle (or wrist), toe. `plantigrade: true` stands the foot flat, from ankle to toe, in stance. `name` and `pair` (`fore` or `hind`) are added.
+
+**Template outputs**, added to those above:
+
+- `output.rig`: `{ template, sha256 }`, the template path as declared and the hash of its bytes;
+- `output.clips[]`: each clip also has `generated: true` and `speedMps`, the ground speed at which its in-place cycle keeps the stance feet planted. A runtime moves the character at this speed.
+
+### What the rig does
+
+1. **Fit.** The model is normalised as above and baked at its rest pose. Its own skins, joints and clips are dropped; its materials and textures are kept. The template's rest positions are scaled by body length. Each joint then moves to the centre of the mesh around it, at most 0.04 body lengths, and only across its bones, so a joint at a corner such as an ankle re-centres sideways.
+2. **Skin.** Smooth weights:
+   - inverse distance (to the 4th power) to each bone;
+   - four rounds of averaging across the mesh, with vertices welded by position;
+   - the four largest weights, normalised.
+
+   Every character of the kind gets the template's joint names, in the template's order.
+
+3. **Generate.** Each clip is deterministic and in place, keyed at 30 frames per second, and its last key is its first. The body carries the profile's arch, head, tail, hip sway and a small bob. Each leg is solved by two-bone inverse kinematics, bending in its rest-pose plane:
+   - In stance, the foot is planted on the ground line. Its sole (the lowest of the vertices the ankle and toe carry) touches y = 0, and it moves back at exactly the clip's speed. A plantigrade foot is flat.
+   - In the swing, the foot lifts and swings forward, and the paw curls down by `swingCurlDeg`.
+4. **QA**, recorded per clip, on the written file's deformed mesh at 24 frames per cycle:
+   - `contact-<clip>`: in stance, each foot's sole is within `contactBodyLengths` of the ground (neither floating nor sinking). It slides no more than `slideBodyLengths` in the ground frame that moves at the clip's speed. A plantigrade heel sits no more than `heelBodyLengths` above its toe.
+   - `joint-limits-<clip>`: no joint leaves its `limits`. A weight-bearing ankle or wrist stays within its `stanceLimits` while its foot is down. In the swing only `limits` apply, so a front wrist may curl the paw down.
+   - `skinning-<clip>`: at each knee or elbow and ankle or wrist, the skin's mean distance from the joint's two bones stays at least `minGirthRatio` of its rest value. A lower value means volume is collapsing at the bend.
+   - `clip-<clip>` and `loop-<clip>`, as for library clips.
+   - `turntable`, as above, plus `<clip>-side.png`, 8 side-view frames of each clip. When the gait has `reference` frames, `<clip>-vs-reference.png` shows those frames under the clip's.
+
+   A failing check filters the candidate, and its renders are kept.
+
+5. **Hand-off** is `pick`, as for every candidate. The provenance parameters record `rig`:
+   - the kind;
+   - the template path and SHA-256;
+   - each gait profile and its SHA-256;
+   - the source model's SHA-256;
+   - the QA tolerances;
+   - the fit.
+
+   They also record `targetProfileSha256`. A `rig` run keeps the source's provenance, with its calls, cost and output grant, and adds `parameters.rerig` and a `rig-generated-gait` step. That step's input is the source model's hash and its output is the re-rigged model's hash.
+
 ## Spend
 
 `stage` reserves every call against the cap before the first one: generation, rigging, clips and identity, for every candidate. A run that does not fit is refused (exit 3). `--dry-run` prints the forecast without a key. The default routes reserve $1.001 per candidate, so 4 candidates reserve $4.004 against the $5 cap. Each call settles at the cost Tripo reports (its credits × $0.01) or, failing that, at its estimate. Every candidate's provenance carries its own `costUsd`.
