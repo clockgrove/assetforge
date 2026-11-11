@@ -69,7 +69,7 @@ test("an art bible's look overrides axes and anchors for specs that name it", as
   const data = structuredClone(BIBLE_PRESETS["cozy-storybook"]!);
   data.world = "Woodland";
   data.looks = {
-    character: { rendering: "stylised-3d", texture: "smooth naturalistic coat, no brushwork" },
+    character: { rendering: "naturalistic", texture: "smooth naturalistic coat, no brushwork" },
   };
   data.anchors.positive = [
     { path: "brush.png", role: "environment brushwork", look: "environment" },
@@ -92,7 +92,7 @@ test("an art bible's look overrides axes and anchors for specs that name it", as
     settings,
     spec: { kind: "still", assetId: "fox", look: "character" },
   });
-  assert.match(character.prompt, /"rendering":"stylised-3d"/);
+  assert.match(character.prompt, /"rendering":"naturalistic"/);
   assert.match(character.prompt, /smooth naturalistic coat/);
   assert.ok(!character.references.some((r) => r.role.includes("environment brushwork")));
 
