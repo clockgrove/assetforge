@@ -494,6 +494,39 @@ test("the cast question is one vision call over the whole cast's references", as
   assert.equal(soloCall.kind === "vision" && soloCall.request.images.length, 3);
 });
 
+test("the cast question also asks whether the subject is on-model; drift scores low with the deviations", async () => {
+  const f = await castBible();
+  const cast = await loadCast(await loadBible(f.biblePath));
+  const fox = cast[0]!;
+  const provider = visionScript(
+    '{"probabilities": {"fox": 0.9, "kit": 0.05, "neither": 0.05}, "choice": "fox", "onModel": 0.2, "deviations": ["scarf is red, not green", " "], "reason": "a fox with the wrong scarf"}',
+    CONSISTENT,
+  );
+  const score = await scoreIdentity({
+    caller: caller(provider),
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings: identitySettings({ identity: { question: "cast" } }),
+    cast,
+  });
+  const sent = provider.calls[0]!;
+  assert.ok(sent.kind === "vision");
+  if (sent.kind !== "vision") return;
+  assert.match(sent.request.prompt, /on-model for "fox", whoever you chose/);
+  assert.match(sent.request.prompt, /follow the references/);
+  assert.match(sent.request.prompt, /"onModel": p, "deviations"/);
+  // Who it is (0.9) times whether it is on-model (0.2).
+  assert.ok(Math.abs(score.score! - 0.18) < 1e-9);
+  assert.equal(score.passed, false);
+  assert.match(
+    score.reason,
+    /: fox \(confidence 0\.90\); off-model \(on-model 0\.20\): scarf is red, not green; shadow mode/,
+  );
+  assert.deepEqual(parseCastAnswer('{"choice": "fox", "onModel": 7}', ["fox"]).onModel, 1);
+  assert.equal(parseCastAnswer('{"choice": "fox", "onModel": "high"}', ["fox"]).onModel, undefined);
+});
+
 test("cast answers parse probabilities or a bare choice and refuse anything else", () => {
   const names = ["fox", "kit"];
   const p = parseCastAnswer(
