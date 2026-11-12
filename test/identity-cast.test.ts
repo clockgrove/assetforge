@@ -160,7 +160,7 @@ function member(subject: string): CastMember {
   };
 }
 
-test("the cast prompt accepts posture and animation differences, asks for them apart, and still counts drift", () => {
+test("the cast prompt excuses only what the pose and the named animation imply, and counts the rest as drift", () => {
   const prompt = identityCastPrompt(
     [member("mina")],
     "mina",
@@ -169,23 +169,40 @@ test("the cast prompt accepts posture and animation differences, asks for them a
   assert.match(prompt, /from its "walk" animation/);
   assert.match(prompt, /may name its animation/);
   assert.match(prompt, /as it would look if the candidate stood in the references' pose/);
+  assert.match(prompt, /Excuse only what that pose and the named animation imply/);
   assert.match(prompt, /a back arched or hunched mid-stride/);
-  assert.match(prompt, /a tail lowered, raised, swung, curled or foreshortened/);
+  assert.match(prompt, /a tail lowered, raised, swung or curled/);
+  assert.match(prompt, /foreshortened where they point toward or away from the viewer/);
+  assert.match(prompt, /background showing between the limbs/);
+  // A prop or an open mouth is excused only where the named animation implies one.
+  assert.match(prompt, /only when the named animation implies it/);
   assert.match(prompt, /is NOT a deviation/);
   assert.match(prompt, /do not let them lower onModel/);
-  assert.match(prompt, /variation between two drawings of the same model/);
-  // Drift still counts: markings, colours, counts, proportions beyond the pose, signature features.
-  assert.match(prompt, /a clearly different number of repeated marks/);
-  assert.match(prompt, /proportions no pose can produce/);
+  assert.match(prompt, /Nothing else is excused/);
+  // #104's excuses beyond the pose are gone: same-hue tones, texture, one mark, a third.
+  assert.doesNotMatch(prompt, /variation between two drawings/);
+  assert.doesNotMatch(prompt, /lighter or more muted tones of the same hue/);
+  assert.doesNotMatch(prompt, /texture/);
+  assert.doesNotMatch(prompt, /a difference of one mark/);
+  assert.doesNotMatch(prompt, /about a third/);
+  // Drift counts: colours and tones, markings, counts, proportions beyond the pose, features.
+  assert.match(
+    prompt,
+    /a different hue, or the whole region clearly lighter, darker or more muted/,
+  );
+  assert.match(prompt, /a different number of repeated marks/);
+  assert.match(prompt, /it never rescales the figure/);
+  assert.match(prompt, /proportions the pose does not produce/);
   assert.match(prompt, /a signature feature missing, added or changed/);
   assert.match(prompt, /is missing, not hidden/);
-  assert.match(prompt, /a region or marking in a different hue/);
   assert.match(
     prompt,
     /a marking missing, added or moved; a see-through hole inside the body or face/,
   );
   assert.match(prompt, /the approved references are the source of truth/);
   assert.match(prompt, /"poseDifferences": \["<each difference the pose or view explains>"\]/);
+  // Nothing in the wording is tuned to one species or cast.
+  assert.doesNotMatch(prompt, /raccoon|bird|stevie|jimothy|pebble/i);
 });
 
 test("the cast answer parser accepts poseDifferences and still parses an answer without them", () => {
