@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { Budget, BudgetExceededError } from "../src/budget.ts";
@@ -72,6 +72,20 @@ test("the default ledger is under XDG_STATE_HOME, else ~/.local/state", () => {
   assert.match(
     SpendLedger.fromEnv({}).path,
     /[/\\]\.local[/\\]state[/\\]assetforge[/\\]spend\.jsonl$/,
+  );
+});
+
+test("a Factory worker's default ledger is in its stage's TMPDIR, which persists across its commands", () => {
+  const worker = { FACTORY_ISSUE: "108", XDG_STATE_HOME: "/state" };
+  assert.equal(
+    SpendLedger.fromEnv({ ...worker, TMPDIR: "/run/stage-tmp" }).path,
+    join("/run/stage-tmp", "assetforge-spend.jsonl"),
+  );
+  assert.equal(SpendLedger.fromEnv(worker).path, join(tmpdir(), "assetforge-spend.jsonl"));
+  // An explicit ledger still wins.
+  assert.equal(
+    SpendLedger.fromEnv({ ...worker, ASSETFORGE_SPEND_LEDGER: "/shared/ledger.jsonl" }).path,
+    resolve("/shared/ledger.jsonl"),
   );
 });
 
