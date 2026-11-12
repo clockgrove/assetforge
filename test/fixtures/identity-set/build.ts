@@ -5,7 +5,9 @@
  * cases file for `assetforge identity-eval --cases <out>/cases.json`. Nothing it writes
  * belongs in the repository.
  *
- *   node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world]
+ *   node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>]
+ *
+ * With `--held-out "#104 run 7"`, cases.json holds only that run's held-out cut (see heldOutCut).
  */
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
@@ -75,12 +77,23 @@ export async function generatedCases(raccoonWorldDir: string, bible: string) {
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
+/**
+ * The held-out cut of one run, as decisions.md reports it: the positives and drift that run added
+ * (`heldOut` equal to `run`), with every generic and look-alike negative. Other cases are left out.
+ */
+export function heldOutCut<T extends { kind?: unknown; heldOut?: unknown }>(
+  cases: T[],
+  run: string,
+): T[] {
+  return cases.filter((c) => c.heldOut === run || c.kind === "generic" || c.kind === "lookalike");
+}
+
 /** Both casts under `outDir`, and one cases file whose paths are relative to it. */
 export async function buildIdentitySet(
   outDir: string,
-  options: { raccoonWorld?: boolean; fetch?: typeof fetch } = {},
+  options: { raccoonWorld?: boolean; fetch?: typeof fetch; heldOut?: string } = {},
 ): Promise<{ casesPath: string; cases: unknown[] }> {
-  const cases: unknown[] = [];
+  let cases: Array<{ kind?: unknown; heldOut?: unknown }> = [];
   const add = (dir: string, list: PathCase[]) => {
     for (const c of list)
       cases.push({
@@ -100,6 +113,11 @@ export async function buildIdentitySet(
     add("raccoon-world", set.cases);
     add("raccoon-world", await generatedCases(dir, relative(dir, set.biblePath)));
   }
+  if (options.heldOut !== undefined) {
+    const run = options.heldOut;
+    if (!cases.some((c) => c.heldOut === run)) throw new Error(`no case is held out for "${run}"`);
+    cases = heldOutCut(cases, run);
+  }
   const casesPath = join(outDir, "cases.json");
   await writeFile(casesPath, `${JSON.stringify(cases, null, 2)}\n`);
   return { casesPath, cases };
@@ -107,12 +125,17 @@ export async function buildIdentitySet(
 
 if (import.meta.main) {
   const [out, ...flags] = process.argv.slice(2);
-  if (!out) {
-    console.error("usage: node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world]");
+  const at = flags.indexOf("--held-out");
+  const heldOut = at === -1 ? undefined : flags[at + 1];
+  if (!out || (at !== -1 && heldOut === undefined)) {
+    console.error(
+      "usage: node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>]",
+    );
     process.exit(2);
   }
   const { casesPath, cases } = await buildIdentitySet(resolve(out), {
     raccoonWorld: !flags.includes("--no-raccoon-world"),
+    ...(heldOut !== undefined && { heldOut }),
   });
   console.log(`${cases.length} cases: ${casesPath}`);
 }

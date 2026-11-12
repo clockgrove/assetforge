@@ -207,6 +207,8 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 - proportions no pose can produce: body build or shape, head size, or a limb, tail or ear whose length differs by more than swing or foreshortening explains (at most about a third);
 - a missing or changed signature feature.
 
+Two tolerances in this wording come from the development check on seen frames, not from #104: a count difference of one mark that could merge into the body, the tip or the shading is not counted (the first wording rejected 7 of 8 of run 5's Stevie walk frames for tail bands hidden on a foreshortened tail), and "at most about a third" bounds the length change that swing or foreshortening explains for a limb, tail or ear (the body's stretch has no such allowance). The rendering-variation and animation-addition exemptions above (same-hue tones, texture, a held prop, an open mouth, background between the limbs) also go beyond posture. All of these are in the measured prompt, and whether they stay is an open question on the PR.
+
 The wording names no species. Sheet import and planning now name the animation family in the candidate's description when the spec has one. The score is unchanged: p(subject) × p(on-model).
 
 **How it was measured.** The threshold was fixed before each run at 0.5, the shipped default, on the default `identity-cast` route (GPT-6.1 Terra). Prompt wording was only ever changed on cases already scored ("seen"). Every run's new frames were added, checked by eye and committed before that run, and never used to adjust the prompt before it.
@@ -225,14 +227,26 @@ The wording names no species. Sheet import and planning now name the animation f
 | Run 7, held out (181)      | 0.996 | 0.973     | 1.000       | 1.000          | 2/147  | 0/34  | 0.996, 2/33 / 0/12 | 1.000, 0/114 / 0/22        | not met |
 | Run 7, new cases only (79) | 0.986 | 0.973     | n/a         | 1.000          | 2/45   | 0/34  | 0.990, 2/12 / 0/12 | 1.000, 0/33 / 0/22         | not met |
 
-3D (provisional, 18 cases, not judged): run 6 AUC 0.20, run 7 AUC 0.72; most Stevie renders are still rejected, as before.
+Per kind at 0.5 (FR for same, FA for each negative kind). Run 7's split is exact: its 2 false accepts are the 2 bird drift cases named below and its false reject is a positive, and the case counts per kind come from `node test/fixtures/identity-set/build.ts <out> [--held-out "#104 run 7"]`:
+
+| Run 7, cases        | Same FR | Drift FA | Generic FA | Look-alike FA |
+| ------------------- | ------- | -------- | ---------- | ------------- |
+| Whole set (315)     | 1/105   | 2/86     | 0/29       | 0/95          |
+| Held out (181)      | 0/34    | 2/23     | 0/29       | 0/95          |
+| New cases only (79) | 0/34    | 2/23     | n/a        | 0/22          |
+
+Run 6's 30 false accepts and 12 false rejects cannot be split by kind here: the runs' per-case logs were written outside the repository (as the identity-eval docs ask), the chunks were merged by hand, and those logs are not in this record. The per-kind AUCs above are what was kept. The same holds for 3D rates at 0.5 in both runs.
+
+3D (provisional, 18 cases, not judged): run 6 AUC 0.20, run 7 AUC 0.72; most Stevie renders are still rejected, as before. Rates at 0.5 were not kept (see above).
+
+**Jimothy's held-out frames are weaker evidence than Stevie's.** His run 7 positives are cells 8, 12, 16 and 20 (walk) and 40, 41, 43 and 44 (sit-groom) of his contact sheet. On its 8-column grid they are neighbours, in the same cycles, of cells 9, 14, 17 and 22 (walk) and 39 and 42 (sit-groom), which the existing `sheet` entry scored in runs 5 and 6, before the prompt was revised on run 6's cases. They are frames the prompt never saw, but not a new walk or a new family for him: his sheet holds no family the earlier runs had not touched. Only Stevie has a held-out walk and families (eat, sniff) of his own; another family for Jimothy needs new art of him.
 
 - **Posture is no longer drift.** Run 7 rejected none of its 34 held-out animation frames: Stevie's walk and eat frames, Jimothy's own walk and sit-groom cells, and the bird poses. On the whole set, the 5 Stevie walk frames run 5 rejected now pass. The one false reject left is the window photo, called "none of the cast".
 - **Drift is still caught in a pose.** All 11 posed Raccoon World drift edits in run 7 score low, as do run 5's drift and the defective pre-#56 strip frames. The 2 misses are bird drift in the run 7 "preen" pose (tilted, head turned): a body stretched 1.3× tall scored 0.94 and 0.98. On held-out drift that is 2/23 (8.7%), over the 5% bar, and for the bird cast 2/33 (6.1%). This is the bar's failure.
 - **Run 6 failed for two reasons, both fixed before run 7.** The first was a wording that excused tone and marking-edge differences: the defective strip frames, with orange showing through holes in the face, passed at 0.82–0.92, as did a hue-shifted Jimothy. The prompt now counts a hue change and a see-through hole, and run 7 rejects them. The second was that all 14 generated Jimothy frames were called Stevie. On a second look the model was right: those frames lack Jimothy's very fluffy coat and draw Stevie's face. `generate-sheet` drew Stevie's design under Jimothy's name, and the first eye check missed it. They and the drift made from them are in `generated.json`'s `dropped` list with that reason. Jimothy's run 7 positives are cells of his own sheet. A generated sheet of a look-alike cast member needs an eye check against the other members, not only against its own references.
 - **Cost:** about $7.33 on the gateway by the spend ledger: the two runs ($4.37), development checks on seen cases ($2.13), and 7 sheets (one failed its frame count) and 20 drift edits ($0.83).
 
-**What is open:** a proportion change in a strongly posed frame, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen.
+**What is open:** a proportion change in a strongly posed frame, a held-out walk and family of Jimothy's own, the tolerances named under the rule, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen.
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 

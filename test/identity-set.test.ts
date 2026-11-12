@@ -8,7 +8,7 @@ import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import { evaluateIdentity } from "../src/identity-eval.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import { createRaster, encodePng, setPixel } from "../src/image/raster.ts";
-import { buildIdentitySet } from "./fixtures/identity-set/build.ts";
+import { buildIdentitySet, heldOutCut } from "./fixtures/identity-set/build.ts";
 
 const roots: string[] = [];
 after(async () => {
@@ -111,5 +111,37 @@ test("identity-eval reports the combined set per kind, cast and medium, and catc
   );
   assert.ok(
     report.results.filter((r) => !r.cast.endsWith("-conflict")).every((r) => !r.untrustedRecord),
+  );
+});
+
+test("the held-out cut keeps one run's positives and drift with every generic and look-alike", async () => {
+  const cut = heldOutCut(
+    [
+      { id: 1, kind: "same", heldOut: "#104 run 7" },
+      { id: 2, kind: "drift", heldOut: "#104 run 7" },
+      { id: 3, kind: "same", heldOut: "#104 run 6" },
+      { id: 4, kind: "drift" },
+      { id: 5, kind: "same" },
+      { id: 6, kind: "generic" },
+      { id: 7, kind: "lookalike", heldOut: "#104 run 6" },
+    ],
+    "#104 run 7",
+  );
+  assert.deepEqual(
+    cut.map((c) => c.id),
+    [1, 2, 6, 7],
+  );
+  const dir = await mkdtemp(join(tmpdir(), "identity-set-"));
+  roots.push(dir);
+  const { cases } = (await buildIdentitySet(dir, {
+    raccoonWorld: false,
+    heldOut: "#104 run 7",
+  })) as { cases: SetCase[] };
+  const count = (kind: string) => cases.filter((c) => c.kind === kind).length;
+  // Run 7's bird poses: 12 on-model frames and 12 drift, with every generic and look-alike.
+  assert.deepEqual(["same", "drift", "generic", "lookalike"].map(count), [12, 12, 9, 14]);
+  await assert.rejects(
+    buildIdentitySet(join(dir, "none"), { raccoonWorld: false, heldOut: "#104 run 99" }),
+    /no case is held out/,
   );
 });
