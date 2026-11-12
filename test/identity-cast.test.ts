@@ -65,19 +65,34 @@ test("every image decodes and none is byte-identical to a reference", async () =
   }
 });
 
-test("held-out animation poses: each bird has one on-model frame and one drift per pose, the pose named and the drift not", async () => {
+test("held-out animation poses: each bird has on-model frames and drifts per pose, the pose named and the drift not", async () => {
   const { set } = await build();
-  for (const run of ["#104 run 6", "#104 run 7"]) {
+  const counts: Record<string, [number, number]> = {
+    "#104 run 6": [4, 4],
+    "#104 run 7": [4, 4],
+    "#108 run 8": [5, 10],
+  };
+  for (const [run, [same, drift]] of Object.entries(counts)) {
     const held = set.cases.filter((c) => c.heldOut === run);
     for (const name of Object.keys(BIRDS)) {
       const mine = held.filter((c) => c.subject === name);
-      assert.equal(mine.filter((c) => c.kind === "same").length, 4, name);
-      assert.equal(mine.filter((c) => c.kind === "drift").length, 4, name);
+      assert.equal(mine.filter((c) => c.kind === "same").length, same, `${run} ${name}`);
+      assert.equal(mine.filter((c) => c.kind === "drift").length, drift, `${run} ${name}`);
       for (const c of mine) {
         assert.match(c.describe ?? "", /^a frame of one character's "[a-z-]+" animation$/);
         // A posed positive keeps every feature the record names; posed drift changes one.
         if (c.kind === "same") assert.deepEqual(paramsOf(c.note), BIRDS[name]);
         else assert.notDeepEqual(paramsOf(c.note), BIRDS[name]);
+      }
+      if (run === "#108 run 8") {
+        const stretched = mine.filter(
+          (c) =>
+            c.kind === "drift" &&
+            paramsOf(c.note).stretch.join() !== BIRDS[name]!.stretch.join() &&
+            JSON.stringify({ ...paramsOf(c.note), stretch: 0 }) ===
+              JSON.stringify({ ...BIRDS[name]!, stretch: 0 }),
+        );
+        assert.ok(stretched.length >= 5, name);
       }
     }
   }

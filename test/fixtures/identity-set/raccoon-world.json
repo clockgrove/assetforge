@@ -479,6 +479,174 @@
       "note": "Jimothy's own 57-frame contact sheet: sit-groom cells not used before, held out for #104 run 7",
       "family": "sit-groom",
       "heldOut": "#104 run 7"
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "crouch-hop-r8",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [23, 24, 25, 26, 29, 30],
+      "medium": "2d",
+      "note": "unused cells of Jimothy's owner-made 57-frame contact sheet, in the owner-confirmed crouch-hop family (clockgrove/raccoon-world references/jimothy/assetforge-38-proof/grouping.json, frames 1-based there and cells 0-based here); never scored before #108 run 8",
+      "checked": {
+        "23": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "24": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "25": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "26": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "29": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "30": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design"
+      },
+      "family": "crouch-hop",
+      "heldOut": "#108 run 8",
+      "drift": [
+        {
+          "cell": 24,
+          "edit": "stretch-tall",
+          "amount": 1.3,
+          "note": "body stretched 1.3x tall in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 29,
+          "edit": "stretch-wide",
+          "amount": 1.3,
+          "note": "body stretched 1.3x wide in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 25,
+          "edit": "hue-shift",
+          "amount": 60,
+          "note": "coat hue rotated 60 degrees"
+        }
+      ]
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "walk-alert-r8",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [31, 32, 34, 35, 36, 37],
+      "medium": "2d",
+      "note": "unused cells of Jimothy's owner-made 57-frame contact sheet, in the owner-confirmed walk-right-alert family (clockgrove/raccoon-world references/jimothy/assetforge-38-proof/grouping.json, frames 1-based there and cells 0-based here); never scored before #108 run 8",
+      "checked": {
+        "31": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "32": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "34": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "35": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "36": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "37": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design"
+      },
+      "family": "walk-right-alert",
+      "heldOut": "#108 run 8",
+      "drift": [
+        {
+          "cell": 34,
+          "edit": "stretch-tall",
+          "amount": 1.3,
+          "note": "body stretched 1.3x tall in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 36,
+          "edit": "stretch-wide",
+          "amount": 1.3,
+          "note": "body stretched 1.3x wide in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 31,
+          "edit": "desaturate",
+          "amount": 0.7,
+          "note": "colours muted: a duller tone than the references"
+        }
+      ]
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "walk-left-r8",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [15, 18, 19, 21],
+      "medium": "2d",
+      "note": "unused cells of Jimothy's owner-made 57-frame contact sheet, in the owner-confirmed walk-left family (clockgrove/raccoon-world references/jimothy/assetforge-38-proof/grouping.json, frames 1-based there and cells 0-based here); never scored before #108 run 8",
+      "checked": {
+        "15": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "18": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "19": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "21": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design"
+      },
+      "family": "walk-left",
+      "heldOut": "#108 run 8",
+      "drift": [
+        {
+          "cell": 18,
+          "edit": "stretch-tall",
+          "amount": 1.3,
+          "note": "body stretched 1.3x tall in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 21,
+          "edit": "desaturate",
+          "amount": 0.7,
+          "note": "colours muted: a duller tone than the references"
+        }
+      ]
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "idle-r8",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [46, 48, 52, 55],
+      "medium": "2d",
+      "note": "unused cells of Jimothy's owner-made 57-frame contact sheet, in the owner-confirmed idle family (clockgrove/raccoon-world references/jimothy/assetforge-38-proof/grouping.json, frames 1-based there and cells 0-based here); never scored before #108 run 8",
+      "checked": {
+        "46": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "48": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "52": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design",
+        "55": "2026-11-12, by eye against Jimothy's lock (sheet cell 3 and the painted portrait) and against Stevie: very fluffy warm-brown coat, round hunched short-spined body on short dark legs, big fluffy tail with broad dark and tan bands, dark mask with cream brows and muzzle, bright round eyes; not Stevie's sleeker, stockier design"
+      },
+      "family": "idle",
+      "heldOut": "#108 run 8",
+      "drift": [
+        {
+          "cell": 48,
+          "edit": "stretch-wide",
+          "amount": 1.3,
+          "note": "body stretched 1.3x wide in a posed frame: proportions beyond the pose"
+        },
+        {
+          "cell": 52,
+          "edit": "hue-shift",
+          "amount": -40,
+          "note": "coat hue rotated -40 degrees"
+        }
+      ]
     }
   ]
 }

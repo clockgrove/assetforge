@@ -161,6 +161,56 @@ const POSES_RUN_7: { name: string; view: BirdView }[] = [
   },
 ];
 
+/** Run 8's held-out poses (#108), added after the prompt was frozen on run 7. */
+const POSES_RUN_8: { name: string; view: BirdView }[] = [
+  {
+    name: "scratch",
+    view: {
+      ...CANONICAL_VIEW,
+      tilt: -0.55,
+      headTurned: true,
+      wingUp: true,
+      scale: 0.85,
+      bg: "#f5e9dc",
+    },
+  },
+  { name: "bow", view: { ...CANONICAL_VIEW, tilt: 0.9, scale: 0.78, bg: "#dfe6ea" } },
+  {
+    name: "reach",
+    view: {
+      ...CANONICAL_VIEW,
+      tilt: -0.2,
+      wingsSpread: true,
+      dy: -12,
+      crestSwept: 0.3,
+      bg: "#e6eef5",
+    },
+  },
+  {
+    name: "tuck",
+    view: {
+      ...CANONICAL_VIEW,
+      tilt: 0.35,
+      headTurned: true,
+      crestSwept: 0.8,
+      scale: 0.8,
+      facing: "left",
+      bg: "#f4f1ea",
+    },
+  },
+  {
+    name: "land",
+    view: {
+      ...CANONICAL_VIEW,
+      tilt: -0.5,
+      wingsSpread: true,
+      facing: "left",
+      scale: 0.8,
+      bg: "#efe6f0",
+    },
+  },
+];
+
 type Pt = [number, number];
 const inEllipse = (u: number, v: number, cx: number, cy: number, rx: number, ry: number) =>
   ((u - cx) / rx) ** 2 + ((v - cy) / ry) ** 2 <= 1;
@@ -299,6 +349,17 @@ function genericParams(rng: () => number): BirdParams {
     };
     if (Object.values(BIRDS).every((bird) => differences(candidate, bird) >= 2)) return candidate;
   }
+}
+
+/** Mixes a #rrggbb colour `t` of the way toward white. */
+function lighten(hex: string, t: number): string {
+  return `#${parseHex(hex)
+    .map((v) =>
+      Math.round(v + (255 - v) * t)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
 }
 
 function driftVariants(name: string, rng: () => number) {
@@ -520,6 +581,69 @@ export async function buildBirdCastSet(
           "drift",
           `${name} in its "${pose.name}" animation pose, edited: ${d.what} (held out, ${run})`,
           { describe, heldOut: run },
+          "BIBLE.md",
+          pose.view,
+        );
+      }
+    }
+  }
+
+  // Run 8 (#108): each pose has one on-model frame and two posed drifts, a body proportion and a
+  // feature; none of this draws from the rng before the earlier images above.
+  for (const [birdIndex, name] of names.entries()) {
+    const bird = BIRDS[name]!;
+    for (const [i, pose] of POSES_RUN_8.entries()) {
+      const describe = `a frame of one character's "${pose.name}" animation`;
+      const extra = { describe, heldOut: "#108 run 8" };
+      await add(
+        `${name}-r8-pose-${pose.name}.png`,
+        bird,
+        name,
+        "same",
+        `${name} in its "${pose.name}" animation pose (held out, #108 run 8)`,
+        extra,
+        "BIBLE.md",
+        pose.view,
+      );
+      const tall = i % 2 === 0;
+      const proportion = {
+        params: { ...bird, stretch: (tall ? [1, 1.3] : [1.3, 1]) as [number, number] },
+        what: `body stretched 1.3x ${tall ? "tall" : "wide"}`,
+      };
+      const crest = bird.crest === 3 ? 2 : bird.crest + 1;
+      const wing = pick(rng, OTHER_WINGS);
+      const lighter = lighten(bird.wing, 0.5);
+      const feature = [
+        {
+          params: { ...bird, wing },
+          what: `wing colour changed from ${bird.wing} to ${wing}`,
+        },
+        {
+          params: { ...bird, crest },
+          what: `crest feather count changed from ${bird.crest} to ${crest}`,
+        },
+        {
+          params: { ...bird, eyeRing: !bird.eyeRing },
+          what: bird.eyeRing ? "eye ring removed" : "eye ring added",
+        },
+        {
+          params: { ...bird, wing: lighter },
+          what: `wing a lighter tone of its own hue (${bird.wing} to ${lighter})`,
+        },
+      ][(i + birdIndex) % 4]!;
+      for (const [file, d] of [
+        [`${name}-r8-pose-drift-proportion-${pose.name}.png`, proportion],
+        [`${name}-r8-pose-drift-feature-${pose.name}.png`, feature],
+      ] as const) {
+        if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
+          throw new Error("a drift variant equals a cast member");
+        await add(
+          file,
+          d.params,
+          name,
+          "drift",
+          `${name} in its "${pose.name}" animation pose, edited: ${d.what} (held out, #108 run 8)`,
+          extra,
           "BIBLE.md",
           pose.view,
         );

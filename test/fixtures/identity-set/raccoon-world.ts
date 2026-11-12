@@ -78,6 +78,10 @@ export interface CropEntry {
   family?: string;
   /** Added after the prompt it measures was written, so that prompt was never tuned on it. */
   heldOut?: string;
+  /**
+   * Pixel drift of a cell, made in code: a negative for the crop's subject in that animation pose.
+   */
+  drift?: { cell: number; edit: DriftEdit; amount: number; note: string }[];
 }
 export type DriftEdit = "hue-shift" | "desaturate" | "stretch-wide" | "stretch-tall";
 
@@ -311,6 +315,27 @@ export async function buildRaccoonWorldSet(
           note: `${crop.subject}'s ${where}`,
           ...extra,
         });
+    }
+    for (const d of crop.drift ?? []) {
+      if (!crop.cells.includes(d.cell))
+        throw new Error(`${crop.name}: drift cell ${d.cell} is not one of its cells`);
+      const image = `drift/${crop.subject}-${crop.name}-${d.cell}-${d.edit}.png`;
+      await mkdir(join(outDir, "drift"), { recursive: true });
+      await writeFile(
+        join(outDir, image),
+        encodePng(applyDrift(cropCell(source, crop, d.cell), d.edit, d.amount)),
+      );
+      cases.push({
+        image,
+        subject: crop.subject,
+        same: false,
+        kind: "drift",
+        cast,
+        medium: crop.medium,
+        bible,
+        note: `${d.edit} ${d.amount} of cell ${d.cell} of ${crop.from}: ${d.note}`,
+        ...extra,
+      });
     }
   }
   const conflictBible = posix.join(BIBLE_DIR, "BIBLE-conflict.md");
