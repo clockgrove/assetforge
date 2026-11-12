@@ -286,6 +286,11 @@ export const character3dGenerator: Generator = {
         forward: settings.forward,
         ...(character.heightM !== undefined && { heightM: character.heightM }),
       });
+      // glTF has no playback-loop flag; targets read each clip's from its extras, as the manifest says.
+      for (const animation of glb.json.animations ?? []) {
+        const loop = delivered.find((p) => p.family === animation.name)?.loop ?? false;
+        animation["extras"] = { ...(animation["extras"] as object | undefined), loop };
+      }
       const bytes = writeGlb(glb);
       const written = parseGlb(bytes);
       const measures = measure(written);

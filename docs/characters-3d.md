@@ -60,6 +60,8 @@ The field names below are shared with clockgrove/raccoon-world#39. Fields may be
 | `output.clips`                                                                               | one `{ name, durationMs, loop }` per clip |
 | `output.bounds`                                                                              | `{ min, max }` in metres                  |
 
+The `.glb` carries the same facts a target compares with the manifest: each animation's `extras.loop` (glTF has no playback-loop flag), and, for template rigs, each clip's `extras.generated` and the asset's `extras.rig`.
+
 Also available:
 
 - `output.gait`;

@@ -61,7 +61,14 @@ function pipeline(
   const sole = soles(skeleton, mesh, skin);
   const clip = generateGait("walk", gait, skeleton, mesh, sole, skin);
   spoil?.(clip, skeleton.names);
-  const glb = parseGlb(writeGlb(buildRiggedGlb(source, mesh, skeleton, skin, [clip])));
+  const glb = parseGlb(
+    writeGlb(
+      buildRiggedGlb(source, mesh, skeleton, skin, [clip], {
+        template: "rig.json",
+        sha256: "0".repeat(64),
+      }),
+    ),
+  );
   const samples = sampleClip(glb, 0, clip, skeleton, 0, samplesPerCycle);
   const ends = soleEnds(skeleton, mesh, sole);
   return {
