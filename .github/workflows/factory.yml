@@ -43,7 +43,6 @@ env:
   FACTORY_CI_CHECKS: ci
   FACTORY_NODE_VERSION: 24.21.0 # the Node.js your CI uses
   FACTORY_WORKER_SECRETS: AI_GATEWAY_API_KEY=WORKER_AI_GATEWAY_API_KEY # the worker's own capped gateway key (assetforge-worker, $25/month); values in the FACTORY_WORKER_SECRET_VALUES secret, or the local shell
-  FACTORY_ALLOWED_DOMAINS: ai-gateway.vercel.sh # Actions route; local mode uses FACTORY_LOCAL_DOMAINS
 permissions: # the job token reads code and Actions; every write goes through the App's token
   contents: read
   actions: read # the dispatcher sums today's usage artifacts; doctor lists the CI workflow's triggers
@@ -74,7 +73,7 @@ jobs:
       wake_at: "${{ steps.f.outputs.wake_at }}"
       wake_kind: "${{ steps.f.outputs.wake_kind }}"
     steps:
-      - uses: clockgrove/factory@v0.9.13
+      - uses: clockgrove/factory@v0.9.14
         id: f
         with: { mode: dispatch, issue: "${{ inputs.issue }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
   queue-watch:
@@ -94,7 +93,7 @@ jobs:
     permissions: { contents: read, actions: write } # actions: write only for the dispatcher tick
     concurrency: { group: factory-queue-watch, cancel-in-progress: false }
     steps:
-      - uses: clockgrove/factory@v0.9.13
+      - uses: clockgrove/factory@v0.9.14
         id: w
         with: { mode: watch, pr: "${{ needs.dispatch.outputs.queue_watch }}", app_id: "${{ secrets.FACTORY_APP_ID }}", app_private_key: "${{ secrets.FACTORY_APP_PRIVATE_KEY }}" }
       - name: Dispatch tick (a watched PR left the queue or stalled there, or the watch's time is up)
@@ -140,7 +139,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.9.13
+      - uses: clockgrove/factory@v0.9.14
         id: f
         with:
           mode: work
@@ -175,7 +174,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with: { fetch-depth: 0, persist-credentials: false }
-      - uses: clockgrove/factory@v0.9.13
+      - uses: clockgrove/factory@v0.9.14
         id: f
         with:
           mode: review

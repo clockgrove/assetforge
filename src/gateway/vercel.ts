@@ -47,8 +47,11 @@ function requestId(...candidates: unknown[]): {
 export class VercelGateway implements GenerationProvider {
   readonly #gateway: Gateway;
 
-  constructor(options: { apiKey: string }) {
-    this.#gateway = createGateway({ apiKey: options.apiKey });
+  constructor(options: { apiKey: string; baseURL?: string }) {
+    this.#gateway = createGateway({
+      apiKey: options.apiKey,
+      ...(options.baseURL !== undefined && { baseURL: options.baseURL }),
+    });
   }
 
   static fromEnv(env: Record<string, string | undefined> = process.env): VercelGateway {
@@ -58,7 +61,14 @@ export class VercelGateway implements GenerationProvider {
         "AI_GATEWAY_API_KEY is not set; the gateway key must come from the environment",
       );
     }
-    return new VercelGateway({ apiKey });
+    // Inside a Factory stage the key is a relay token: calls go through Factory's metering relay,
+    // which counts them against the Objective's caps (clockgrove/factory#97). `/v4/ai` is the
+    // gateway SDK's own path, so the relay sees the requests the gateway would.
+    const relay = env["FACTORY_GATEWAY_URL"];
+    return new VercelGateway({
+      apiKey,
+      ...(relay && { baseURL: `${relay.replace(/\/$/, "")}/v4/ai` }),
+    });
   }
 
   async generateImage(req: ImageRequest): Promise<ImageResult> {

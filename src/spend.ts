@@ -152,7 +152,8 @@ export class SpendLedger {
   /**
    * The ledger and limits from the environment: `ASSETFORGE_SPEND_LEDGER` (default
    * `$XDG_STATE_HOME/assetforge/spend.jsonl`, or `~/.local/state/...`; in a Factory worker, where
-   * `FACTORY_ISSUE` is set, `$TMPDIR/assetforge-spend.jsonl`), `ASSETFORGE_WORK_ITEM`
+   * `FACTORY_ISSUE` is set, `assetforge-spend.jsonl` in `$FACTORY_STATE_DIR`, else `$TMPDIR`),
+   * `ASSETFORGE_WORK_ITEM`
    * (or `workItem`, from `--work-item`; else a Factory worker's Objective from `FACTORY_ISSUE`),
    * `ASSETFORGE_DAILY_LIMIT_USD` and
    * `ASSETFORGE_WORK_ITEM_LIMIT_USD`.
@@ -163,7 +164,8 @@ export class SpendLedger {
   ): SpendLedger {
     const configured = env[SPEND_ENV.ledger]?.trim();
     const stateHome = env["XDG_STATE_HOME"]?.trim();
-    const temp = env["TMPDIR"]?.trim();
+    // Factory's stage-persistent state directory when it gives one, else the stage's temp dir.
+    const temp = env["FACTORY_STATE_DIR"]?.trim() || env["TMPDIR"]?.trim();
     const path = configured
       ? resolve(configured)
       : factoryWorkItem(env) !== undefined
