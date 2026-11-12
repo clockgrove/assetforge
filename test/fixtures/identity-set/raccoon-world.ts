@@ -67,6 +67,11 @@ export interface CropEntry {
   note: string;
   /** Generated frames only: each cell's eye check, which is what its `same: true` label rests on. */
   checked?: Record<string, string>;
+  /**
+   * A measured defect of the art itself (for example see-through holes a background removal left in
+   * the face). Its frames are then drift of their subject, labelled from how they were made.
+   */
+  defect?: string;
 }
 export type DriftEdit = "hue-shift" | "desaturate" | "stretch-wide" | "stretch-tall";
 
@@ -264,12 +269,12 @@ export async function buildRaccoonWorldSet(
       cases.push({
         image,
         subject: crop.subject,
-        same: true,
-        kind: "same",
+        same: !crop.defect,
+        kind: crop.defect ? "drift" : "same",
         cast,
         medium: crop.medium,
         bible,
-        note: where,
+        note: crop.defect ? `${where}; defect: ${crop.defect}` : where,
       });
       for (const other of Object.keys(manifest.bible.identities).filter((n) => n !== crop.subject))
         cases.push({
