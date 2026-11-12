@@ -61,7 +61,11 @@ function setup(score: number) {
   return { provider, caller };
 }
 
-async function run(mode: "shadow" | "enforce" | undefined, score: number) {
+async function run(
+  mode: "shadow" | "enforce" | undefined,
+  score: number,
+  spec?: { animationFamily: string; fields: Record<string, unknown> },
+) {
   const root = await mkdtemp(join(tmpdir(), "assetforge-identity-sheet-"));
   const targetDir = join(root, "target");
   await mkdir(targetDir);
@@ -78,6 +82,7 @@ async function run(mode: "shadow" | "enforce" | undefined, score: number) {
     importsDir: join(root, "imports"),
     importId: "imp1",
     ...(mode && { identity: { caller, record, references: [reference], settings } }),
+    ...(spec && { spec }),
   });
   return { ...imported, provider, caller, targetDir };
 }
@@ -136,4 +141,14 @@ test("without an identity option nothing is scored", async () => {
   assert.equal(provider.calls.filter((c) => c.kind === "decide").length, 0);
   assert.equal("identity" in imp, false);
   assert.equal(imp.calls.length, 0);
+});
+
+test("the identity prompt names the sheet's animation family when a spec asked for it", async () => {
+  const describe = (provider: ScriptedProvider) =>
+    provider.calls.flatMap((c) => (c.kind === "decide" ? [c.request.prompt] : []));
+  const withSpec = await run("shadow", 4, { animationFamily: "walk", fields: {} });
+  const [prompt] = describe(withSpec.provider);
+  assert.match(prompt!, /contact sheet of \d+ frames of one character, from its "walk" animation/);
+  const [plain] = describe((await run("shadow", 4)).provider);
+  assert.match(plain!, /contact sheet of \d+ frames of one character\./);
 });

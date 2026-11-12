@@ -443,6 +443,42 @@
       "cells": [0, 6, 9, 14, 17, 22, 27, 28, 33, 39, 42, 50],
       "medium": "2d",
       "note": "Jimothy's 57-frame contact sheet, the source of his lock (cell 3, which is excluded here)"
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "walk-heldout",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [8, 12, 16, 20],
+      "medium": "2d",
+      "note": "Jimothy's own 57-frame contact sheet: walk cells not used before, held out for #104 run 7",
+      "family": "walk",
+      "heldOut": "#104 run 7"
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "groom-heldout",
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
+      "cells": [40, 41, 43, 44],
+      "medium": "2d",
+      "note": "Jimothy's own 57-frame contact sheet: sit-groom cells not used before, held out for #104 run 7",
+      "family": "sit-groom",
+      "heldOut": "#104 run 7"
     }
   ]
 }

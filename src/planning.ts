@@ -1026,7 +1026,7 @@ export async function applyPlan(
               describe:
                 frames.length === 1
                   ? "a still"
-                  : `a sprite strip of ${frames.length} frames side by side`,
+                  : `a sprite strip of ${frames.length} frames side by side${plan.spec.animationFamily ? `, from its "${plan.spec.animationFamily}" animation` : ""}`,
               settings: { mode: check.mode, threshold: check.threshold, question: check.question },
               edges: style.edges,
               ...(cast && { cast }),

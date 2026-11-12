@@ -15,6 +15,8 @@ export interface EvalCaseJson {
   bible?: string;
   describe?: string;
   note?: string;
+  /** The Objective run that added the case after the prompt it measures was written. */
+  heldOut?: string;
 }
 
 export interface RaccoonWorldManifest {
@@ -72,13 +74,17 @@ export interface CropEntry {
    * the face). Its frames are then drift of their subject, labelled from how they were made.
    */
   defect?: string;
+  /** The animation family every cell shows; its cases then describe the candidate as a frame of it. */
+  family?: string;
+  /** Added after the prompt it measures was written, so that prompt was never tuned on it. */
+  heldOut?: string;
 }
 export type DriftEdit = "hue-shift" | "desaturate" | "stretch-wide" | "stretch-tall";
 
 const BIBLE_DIR = "art";
 const PROSE = "# Raccoon World\n\n## Do's and Don'ts\nDo keep each identity lock.\n";
 
-async function loadManifest(): Promise<RaccoonWorldManifest> {
+export async function loadManifest(): Promise<RaccoonWorldManifest> {
   const url = new URL("./raccoon-world.json", import.meta.url);
   return JSON.parse(await readFile(url, "utf8")) as RaccoonWorldManifest;
 }
@@ -172,6 +178,30 @@ async function download(
   await writeFile(target, new Uint8Array(await response.arrayBuffer()));
 }
 
+/** The set's file name for one cell of a crop entry. */
+export const cropImage = (crop: CropEntry, cell: number) =>
+  `crops/${crop.subject}-${crop.name}-${cell}.png`;
+
+/** One cell of a sheet, cut on the crop entry's grid. */
+export function cropCell(source: Raster, crop: CropEntry, cell: number): Raster {
+  const { x, y, width, height, columns } = crop.grid;
+  const left = Math.min(source.width, x + (cell % columns) * (crop.grid.columnPitch ?? width));
+  const top = Math.min(
+    source.height,
+    y + Math.floor(cell / columns) * (crop.grid.rowPitch ?? height),
+  );
+  const out = createRaster(
+    Math.max(1, Math.min(width, source.width - left)),
+    Math.max(1, Math.min(height, source.height - top)),
+  );
+  for (let row = 0; row < out.height && top + row < source.height; row++) {
+    const start = ((top + row) * source.width + left) * 4;
+    const length = Math.min(out.width, source.width - left) * 4;
+    out.data.set(source.data.subarray(start, start + length), row * out.width * 4);
+  }
+  return out;
+}
+
 /** A lock's reference paths are relative to the bible; the repository path drops the leading `../`. */
 const repoPath = (ref: string) => posix.normalize(posix.join(BIBLE_DIR, ref));
 
@@ -246,24 +276,16 @@ export async function buildRaccoonWorldSet(
   await mkdir(join(outDir, "crops"), { recursive: true });
   for (const crop of manifest.crops) {
     const source = decodeImage(await readFile(join(outDir, crop.from)));
-    const { x, y, width, height, columns } = crop.grid;
+    // A frame of a known animation is described as one, as a run describes its candidate.
+    const extra = {
+      ...(crop.family !== undefined && {
+        describe: `a frame of one character's "${crop.family}" animation`,
+      }),
+      ...(crop.heldOut !== undefined && { heldOut: crop.heldOut }),
+    };
     for (const cell of crop.cells) {
-      const left = Math.min(source.width, x + (cell % columns) * (crop.grid.columnPitch ?? width));
-      const top = Math.min(
-        source.height,
-        y + Math.floor(cell / columns) * (crop.grid.rowPitch ?? height),
-      );
-      const out = createRaster(
-        Math.max(1, Math.min(width, source.width - left)),
-        Math.max(1, Math.min(height, source.height - top)),
-      );
-      for (let row = 0; row < out.height && top + row < source.height; row++) {
-        const start = ((top + row) * source.width + left) * 4;
-        const length = Math.min(out.width, source.width - left) * 4;
-        out.data.set(source.data.subarray(start, start + length), row * out.width * 4);
-      }
-      const image = `crops/${crop.subject}-${crop.name}-${cell}.png`;
-      await writeFile(join(outDir, image), encodePng(out));
+      const image = cropImage(crop, cell);
+      await writeFile(join(outDir, image), encodePng(cropCell(source, crop, cell)));
       const check = crop.checked?.[String(cell)];
       const where = `cell ${cell} of ${crop.from}: ${crop.note}${check ? ` (checked ${check})` : ""}`;
       cases.push({
@@ -275,6 +297,7 @@ export async function buildRaccoonWorldSet(
         medium: crop.medium,
         bible,
         note: crop.defect ? `${where}; defect: ${crop.defect}` : where,
+        ...extra,
       });
       for (const other of Object.keys(manifest.bible.identities).filter((n) => n !== crop.subject))
         cases.push({
@@ -286,6 +309,7 @@ export async function buildRaccoonWorldSet(
           medium: crop.medium,
           bible,
           note: `${crop.subject}'s ${where}`,
+          ...extra,
         });
     }
   }

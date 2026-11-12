@@ -21,6 +21,7 @@ import type { Raster } from "../../../src/image/raster.ts";
 import { resampleTo } from "../../../src/image/resample.ts";
 import { defaultRoutes } from "../../../src/routes.ts";
 import { SpendLedger } from "../../../src/spend.ts";
+import { cropCell, cropImage, loadManifest } from "./raccoon-world.ts";
 import type { CallRecord } from "../../../src/types.ts";
 
 export interface GeneratedItem {
@@ -35,6 +36,13 @@ export interface GeneratedItem {
   from?: string;
   edit?: string;
   drift?: string;
+  /**
+   * The animation family a sheet frame comes from, or the family of the frame a drift was edited
+   * from; the case then describes the candidate as a frame of that animation, as a run does.
+   */
+  family?: string;
+  /** Added after the prompt it measures was written, so that prompt was never tuned on it. */
+  heldOut?: string;
   seed?: number;
   /** When and what was checked by eye before the image was kept. */
   checked?: string;
@@ -97,6 +105,32 @@ export function shrink(src: Raster, maxSide: number): Raster {
   return resampleTo(src, scale, { x: 0, y: 0 }, size, "antialiased");
 }
 
+/**
+ * A drift item's source: an approved reference at the pinned commit, a committed sheet frame
+ * (`generated/<id>.png`) or a cell the Raccoon World set cuts (`crops/<name>.png`), so drift can be
+ * made in an animation pose too.
+ */
+async function sourceBytes(manifest: GeneratedManifest, from: string): Promise<Uint8Array> {
+  if (from.startsWith("crops/")) {
+    // A cell of a sheet in the Raccoon World set, cut as the set cuts it, at that set's commit.
+    const world = await loadManifest();
+    const crop = world.crops.find((c) => c.cells.some((cell) => cropImage(c, cell) === from));
+    if (!crop) throw new Error(`${from}: no crop entry makes this cell`);
+    const cell = crop.cells.find((n) => cropImage(crop, n) === from)!;
+    const url = `https://media.githubusercontent.com/media/${world.repository}/${world.commit}/${crop.from}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+    const sheet = decodeImage(new Uint8Array(await response.arrayBuffer()));
+    return encodePng(cropCell(sheet, crop, cell));
+  }
+  if (from.startsWith("generated/"))
+    return new Uint8Array(await readFile(new URL(from.slice("generated/".length), GENERATED_DIR)));
+  const url = `https://media.githubusercontent.com/media/${manifest.repository}/${manifest.commit}/${from}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 async function main() {
@@ -141,10 +175,7 @@ async function main() {
     const references = [];
     if (item.kind === "drift") {
       if (!item.from) throw new Error(`${item.id}: drift needs "from"`);
-      const url = `https://media.githubusercontent.com/media/${manifest.repository}/${manifest.commit}/${item.from}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const bytes = await sourceBytes(manifest, item.from);
       source = { path: item.from, sha256: sha256(bytes) };
       references.push({
         role: "source",

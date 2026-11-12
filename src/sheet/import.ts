@@ -423,7 +423,7 @@ export async function importSheet(
       record: lock,
       references,
       candidate: contactRef,
-      describe: `a numbered contact sheet of ${ids.length} frames of one character`,
+      describe: `a numbered contact sheet of ${ids.length} frames of one character${options.spec?.animationFamily ? `, from its "${options.spec.animationFamily}" animation` : ""}`,
       settings,
       edges: style.edges,
       ...(cast && { cast }),

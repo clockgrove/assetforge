@@ -852,5 +852,911 @@
       "frame": "f008",
       "assetforge": "69bb566"
     }
+  },
+  {
+    "id": "stevie-walk-heldout-1",
+    "sha256": "4a339877cc4a38645e4873e1c8719c3d248109f9285f9036be881250de32d35f",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f001",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-2",
+    "sha256": "a3d3ccfb0801e51ba469ab48dbc3e200ec2bf75fd0500378451fdee31b4eb9e8",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f002",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-3",
+    "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f003",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-4",
+    "sha256": "fd12d64a1bff78e2eb3c8e115ce2d25d39423e69fb9b8344e825ae62aec32211",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f004",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-5",
+    "sha256": "4c279b8cfa996d36825c06ad7435a0526571f8bafb09496e643444d2cb0f4b85",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f005",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-6",
+    "sha256": "059543b5d8c863c72293918c8f08a02a23b900979f1b0365dbbf69c30bb0982c",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f006",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-7",
+    "sha256": "d6e08bfafd19ddbb5207701dfdc3c60054ba865198a20f605cd854789d0dc89c",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f007",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-heldout-8",
+    "sha256": "1e394266927c6b1861e04a7bf6cb7ea68e90127b7be89f4501868a67243fcfd5",
+    "sheet": {
+      "importId": "2026-11-12T06-13-25-657Z-a79d99",
+      "createdAt": "2026-11-12T06:13:26.429Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "94027ad7a66dd90c0d3da62f08e202001a3fa65cc71a18c8f9423018b6c1fe4a",
+      "frame": "f008",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-1",
+    "sha256": "98bc0a2479828a2b32e717d64589cd9f1b7edcd0df01b63c163cdde43a349eb1",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f001",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-2",
+    "sha256": "c0ee0d815c9f8ddc5e5c50d290ca5c5ddec885ccbfec083a0e3887d53dec952e",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f002",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-3",
+    "sha256": "408956973def0d5012d95e65f57e6025a423ae2aa733332adc93eca16297dcd8",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f003",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-4",
+    "sha256": "3fe7e85f8458791136004a0db52786f6405ecc4d8db25f0a076d996cab3337c4",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f004",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-5",
+    "sha256": "cb543b5dd5d8fa0f1e19d0679dcc927ecee2f841eeac786b0ea4286f64f97311",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f005",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-sniff-heldout-6",
+    "sha256": "e7188e8435f1f0efe53f7ebce62bf2f6e4e7e464b21b3089572ef52e46e07fbb",
+    "sheet": {
+      "importId": "2026-11-12T06-14-03-516Z-5111c8",
+      "createdAt": "2026-11-12T06:14:04.397Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "b924d9aba1b55c2e6800d44a77976c43ff52ab6bd1aed8ee6142c3ba45e88217",
+      "frame": "f006",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-drift-orange-coat",
+    "sha256": "21b556a74e0b96d40f3327c55878060bbc9921c21050a897b95b0d223c1f2548",
+    "source": {
+      "path": "generated/stevie-walk-heldout-3.png",
+      "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Change the colour of the raccoon's body fur to a bright rusty orange-red, like a red fox. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-heldout-3.png",
+            "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+          }
+        ]
+      },
+      "referenceHashes": ["9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"],
+      "requestId": "gen_01M776D5QDBQ8HZT1PQPBH3WZ2",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T06:16:30.884Z",
+      "finishedAt": "2026-11-12T06:16:47.344Z",
+      "costUsd": 0.026747,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-drift-plain-tail",
+    "sha256": "88304920e9ceafdcd85993bb192a7089eeae1521ee81ba8c447738100261e32c",
+    "source": {
+      "path": "generated/stevie-walk-heldout-3.png",
+      "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove all the dark rings from the raccoon's tail, so the whole tail is one plain, even grey-brown colour. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-heldout-3.png",
+            "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+          }
+        ]
+      },
+      "referenceHashes": ["9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"],
+      "requestId": "gen_01M776DNSD21R2GTEVZVMM5BW8",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T06:16:47.420Z",
+      "finishedAt": "2026-11-12T06:17:02.073Z",
+      "costUsd": 0.026767,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-drift-no-mask",
+    "sha256": "3f98d551def9c97425e23ea232b7b869c2fd4b458a3eec9e2677666dbed8529c",
+    "source": {
+      "path": "generated/stevie-walk-heldout-3.png",
+      "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same grey-brown as the rest of the head. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-heldout-3.png",
+            "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+          }
+        ]
+      },
+      "referenceHashes": ["9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"],
+      "requestId": "gen_01M776E43ZW8HS84RXDHCQB478",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T06:17:02.138Z",
+      "finishedAt": "2026-11-12T06:17:31.405Z",
+      "costUsd": 0.026772,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-drift-long-legs",
+    "sha256": "1f6513cd34339e9bddce41a76ce6c045d6ab19ec8d0efd97eb27845e8c7ef823",
+    "source": {
+      "path": "generated/stevie-walk-heldout-3.png",
+      "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Give the raccoon very long, thin legs, about twice as long as they are now, so the body stands high off the ground. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-heldout-3.png",
+            "sha256": "9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"
+          }
+        ]
+      },
+      "referenceHashes": ["9dfa0c0978c8fad7404838128436627bdebdfafe4d54f40869bf9f2484dfaebc"],
+      "requestId": "gen_01M776F0RP887C7CJ15EDGW8NN",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T06:17:31.466Z",
+      "finishedAt": "2026-11-12T06:17:42.232Z",
+      "costUsd": 0.009227,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-r7-1",
+    "sha256": "ce39b645518ac2cb1b3efcb4c4967f0b08df5cbdf659d3bb0b5e555232ccd7fc",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f001",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-2",
+    "sha256": "5a29a7c44e9a2dd8a0779a5c1675632f5357fb5d0f55bc212cd01b9a92332ba4",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f002",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-3",
+    "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f003",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-4",
+    "sha256": "03f4118d2c005d1e7d958b3b10cbc273aa97fb8510ab0b29229fbacfcfdd7387",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f004",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-5",
+    "sha256": "c174c86c8cef50ec5ecf0c5e69de7474dfc67f8c604237e8cdc0492e38f3d050",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f005",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-6",
+    "sha256": "ece5cf54fb859d235dd795973b7eb648e76b32a1d6e49e1321134fcfe5d9ed23",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f006",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-7",
+    "sha256": "729d971765090ae13ce9a826814855aaaa4fc3b42624de59a06d39bd65873b4c",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f007",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-8",
+    "sha256": "2157511c94bb3476b9fd5572edeb8c260f024dc3e6f39421d736b97c66c6344b",
+    "sheet": {
+      "importId": "2026-11-12T06-59-01-727Z-017aec",
+      "createdAt": "2026-11-12T06:59:02.618Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "591f94a917c9080edcbec8b3f0a9bb2f12804a051e9cc9f4b337d4c7070f50b1",
+      "frame": "f008",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-1",
+    "sha256": "877d5597831c5261e01a30cbdd877578c7cd9f6805a4899f026f369c42bdf4fa",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f001",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-2",
+    "sha256": "09e998c2f589ad86ec2b52cd3ae1971404bba21537cccf0591543da6ab98aa0e",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f002",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-3",
+    "sha256": "32252a37eb441df9cd1be7bb8332c82ad0a41ffb5d580cc1ac4dd883d05e50fc",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f003",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-4",
+    "sha256": "92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f004",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-5",
+    "sha256": "93ae3b94c2893d8181e88bce93ef975ed198a2c675550922ce0320728dfee920",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f005",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-eat-r7-6",
+    "sha256": "47afcea72e378c869bee5954e47db5a6c33f29a790f8f983d78dc6b94f440a11",
+    "sheet": {
+      "importId": "2026-11-12T07-00-03-744Z-51807d",
+      "createdAt": "2026-11-12T07:00:04.640Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "ea53cf769cb3ab07f4d6508a7e926a92cd75e09f1ed8bce46fa7a917181f83cb",
+      "frame": "f006",
+      "assetforge": "deeaca0"
+    }
+  },
+  {
+    "id": "stevie-walk-r7-drift-dark-muzzle",
+    "sha256": "005526dda1c343c3bf6300d2a530f00be79053ef4867e48df34b7d7ac310cc5c",
+    "source": {
+      "path": "generated/stevie-walk-r7-3.png",
+      "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's muzzle and brows dark brown instead of cream, so the face has no pale markings. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-r7-3.png",
+            "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+          }
+        ]
+      },
+      "referenceHashes": ["acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"],
+      "requestId": "gen_01M778ZPMPFRM1KTWSEYWF34XT",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:01:35.125Z",
+      "finishedAt": "2026-11-12T07:02:04.933Z",
+      "costUsd": 0.056053,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-r7-drift-pointed-ears",
+    "sha256": "dae45e2d16ec21e4d6aa7cfa6e89674373c3674463d892a0dc70609c1ac4a8c2",
+    "source": {
+      "path": "generated/stevie-walk-r7-3.png",
+      "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's ears tall, narrow and pointed, like a fox's ears, with no pale rims. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-r7-3.png",
+            "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+          }
+        ]
+      },
+      "referenceHashes": ["acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"],
+      "requestId": "gen_01M7790KNKX8EFFE3D9XVFPW9G",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:02:05.008Z",
+      "finishedAt": "2026-11-12T07:03:03.765Z",
+      "costUsd": 0.056058,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-walk-r7-drift-spotted",
+    "sha256": "3880a63ccf8339dd030957178d5bd557ff33306a1e4c3a19ff0f5946bd90a352",
+    "source": {
+      "path": "generated/stevie-walk-r7-3.png",
+      "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Cover the raccoon's back and sides with large, round black spots, like a leopard's. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-walk-r7-3.png",
+            "sha256": "acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"
+          }
+        ]
+      },
+      "referenceHashes": ["acf7975e14aecb68bd87f971d228bab5854c337ec900bedae5b3f7833c584536"],
+      "requestId": "gen_01M7792D5FMB0QZHA6YJCZ2BD2",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:03:03.829Z",
+      "finishedAt": "2026-11-12T07:03:21.634Z",
+      "costUsd": 0.026793,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-eat-r7-drift-orange-coat",
+    "sha256": "60acb3b8edb134ebcdc19a0bb7282d7fdb03865d96213e40cf7544fba85763fc",
+    "source": {
+      "path": "generated/stevie-eat-r7-4.png",
+      "sha256": "92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Change the colour of the raccoon's body fur to a bright rusty orange-red, like a red fox. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-eat-r7-4.png",
+            "sha256": "92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"
+          }
+        ]
+      },
+      "referenceHashes": ["92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"],
+      "requestId": "gen_01M7793HW47TAZXBBXQ9234XY9",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:03:41.322Z",
+      "finishedAt": "2026-11-12T07:04:08.027Z",
+      "costUsd": 0.028603,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-eat-r7-drift-no-mask",
+    "sha256": "a4fa70fb57550e71838137a3f19404f36a66a293832bf612edd7334353a01404",
+    "source": {
+      "path": "generated/stevie-eat-r7-4.png",
+      "sha256": "92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same grey-brown as the rest of the head. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "generated/stevie-eat-r7-4.png",
+            "sha256": "92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"
+          }
+        ]
+      },
+      "referenceHashes": ["92ba6a035573a118de06cee21aac8acb36e579d55b8b19da250edd4492f8efe1"],
+      "requestId": "gen_01M7794BWNJKTNZ6ZXR79VCJX0",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:04:08.096Z",
+      "finishedAt": "2026-11-12T07:04:38.718Z",
+      "costUsd": 0.057878,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-walk-r7-drift-silver-coat",
+    "sha256": "ee113e8e732400bd796b1e3f09832fcf25e072bf162b2b205167c82230cd3815",
+    "source": {
+      "path": "crops/jimothy-walk-heldout-12.png",
+      "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Change the colour of the raccoon's fur to a cool, pale silver-white, with no brown anywhere. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-walk-heldout-12.png",
+            "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+          }
+        ]
+      },
+      "referenceHashes": ["9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"],
+      "requestId": "gen_01M7795DFP556XB07M5PKTXBJH",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:04:39.560Z",
+      "finishedAt": "2026-11-12T07:05:06.476Z",
+      "costUsd": 0.007373,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-walk-r7-drift-plain-tail",
+    "sha256": "4181a551c43da98f06e02a7ba8fb9c4649edd2299c36d41c5a8534ed121f8c1c",
+    "source": {
+      "path": "crops/jimothy-walk-heldout-12.png",
+      "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the dark bands from the raccoon's tail, so the whole tail is one plain, even brown colour. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-walk-heldout-12.png",
+            "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+          }
+        ]
+      },
+      "referenceHashes": ["9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"],
+      "requestId": "gen_01M77965A67KJJ7YRJHYKRTD7F",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:05:07.012Z",
+      "finishedAt": "2026-11-12T07:05:20.473Z",
+      "costUsd": 0.014668,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-walk-r7-drift-no-mask",
+    "sha256": "73017196da63bc22a4e244ca15a52207c37fddd6c09098a213cf46accabff0a6",
+    "source": {
+      "path": "crops/jimothy-walk-heldout-12.png",
+      "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same brown-grey as the rest of the head. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-walk-heldout-12.png",
+            "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+          }
+        ]
+      },
+      "referenceHashes": ["9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"],
+      "requestId": "gen_01M7796JS9993QJF75HKRC52JG",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:05:20.825Z",
+      "finishedAt": "2026-11-12T07:05:33.208Z",
+      "costUsd": 0.014683,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-walk-r7-drift-long-legs",
+    "sha256": "c992ab9fa6782deda8c6428fdb947aa0dc7e63ed3736156c8699e8d9e878501a",
+    "source": {
+      "path": "crops/jimothy-walk-heldout-12.png",
+      "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Give the raccoon very long, thin legs, about twice as long as they are now, so the body stands high off the ground. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-walk-heldout-12.png",
+            "sha256": "9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"
+          }
+        ]
+      },
+      "referenceHashes": ["9982110147aeb3b6f4d59b2f6d6573ec2e2ec1410be2160ea67568ba0d10a781"],
+      "requestId": "gen_01M7796ZAJ0GZXDEYPAPY64QPS",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:05:33.577Z",
+      "finishedAt": "2026-11-12T07:06:48.001Z",
+      "costUsd": 0.007403,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-sit-groom-r7-drift-pointed-ears",
+    "sha256": "e44368bb357701699e03186efed338a03d7c10593ce0e0cd5619aeebe927b90a",
+    "source": {
+      "path": "crops/jimothy-groom-heldout-41.png",
+      "sha256": "4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's ears tall, narrow and pointed, like a fox's ears, with no pale rims. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-groom-heldout-41.png",
+            "sha256": "4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"
+          }
+        ]
+      },
+      "referenceHashes": ["4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"],
+      "requestId": "gen_01M77998A3SC74DWD2RFSQ2YS6",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:06:48.320Z",
+      "finishedAt": "2026-11-12T07:07:02.118Z",
+      "costUsd": 0.014668,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-sit-groom-r7-drift-spotted",
+    "sha256": "cece30d1e01588f7946e84c94a9dbb939b51ba0f4b21b217bbf8042e5858456f",
+    "source": {
+      "path": "crops/jimothy-groom-heldout-41.png",
+      "sha256": "4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Cover the raccoon's back and sides with large, round black spots, like a leopard's. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "crops/jimothy-groom-heldout-41.png",
+            "sha256": "4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"
+          }
+        ]
+      },
+      "referenceHashes": ["4411db8e1210178272cd5dcd98a9bdb57b9fc4a76a5740e63c400ba6bcf811ab"],
+      "requestId": "gen_01M7799P2XPF7ERQ7HY8B2PYJ3",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T07:07:02.425Z",
+      "finishedAt": "2026-11-12T07:07:25.240Z",
+      "costUsd": 0.007363,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
   }
 ]
