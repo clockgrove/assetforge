@@ -407,5 +407,34 @@
       "medium": "2d",
       "note": "colours washed out"
     }
+  ],
+  "crops": [
+    {
+      "from": "references/stevie/comparison-candidates/idle/strip.png",
+      "subject": "stevie",
+      "name": "idle",
+      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 6 },
+      "cells": [0, 1, 2, 3, 4, 5],
+      "medium": "2d",
+      "note": "Owner-picked idle strip made by Assetforge generate-sheet from Stevie's approved turnaround (raccoon-world README)"
+    },
+    {
+      "from": "references/stevie/comparison-candidates/walk/strip.png",
+      "subject": "stevie",
+      "name": "walk",
+      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 8 },
+      "cells": [0, 1, 2, 3, 4, 5, 6, 7],
+      "medium": "2d",
+      "note": "Stevie walk strip made by Assetforge generate-sheet from his approved turnaround (raccoon-world comparison candidates)"
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "sheet",
+      "grid": { "x": 0, "y": 22, "width": 192, "height": 208, "columns": 8, "rowPitch": 230 },
+      "cells": [0, 6, 9, 14, 17, 22, 27, 28, 33, 39, 42, 50],
+      "medium": "2d",
+      "note": "Jimothy's 57-frame contact sheet, the source of his lock (cell 3, which is excluded here)"
+    }
   ]
 }
