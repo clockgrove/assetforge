@@ -47,10 +47,11 @@ async function fixture() {
   return { root, bible };
 }
 
-const env = (scores: string) => ({
+const env = (scores: string, vision = '{"consistent": true, "conflicts": []}') => ({
   ...process.env,
   AI_GATEWAY_API_KEY: "",
   IDENTITY_TEST_SCORES: scores,
+  IDENTITY_TEST_VISION: vision,
 });
 
 function importArgs(root: string, asset: string, extra: string[]) {
@@ -192,6 +193,7 @@ export default {
   image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(drawSubject(96)) }] }),
   vision: (request) => {
     if (request.prompt.includes('"violations":[]')) throw new Error("no compiler offline");
+    if (request.prompt.includes("source of truth")) return { text: '{"consistent": true, "conflicts": []}' };
     return { text: JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }) };
   },
   decide: (_request, index) => ({ answer: { type: "score", score: [1, 4][index] }, confidence: 0.7 }),
@@ -268,4 +270,82 @@ export default {
     /identity enforce against "stevie" lock stevie-3 \(threshold 0\.68\): 2 scored, agrees with QA on 1 of 2/,
   );
   assert.match(applied.stderr, /identity perplexity\/pplx-decider-v1\.2: .*confidence 0\.70/);
+});
+
+test("identity-check exits 0 when every record agrees with its references and 1 when one does not", async () => {
+  const f = await fixture();
+  const args = [CLI, "identity-check", "--bible", f.bible, "--provider-script", SCRIPT, "--json"];
+  const ok = await exec(process.execPath, args, { env: env("") });
+  const agreed = JSON.parse(ok.stdout);
+  assert.equal(agreed.ok, true);
+  assert.equal(agreed.checks[0].subject, "stevie");
+  assert.match(agreed.checks[0].reason, /record "stevie" lock stevie-3 agrees with its references/);
+
+  const conflicted =
+    '{"consistent": false, "conflicts": [{"field": "proportions", "text": "round body", "observed": "long and thin"}]}';
+  const bad = await exec(process.execPath, [...args, "--subject", "stevie"], {
+    env: env("", conflicted),
+  }).then(
+    () => assert.fail("expected exit 1"),
+    (error: { code: number; stdout: string }) => error,
+  );
+  assert.equal(bad.code, 1);
+  assert.match(
+    JSON.parse(bad.stdout).checks[0].reason,
+    /disagrees with its references: proportions "round body" vs "long and thin"/,
+  );
+
+  // An answer that cannot be read leaves the record unchecked, which is not trusted either.
+  const garbled = await exec(process.execPath, args, { env: env("", "no json") }).then(
+    () => assert.fail("expected exit 1"),
+    (error: { code: number; stdout: string }) => error,
+  );
+  assert.equal(garbled.code, 1);
+  assert.equal(JSON.parse(garbled.stdout).checks[0].checked, false);
+
+  const unknown = await exec(process.execPath, [...args, "--subject", "nobody"], {
+    env: env(""),
+  }).then(
+    () => assert.fail("expected a refusal"),
+    (error: { code: number }) => error,
+  );
+  assert.equal(unknown.code, 2);
+});
+
+test("identity-eval prints the per-medium breakdown, the bar and the record checks", async () => {
+  const f = await fixture();
+  for (const name of ["a", "b"]) await writeFile(join(f.root, `${name}.png`), syntheticSheet().png);
+  await writeFile(
+    join(f.root, "cases.json"),
+    JSON.stringify([
+      { image: "a.png", subject: "stevie", same: true, bible: "art/BIBLE.md" },
+      {
+        image: "b.png",
+        subject: "stevie",
+        same: false,
+        kind: "drift",
+        bible: "art/BIBLE.md",
+        medium: "3d",
+      },
+    ]),
+  );
+  const result = await exec(
+    process.execPath,
+    [CLI, "identity-eval", "--cases", join(f.root, "cases.json"), "--provider-script", SCRIPT],
+    { env: env("4,0") },
+  );
+  assert.match(result.stdout, /^2D at threshold 0\.68:$/m);
+  assert.match(
+    result.stdout,
+    /^3D \(provisional, no threshold rests on it\) at threshold 0\.68:$/m,
+  );
+  assert.match(result.stdout, /kind same: 1 cases, false accepts 0%, false rejects 0%/);
+  assert.match(result.stdout, /cast Synthetic: /);
+  // One positive and no 2D negative: the 2D groups cannot be measured, so the bar is not met.
+  assert.match(
+    result.stdout,
+    /enforce bar \(provisional\): not met: overall: not measured \(no negatives\); cast Synthetic: not measured \(no negatives\)/,
+  );
+  assert.match(result.stdout, /enforce bar: not judged on provisional 3D/);
+  assert.match(result.stdout, /record check: record "stevie" lock stevie-3 agrees/);
 });

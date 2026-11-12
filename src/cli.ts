@@ -8,8 +8,10 @@ import type { ParseArgsOptionsConfig } from "node:util";
 import { Budget, BudgetExceededError } from "./budget.ts";
 import { Caller } from "./calls.ts";
 import { loadBible } from "./bible.ts";
-import { identitySettings, loadIdentity } from "./identity.ts";
+import { checkIdentityRecord, identitySettings, loadCast, loadIdentity } from "./identity.ts";
+import type { IdentityRecordCheck } from "./identity.ts";
 import { evaluateIdentity } from "./identity-eval.ts";
+import type { Breakdown, MediumReport } from "./identity-eval.ts";
 import { parseDigitalSourceType } from "./metadata.ts";
 import type { DigitalSourceType } from "./metadata.ts";
 import { InputError, ProviderError } from "./errors.ts";
@@ -29,7 +31,8 @@ import { pick } from "./handoff.ts";
 import { DEFAULT_CANDIDATES, DEFAULT_CAP_USD, planStage, readJson, stage } from "./loop.ts";
 import type { RunRecord, StagePlan } from "./loop.ts";
 import { loadBibleInputs } from "./request.ts";
-import { loadRoutes } from "./routes.ts";
+import { IDENTITY_CAST_OPERATION, IDENTITY_CHECK_OPERATION, loadRoutes } from "./routes.ts";
+import type { Route } from "./routes.ts";
 import {
   SPEND_ENV,
   SpendLedger,
@@ -505,9 +508,14 @@ async function lockFor(values: Values, subject: string, profile: TargetProfile) 
     if (mode !== undefined) throw new InputError("--identity-mode needs --lock-bible <BIBLE.md>");
     return undefined;
   }
-  const loaded = await loadIdentity(await loadBible(path), subject);
+  const doc = await loadBible(path);
+  const loaded = await loadIdentity(doc, subject);
   if (!loaded || settings.mode === "off") return undefined;
-  return { ...loaded, settings };
+  return {
+    ...loaded,
+    settings,
+    ...(settings.question === "cast" && { cast: await loadCast(doc) }),
+  };
 }
 
 function formatIdentity(record: ImportRecord): string[] {
@@ -686,6 +694,7 @@ below the threshold, off skips scoring.`,
           record: lock.record,
           references: lock.references,
           settings: lock.settings,
+          ...(lock.cast && { cast: lock.cast }),
         },
       }),
     });
@@ -750,12 +759,13 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
       ...planSheet(spec.value, profile.value, routes),
       ...(lock
         ? [
-            {
-              operation: "identity",
-              model: routes.identity.model,
-              estimatedCostUsd: routes.identity.estimatedCostUsd,
-            },
-          ]
+            lock.settings.question === "cast" ? IDENTITY_CAST_OPERATION : "identity",
+            ...(lock.settings.mode === "enforce" ? [IDENTITY_CHECK_OPERATION] : []),
+          ].map((operation) => ({
+            operation,
+            model: (routes[operation] as Route).model,
+            estimatedCostUsd: (routes[operation] as Route).estimatedCostUsd,
+          }))
         : []),
     ];
     if (values["dry-run"]) {
@@ -794,7 +804,12 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         capUsd,
         ledger,
         ...(lock && {
-          identity: { record: lock.record, references: lock.references, settings: lock.settings },
+          identity: {
+            record: lock.record,
+            references: lock.references,
+            settings: lock.settings,
+            ...(lock.cast && { cast: lock.cast }),
+          },
         }),
       });
     } catch (error) {
@@ -1514,16 +1529,37 @@ Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are loc
   },
 };
 
+function formatMedium(medium: string, m: MediumReport, threshold: number): string[] {
+  const pct = (n: number) => `${Number((n * 100).toFixed(1))}%`;
+  const line = (label: string, g: Breakdown["byKind"][string]) =>
+    `  ${label}: ${g.cases} cases${g.auc !== undefined ? `, AUC ${g.auc.toFixed(3)}` : ""}, false accepts ${pct(g.falseAcceptRate)}, false rejects ${pct(g.falseRejectRate)}`;
+  const b = m.configured;
+  return [
+    `${medium.toUpperCase()}${m.provisional ? " (provisional, no threshold rests on it)" : ""} at threshold ${threshold}:`,
+    line("overall", b),
+    ...Object.entries(b.byKind).map(([k, g]) => line(`kind ${k}`, g)),
+    ...Object.entries(b.byCast).map(([c, g]) => line(`cast ${c}`, g)),
+    m.provisional
+      ? "  enforce bar: not judged on provisional 3D"
+      : b.bar.met
+        ? "  enforce bar (provisional): met"
+        : `  enforce bar (provisional): not met: ${b.bar.failures.join("; ")}`,
+  ];
+}
+
 const identityEvalCommand: Command = {
   name: "identity-eval",
   summary: "score a local labelled image set against identity locks and recommend a threshold",
-  usage: `Usage: assetforge identity-eval --bible <BIBLE.md> --cases <cases.json> [--profile <profile.json>]
+  usage: `Usage: assetforge identity-eval [--bible <BIBLE.md>] --cases <cases.json> [--profile <profile.json>]
                               [--log <identity-eval.jsonl>] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
                               [--work-item <label>] [--provider-script <module>] [--json]
 
 Scores every case of a labelled set against its subject's identity lock through the identity
 route. cases.json is a list (or {"cases": [...]}) of {"image", "subject", "same": true|false,
-"qa": true|false (optional)}, image paths relative to the file. Each call's label, confidence,
+"qa": true|false (optional), "kind": same|drift|generic|lookalike, "cast", "medium": 2d|3d,
+"bible": path relative to the file}, image paths relative to the file. --bible is optional when
+every case names its bible. With identity.question "cast" each candidate is judged against the whole
+cast of its bible; every subject's record is first checked against its own references. Each call's label, confidence,
 latency and cost are logged on stderr, and one JSON line per case goes to --log. Reports accuracy
 for every threshold, the recommended threshold, accuracy at the profile's threshold and agreement
 with the cases' QA verdicts. Never filters or approves. Keep the set and the log local; they may
@@ -1541,12 +1577,12 @@ hold a game's private art. See docs/generation-knobs.md.`,
     help: { type: "boolean" },
   },
   async run(values) {
-    const o = required(values, ["bible", "cases"]);
+    const o = required(values, ["cases"]);
     const profilePath = values["profile"] as string | undefined;
     const profile = profilePath ? (await readJson<TargetProfile>(profilePath)).value : {};
     const { provider, name } = await providerFor(values);
     const report = await evaluateIdentity({
-      biblePath: o["bible"] as string,
+      ...(typeof values["bible"] === "string" && { biblePath: values["bible"] }),
       casesPath: o["cases"] as string,
       profile,
       routes: await loadRoutes(values["routes"] as string | undefined),
@@ -1562,19 +1598,89 @@ hold a game's private art. See docs/generation-knobs.md.`,
       `${report.scored} of ${report.cases} cases scored by ${report.model} (${report.question}), ${report.failed} failed, $${report.spentUsd.toFixed(6)} spent`,
       ...report.sweep.map(
         (r) =>
-          `  threshold ${r.threshold.toFixed(3)}: ${r.correct}/${report.scored} correct (${pct(r.accuracy)}), ${r.falseRejects} false rejects, ${r.falseAccepts} false accepts`,
+          `  threshold ${r.threshold.toFixed(3)}: ${r.correct} correct (${pct(r.accuracy)}), ${r.falseRejects} false rejects, ${r.falseAccepts} false accepts`,
       ),
       report.recommended
         ? `recommended threshold ${report.recommended.threshold.toFixed(3)} (${pct(report.recommended.accuracy)})`
-        : "no threshold recommended: nothing was scored",
+        : "no threshold recommended: no 2D case of a trusted record was scored",
       `configured threshold ${report.configured.threshold}: ${pct(report.configured.accuracy)}`,
       ...(report.qaAgreement
         ? [
             `agreement with QA: ${report.qaAgreement.agree}/${report.qaAgreement.scored} (${pct(report.qaAgreement.rate)}), identity-only failures ${report.qaAgreement.identityOnlyFailed}, QA-only failures ${report.qaAgreement.qaOnlyFailed}`,
           ]
         : []),
+      ...(["2d", "3d"] as const).flatMap((medium) => {
+        const m = report.media[medium];
+        return m ? formatMedium(medium, m, report.configured.threshold) : [];
+      }),
+      ...(report.untrusted
+        ? [
+            `untrusted records (kept out of the threshold and the bar): ${report.untrusted.cases} cases at threshold ${report.configured.threshold}, false accepts ${pct(report.untrusted.falseAcceptRate)}, false rejects ${pct(report.untrusted.falseRejectRate)}`,
+          ]
+        : []),
+      ...report.recordChecks.map((c) => `record check: ${c.reason}`),
     ];
     return { exitCode: 0, fields: { ...report }, human: lines.join("\n") };
+  },
+};
+
+const identityCheckCommand: Command = {
+  name: "identity-check",
+  summary: "check that identity records agree with their own approved references",
+  usage: `Usage: assetforge identity-check --bible <BIBLE.md> [--subject <name>]... [--routes <routes.json>]
+                              [--cap ${DEFAULT_CAP_USD}] [--work-item <label>] [--provider-script <module>] [--json]
+
+Asks the identity-check route whether each identity record's written signature features,
+proportions and palette agree with the record's approved reference images (the source of truth).
+Checks every identity in the bible, or the named subjects. Exits 1 when any record disagrees or
+could not be checked: identity enforce mode does not filter with such a record until a person
+fixes its text or its references. See docs/generation-knobs.md.`,
+  options: {
+    bible: { type: "string" },
+    subject: { type: "string", multiple: true },
+    routes: { type: "string" },
+    cap: { type: "string" },
+    ...workItemOption,
+    "provider-script": { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const o = required(values, ["bible"]);
+    const doc = await loadBible(o["bible"] as string);
+    const named = (values["subject"] as unknown as string[] | undefined) ?? [];
+    const subjects = named.length > 0 ? named : Object.keys(doc.data.identities).sort();
+    const loaded = await Promise.all(
+      subjects.map(async (subject) => {
+        const identity = await loadIdentity(doc, subject);
+        if (!identity) throw new InputError(`"${subject}" has no identity lock in ${doc.path}`);
+        return identity;
+      }),
+    );
+    if (loaded.length === 0) throw new InputError(`${doc.path} has no identity locks`);
+    const routes = await loadRoutes(values["routes"] as string | undefined);
+    const { provider, name } = await providerFor(values);
+    const budget = new Budget(
+      numberOption(values, "cap", DEFAULT_CAP_USD),
+      ledgerFor(spendLedger(values), name, {}),
+    );
+    budget.check(
+      loaded.length * (routes[IDENTITY_CHECK_OPERATION] as Route).estimatedCostUsd,
+      `${loaded.length} identity record checks`,
+    );
+    const caller = new Caller({
+      provider,
+      providerName: name,
+      budget,
+      routes,
+      log: (m) => console.error(m),
+    });
+    const checks: IdentityRecordCheck[] = [];
+    for (const identity of loaded) checks.push(await checkIdentityRecord({ caller, ...identity }));
+    const ok = checks.every((c) => c.checked && c.consistent);
+    const fields = { checks, spentUsd: budget.spentUsd };
+    const human = checks.map((c) => c.reason).join("\n");
+    return { exitCode: ok ? 0 : 1, fields, human };
   },
 };
 
@@ -1639,6 +1745,7 @@ const commands: Command[] = [
   generateSheetCommand,
   writeFamiliesCommand,
   identityEvalCommand,
+  identityCheckCommand,
   animationQaCommand,
   fixFrameCommand,
   opCommand,

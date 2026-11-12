@@ -135,12 +135,13 @@ export interface TargetProfile {
   /**
    * Identity scoring of characters with an identity lock (docs/generation-knobs.md). `mode`:
    * `shadow` (default) scores and records without filtering, `enforce` filters candidates below
-   * `threshold` (0..1), `off` skips scoring. `question` picks the typed decision (default `score`).
+   * `threshold` (0..1), `off` skips scoring. `question` picks the typed decision (default `score`);
+   * `cast` judges the candidate as a choice among every identity in the bible.
    */
   identity?: {
     mode?: "off" | "shadow" | "enforce";
     threshold?: number;
-    question?: "score" | "boolean";
+    question?: "score" | "boolean" | "cast";
   };
   /**
    * Provider spend limits across runs (docs/target-profile.md#spend): USD over the last 24 hours,

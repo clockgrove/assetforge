@@ -43,7 +43,13 @@ const record: IdentityRecord = {
 function setup(score: number) {
   const provider = new ScriptedProvider({
     image: () => ({ images: [], costUsd: 0 }),
-    vision: () => ({ text: "", costUsd: 0 }),
+    // Enforce mode first checks the record against its references (#92); this one agrees.
+    vision: (request) => ({
+      text: request.prompt.includes("source of truth")
+        ? JSON.stringify({ consistent: true, conflicts: [] })
+        : "",
+      costUsd: 0,
+    }),
     decide: () => ({ answer: { type: "score", score }, costUsd: 0.01 }),
   });
   const caller = new Caller({

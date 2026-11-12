@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { BIBLE_PRESETS, serializeBible } from "../src/bible.ts";
 import { applyPlan, createPlan } from "../src/planning.ts";
+import { IDENTITY_CHECK_OPERATION, defaultRoutes } from "../src/routes.ts";
+import type { Routes } from "../src/routes.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import type { DecisionRequest } from "../src/gateway/provider.ts";
 import { createRaster, decodeImage, encodePng, setPixel } from "../src/image/raster.ts";
@@ -55,8 +57,11 @@ function scripted(answers: number[]) {
   setPixel(image, 1, 1, [120, 90, 80, 255]);
   return new ScriptedProvider({
     image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(image) }] }),
-    vision: () => ({
-      text: JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
+    vision: (request) => ({
+      // Enforce mode first checks the record against its references (#92); this one agrees.
+      text: request.prompt.includes("source of truth")
+        ? JSON.stringify({ consistent: true, conflicts: [] })
+        : JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
     }),
     decide: (_request, index) => {
       const score = answers[index] as number;
@@ -68,7 +73,12 @@ function scripted(answers: number[]) {
 
 async function run(
   answers: number[],
-  options: { profile?: Partial<TargetProfile>; withLock?: boolean; identityMode?: string } = {},
+  options: {
+    profile?: Partial<TargetProfile>;
+    withLock?: boolean;
+    identityMode?: string;
+    routes?: Routes;
+  } = {},
 ) {
   const f = await fixture(options.withLock ?? true);
   const provider = scripted(answers);
@@ -78,6 +88,7 @@ async function run(
     settings: { candidates: answers.length, capUsd: 5 },
     profile: syntheticProfile(options.profile),
     ...(options.identityMode && { identityMode: options.identityMode }),
+    ...(options.routes && { routes: options.routes }),
   });
   const logs: string[] = [];
   const result = await applyPlan(plan, {
@@ -125,6 +136,43 @@ test("enforce mode filters the below-threshold candidate and says why", async ()
   assert.match(record.rejections![0]!.reasons[0]!.reason, /lock 7/);
   assert.equal(record.candidates[0]!.reasons.at(-1)?.passed, true);
   assert.equal(record.candidates[0]!.reasons.at(-1)?.shadow, undefined);
+});
+
+test("enforce mode checks the record against its references once per run", async () => {
+  const { provider } = await run([3.6, 3.6, 3.6], {
+    profile: { identity: { mode: "enforce" } },
+  });
+  const checks = provider.calls.filter(
+    (c) => c.kind === "vision" && c.request.prompt.includes("source of truth"),
+  );
+  assert.equal(checks.length, 1);
+});
+
+test("the plan records the record check's route, so a routes file applies at apply time", async () => {
+  const checkRoute = {
+    ...defaultRoutes[IDENTITY_CHECK_OPERATION]!,
+    model: "test/record-checker",
+    estimatedCostUsd: 0.05,
+  };
+  const shadow = await run([3.6]);
+  assert.equal(shadow.plan.identityCheck?.checkRoute, undefined);
+  const { plan, provider } = await run([3.6], {
+    profile: { identity: { mode: "enforce" } },
+    routes: { ...defaultRoutes, [IDENTITY_CHECK_OPERATION]: checkRoute },
+  });
+  assert.equal(plan.identityCheck?.checkRoute?.model, "test/record-checker");
+  assert.ok(
+    Math.abs(
+      plan.forecast.generationUsd -
+        shadow.plan.forecast.generationUsd -
+        checkRoute.estimatedCostUsd,
+    ) < 1e-9,
+  );
+  const checks = provider.calls.filter(
+    (c) => c.kind === "vision" && c.request.prompt.includes("source of truth"),
+  );
+  assert.equal(checks.length, 1);
+  assert.equal(checks[0]!.request.model, "test/record-checker");
 });
 
 test("the mode option overrides the profile, and off plans no scoring", async () => {

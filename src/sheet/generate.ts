@@ -20,6 +20,7 @@ import {
   subjectOf,
 } from "../request.ts";
 import type { BibleInputs, FrameGrid } from "../request.ts";
+import { IDENTITY_CAST_OPERATION, IDENTITY_CHECK_OPERATION } from "../routes.ts";
 import type { Routes } from "../routes.ts";
 import type { AssetSpec, LoadedReference, StyleBible, TargetProfile } from "../types.ts";
 import { importSheet } from "./import.ts";
@@ -194,7 +195,14 @@ export async function generateSheet(
   const scoring = options.identity !== undefined && options.identity.settings.mode !== "off";
   const estimate =
     plan.reduce((sum, c) => sum + c.estimatedCostUsd, 0) +
-    (scoring ? routes.identity.estimatedCostUsd : 0);
+    (scoring
+      ? (options.identity!.settings.question === "cast"
+          ? routes[IDENTITY_CAST_OPERATION]!.estimatedCostUsd
+          : routes.identity.estimatedCostUsd) +
+        (options.identity!.settings.mode === "enforce"
+          ? routes[IDENTITY_CHECK_OPERATION]!.estimatedCostUsd
+          : 0)
+      : 0);
   budget.check(estimate, "a sheet and its grouping proposal");
 
   const call = new Caller({

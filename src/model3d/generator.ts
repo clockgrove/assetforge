@@ -6,7 +6,13 @@
  */
 import { InputError, ProviderError } from "../errors.ts";
 import type { Generator, GeneratorContext, PlannedCall } from "../generators/generator.ts";
-import { identitySettings, identityReason, scoreIdentity } from "../identity.ts";
+import {
+  IDENTITY_CAST_OPERATION,
+  IDENTITY_CHECK_OPERATION,
+  identitySettings,
+  identityReason,
+  scoreIdentity,
+} from "../identity.ts";
 import type { IdentityRecord, IdentityScore } from "../identity.ts";
 import { createRaster, decodeImage, encodePng } from "../image/raster.ts";
 import type { Raster } from "../image/raster.ts";
@@ -193,7 +199,11 @@ export const character3dGenerator: Generator = {
       add(RIG_OPERATION);
       if (clipPlan(character, routes[CLIPS_OPERATION]).planned.length > 0) add(CLIPS_OPERATION);
     }
-    if (identitySettings(profile).mode !== "off") add("identity");
+    const identity = identitySettings(profile);
+    if (identity.mode !== "off") {
+      add(identity.question === "cast" ? IDENTITY_CAST_OPERATION : "identity");
+      if (identity.mode === "enforce") add(IDENTITY_CHECK_OPERATION);
+    }
     return calls;
   },
 
