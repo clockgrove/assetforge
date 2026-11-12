@@ -1,23 +1,28 @@
 {
   "repository": "clockgrove/raccoon-world",
-  "commit": "e9079d85cbdc52546b9beb3cfcfcd857ead69825",
+  "commit": "5070a0b690e6785770d0cd83ddf8b78a395c0bc5",
   "bible": {
     "world": "Raccoon World",
     "preset": "cozy-storybook",
     "identities": {
       "stevie": {
-        "version": "2",
+        "version": "3",
         "approved": true,
         "turnaround": "../references/stevie/turnaround-three-quarter.png",
+        "references": [
+          "../references/stevie/turnaround-front.png",
+          "../references/stevie/turnaround-side.png",
+          "../references/stevie/turnaround-back.png"
+        ],
         "signatureFeatures": [
-          "stocky, rounded adult raccoon on short legs, back carried level (not hunched)",
+          "stocky, rounded adult raccoon on short legs, with a rounded, gently arched back",
           "grey-brown coat with a darker, streaked back and a warm tan underside",
           "dark brown-black eye mask with cream brows and a cream muzzle",
           "rounded ears with pale rims",
-          "full tail with five dark rings on tan, dark tip",
+          "full tail ringed with dark bands on tan, dark tip",
           "dark brown lower legs and hand-like paws"
         ],
-        "proportions": "compact, rounded body on short legs, head held level; stocky rather than lean; sleeker and less hunched than Jimothy",
+        "proportions": "compact, rounded body on short legs with a gently arched back; stocky rather than lean; a sleeker, less fluffy coat than Jimothy",
         "palette": ["#6b6662", "#282323", "#e2d7c2", "#ae9675", "#3a3330"]
       },
       "jimothy": {
@@ -49,11 +54,7 @@
       "dark brown lower legs and hand-like paws"
     ],
     "proportions": "lean, upright, long-bodied, long legs",
-    "positives": [
-      "references/stevie/turnaround-front.png",
-      "references/stevie/turnaround-side.png",
-      "references/stevie/stevie-window-front.png"
-    ],
+    "positives": ["references/stevie/stevie-window-front.png"],
     "negatives": [
       "references/gracie/gracie-sleeping.png",
       "references/gracie/gracie-lounging.png",
@@ -61,30 +62,6 @@
     ]
   },
   "images": [
-    {
-      "path": "references/stevie/turnaround-front.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, front view (not the identity lock)"
-    },
-    {
-      "path": "references/stevie/turnaround-side.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, side view (not the identity lock)"
-    },
-    {
-      "path": "references/stevie/turnaround-back.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, back view (not the identity lock)"
-    },
     {
       "path": "references/stevie/stevie-window-front.png",
       "subject": "stevie",
@@ -270,14 +247,6 @@
       "note": "Gracie holding an ice cube, photo; a different cast member (pale shaggy lower body); off-style photo"
     },
     {
-      "path": "references/stevie/turnaround-front.png",
-      "subject": "jimothy",
-      "same": false,
-      "kind": "lookalike",
-      "medium": "2d",
-      "note": "Stevie's approved front view: stocky, level-backed, sleeker than Jimothy"
-    },
-    {
       "path": "references/stevie/stevie-window-front.png",
       "subject": "jimothy",
       "same": false,
@@ -413,7 +382,13 @@
       "from": "references/stevie/comparison-candidates/idle/strip.png",
       "subject": "stevie",
       "name": "idle",
-      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 6 },
+      "grid": {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192,
+        "columns": 6
+      },
       "cells": [0, 1, 2, 3, 4, 5],
       "medium": "2d",
       "note": "Owner-picked idle strip made by Assetforge generate-sheet from Stevie's approved turnaround (raccoon-world README)",
@@ -430,7 +405,13 @@
       "from": "references/stevie/comparison-candidates/walk/strip.png",
       "subject": "stevie",
       "name": "walk",
-      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 8 },
+      "grid": {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192,
+        "columns": 8
+      },
       "cells": [0, 1, 2, 3, 4, 5, 6, 7],
       "medium": "2d",
       "note": "Stevie walk strip made by Assetforge generate-sheet from his approved turnaround (raccoon-world comparison candidates)",
@@ -449,7 +430,14 @@
       "from": "docs/design/reference/jimothy-sprite-sheet.png",
       "subject": "jimothy",
       "name": "sheet",
-      "grid": { "x": 0, "y": 22, "width": 192, "height": 208, "columns": 8, "rowPitch": 230 },
+      "grid": {
+        "x": 0,
+        "y": 22,
+        "width": 192,
+        "height": 208,
+        "columns": 8,
+        "rowPitch": 230
+      },
       "cells": [0, 6, 9, 14, 17, 22, 27, 28, 33, 39, 42, 50],
       "medium": "2d",
       "note": "Jimothy's 57-frame contact sheet, the source of his lock (cell 3, which is excluded here)"
