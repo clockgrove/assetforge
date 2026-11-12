@@ -66,7 +66,8 @@ test("the Raccoon World set builds from the manifest with loadable bibles and ev
 
 test("drift images differ from their sources and are labelled different", async () => {
   const { dir, cases } = await build();
-  const drift = cases.filter((c) => c.kind === "drift");
+  // The edited drift cases (a defective crop is drift too, but it is a crop, not an edit).
+  const drift = cases.filter((c) => c.kind === "drift" && !c.image.startsWith("crops/"));
   assert.equal(drift.length, manifest.drift.length);
   for (const [index, c] of drift.entries()) {
     assert.equal(c.same, false);
@@ -123,20 +124,23 @@ test("crops yield one same case and one look-alike per other identity, at grid s
       const image = `crops/${crop.subject}-${crop.name}-${cell}.png`;
       const mine = cropCases.filter((c) => c.image === image);
       assert.equal(mine.length, subjects.length, image);
-      const same = mine.filter((c) => c.same);
-      assert.equal(same.length, 1);
-      assert.equal(same[0]!.subject, crop.subject);
-      assert.equal(same[0]!.kind, "same");
-      const others = mine.filter((c) => !c.same).map((c) => c.subject);
-      assert.deepEqual(others.sort(), subjects.filter((s) => s !== crop.subject).sort());
-      assert.ok(mine.every((c) => c.kind === (c.same ? "same" : "lookalike")));
+      const own = mine.filter((c) => c.subject === crop.subject);
+      assert.equal(own.length, 1);
+      assert.equal(own[0]!.same, !crop.defect);
+      assert.equal(own[0]!.kind, crop.defect ? "drift" : "same");
+      const others = mine.filter((c) => c.subject !== crop.subject);
+      assert.deepEqual(
+        others.map((c) => c.subject).sort(),
+        subjects.filter((s) => s !== crop.subject).sort(),
+      );
+      assert.ok(others.every((c) => !c.same && c.kind === "lookalike"));
       const raster = decodeImage(await readFile(join(dir, image)));
       assert.equal(raster.width, crop.grid.width);
       assert.equal(raster.height, crop.grid.height);
     }
 });
 
-test("every generated strip frame labelled same carries its own eye check, which reaches the case note", async () => {
+test("every generated strip frame carries its own eye check; a measured defect makes it drift, with the defect in the note", async () => {
   const strips = manifest.crops.filter((c) => c.from.includes("comparison-candidates/"));
   assert.ok(strips.length > 0);
   for (const crop of strips)
@@ -147,9 +151,11 @@ test("every generated strip frame labelled same carries its own eye check, which
         `${crop.name} ${cell}`,
       );
   const { cases } = await build();
-  const frame = cases.find((c) => c.same && c.image === `crops/stevie-walk-3.png`)!;
+  const frame = cases.find((c) => c.subject === "stevie" && c.image === `crops/stevie-walk-3.png`)!;
+  assert.equal(frame.same, false);
+  assert.equal(frame.kind, "drift");
   assert.match(
     frame.note ?? "",
-    /\(checked 2026-11-11, by eye against the turnaround: Stevie, walk frame 3/,
+    /\(checked 2026-11-11, by eye against the turnaround: Stevie, walk frame 3.*; defect: see-through holes in the face/,
   );
 });
