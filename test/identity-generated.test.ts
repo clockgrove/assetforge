@@ -36,6 +36,7 @@ test("every generated recipe is labelled from how it was made and has one proven
       const frame = manifest.items.find((i) => item.from === `generated/${i.id}.png`);
       assert.ok(
         item.from?.startsWith(`references/${item.subject}/`) ||
+          item.from?.startsWith(`crops/${item.subject}-`) ||
           (frame?.kind === "same" && frame.subject === item.subject),
         item.id,
       );

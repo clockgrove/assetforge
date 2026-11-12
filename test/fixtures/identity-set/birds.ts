@@ -144,6 +144,23 @@ const POSES: { name: string; view: BirdView }[] = [
   { name: "crest-swept", view: { ...CANONICAL_VIEW, tilt: 0.1, crestSwept: 0.6, bg: "#dfe6ea" } },
 ];
 
+/** Run 7's held-out poses (#104), added after the prompt was frozen on run 6. */
+const POSES_RUN_7: { name: string; view: BirdView }[] = [
+  { name: "hop", view: { ...CANONICAL_VIEW, tilt: -0.35, wingUp: true, dy: -14, bg: "#f4f1ea" } },
+  {
+    name: "preen",
+    view: { ...CANONICAL_VIEW, tilt: 0.45, headTurned: true, scale: 0.85, bg: "#e6eef5" },
+  },
+  {
+    name: "glide",
+    view: { ...CANONICAL_VIEW, tilt: 0.25, wingsSpread: true, scale: 0.75, bg: "#efe6f0" },
+  },
+  {
+    name: "turn",
+    view: { ...CANONICAL_VIEW, facing: "left", crestSwept: 0.4, scale: 0.85, bg: "#e8f0e4" },
+  },
+];
+
 type Pt = [number, number];
 const inEllipse = (u: number, v: number, cx: number, cy: number, rx: number, ry: number) =>
   ((u - cx) / rx) ** 2 + ((v - cy) / ry) ** 2 <= 1;
@@ -472,35 +489,41 @@ export async function buildBirdCastSet(
     );
   }
 
-  const heldOut = "held out, #104";
-  for (const name of names) {
-    const bird = BIRDS[name]!;
-    const drifts = driftVariants(name, rng);
-    for (const [i, pose] of POSES.entries()) {
-      const describe = `a frame of one character's "${pose.name}" animation`;
-      await add(
-        `${name}-pose-${pose.name}.png`,
-        bird,
-        name,
-        "same",
-        `${name} in its "${pose.name}" animation pose (${heldOut})`,
-        { describe, heldOut: "#104" },
-        "BIBLE.md",
-        pose.view,
-      );
-      const d = drifts[i]!;
-      if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
-        throw new Error("a drift variant equals a cast member");
-      await add(
-        `${name}-pose-drift-${pose.name}.png`,
-        d.params,
-        name,
-        "drift",
-        `${name} in its "${pose.name}" animation pose, edited: ${d.what} (${heldOut})`,
-        { describe, heldOut: "#104" },
-        "BIBLE.md",
-        pose.view,
-      );
+  // Held-out animation poses (#104): run 6's, then run 7's, each added before its run; each pose
+  // has one on-model frame and one drift, the pose named in the description and the drift not.
+  for (const [run, poses, shift] of [
+    ["#104 run 6", POSES, 0],
+    ["#104 run 7", POSES_RUN_7, 2],
+  ] as const) {
+    for (const name of names) {
+      const bird = BIRDS[name]!;
+      const drifts = driftVariants(name, rng);
+      for (const [i, pose] of poses.entries()) {
+        const describe = `a frame of one character's "${pose.name}" animation`;
+        await add(
+          `${name}-pose-${pose.name}.png`,
+          bird,
+          name,
+          "same",
+          `${name} in its "${pose.name}" animation pose (held out, ${run})`,
+          { describe, heldOut: run },
+          "BIBLE.md",
+          pose.view,
+        );
+        const d = drifts[(i + shift) % drifts.length]!;
+        if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
+          throw new Error("a drift variant equals a cast member");
+        await add(
+          `${name}-pose-drift-${pose.name}.png`,
+          d.params,
+          name,
+          "drift",
+          `${name} in its "${pose.name}" animation pose, edited: ${d.what} (held out, ${run})`,
+          { describe, heldOut: run },
+          "BIBLE.md",
+          pose.view,
+        );
+      }
     }
   }
 
