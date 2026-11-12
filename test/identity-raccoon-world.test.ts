@@ -66,8 +66,8 @@ test("the Raccoon World set builds from the manifest with loadable bibles and ev
 
 test("drift images differ from their sources and are labelled different", async () => {
   const { dir, cases } = await build();
-  // The edited drift cases (a defective crop is drift too, but it is a crop, not an edit).
-  const drift = cases.filter((c) => c.kind === "drift" && !c.image.startsWith("crops/"));
+  // The manifest's edited drift cases (a defective crop and a crop's own drift are drift too).
+  const drift = cases.filter((c) => c.kind === "drift" && /^drift\/\d+-/.test(c.image));
   assert.equal(drift.length, manifest.drift.length);
   for (const [index, c] of drift.entries()) {
     assert.equal(c.same, false);
@@ -157,5 +157,56 @@ test("every generated strip frame carries its own eye check; a measured defect m
   assert.match(
     frame.note ?? "",
     /\(checked 2026-11-11, by eye against the turnaround: Stevie, walk frame 3.*; defect: see-through holes in the face/,
+  );
+});
+
+test("a crop's drift entries are pixel drift of the crop's subject in that animation pose", async () => {
+  const { dir, cases } = await build();
+  let checked = 0;
+  for (const crop of manifest.crops)
+    for (const d of crop.drift ?? []) {
+      const image = `drift/${crop.subject}-${crop.name}-${d.cell}-${d.edit}.png`;
+      const mine = cases.filter((c) => c.image === image);
+      assert.equal(mine.length, 1, image);
+      const c = mine[0]!;
+      assert.equal(c.kind, "drift");
+      assert.equal(c.same, false);
+      assert.equal(c.subject, crop.subject);
+      assert.equal(c.heldOut, crop.heldOut);
+      assert.equal(
+        c.describe,
+        crop.family === undefined
+          ? undefined
+          : `a frame of one character's "${crop.family}" animation`,
+      );
+      assert.match(c.note ?? "", new RegExp(`^${d.edit} ${d.amount} of cell ${d.cell} of `));
+      const cell = decodeImage(
+        await readFile(join(dir, `crops/${crop.subject}-${crop.name}-${d.cell}.png`)),
+      );
+      const after = decodeImage(await readFile(join(dir, image)));
+      const differs =
+        cell.width !== after.width ||
+        cell.height !== after.height ||
+        Buffer.compare(Buffer.from(cell.data), Buffer.from(after.data)) !== 0;
+      assert.ok(differs, image);
+      checked++;
+    }
+  assert.ok(checked >= 10);
+  assert.ok(manifest.crops.some((c) => c.heldOut === "#108 run 8" && c.drift?.length));
+});
+
+test("a crop drift cell that is not one of the crop's cells is refused", async () => {
+  const crop = manifest.crops.find((c) => c.drift?.length)!;
+  const bad = {
+    ...manifest,
+    crops: [
+      { ...crop, drift: [{ cell: 9999, edit: "hue-shift" as const, amount: 10, note: "x" }] },
+    ],
+  };
+  const dir = await mkdtemp(join(tmpdir(), "raccoon-world-"));
+  roots.push(dir);
+  await assert.rejects(
+    buildRaccoonWorldSet(dir, { fetch: fakeFetch, manifest: bad }),
+    /drift cell 9999/,
   );
 });

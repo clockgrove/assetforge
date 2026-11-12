@@ -140,6 +140,23 @@ test("the held-out cut keeps one run's positives and drift with every generic an
   const count = (kind: string) => cases.filter((c) => c.kind === kind).length;
   // Run 7's bird poses: 12 on-model frames and 12 drift, with every generic and look-alike.
   assert.deepEqual(["same", "drift", "generic", "lookalike"].map(count), [12, 12, 9, 14]);
+  for (const run of ["#108 run 8", "#108 run 9"]) {
+    const held = (await buildIdentitySet(join(dir, run.replace(/\W+/g, "-")), {
+      fetch: fakeFetch,
+      heldOut: run,
+    })) as { cases: (SetCase & { heldOut?: string })[] };
+    for (const cast of ["pebble-birds", "raccoon-world"]) {
+      const mine = held.cases.filter((c) => c.cast === cast && c.heldOut === run);
+      assert.ok(
+        mine.some((c) => c.kind === "same"),
+        `${run} ${cast}`,
+      );
+      assert.ok(
+        mine.some((c) => c.kind === "drift"),
+        `${run} ${cast}`,
+      );
+    }
+  }
   await assert.rejects(
     buildIdentitySet(join(dir, "none"), { raccoonWorld: false, heldOut: "#104 run 99" }),
     /no case is held out/,

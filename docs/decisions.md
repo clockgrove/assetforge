@@ -246,7 +246,64 @@ Run 6's 30 false accepts and 12 false rejects cannot be split by kind here: the 
 - **Run 6 failed for two reasons, both fixed before run 7.** The first was a wording that excused tone and marking-edge differences: the defective strip frames, with orange showing through holes in the face, passed at 0.82–0.92, as did a hue-shifted Jimothy. The prompt now counts a hue change and a see-through hole, and run 7 rejects them. The second was that all 14 generated Jimothy frames were called Stevie. On a second look the model was right: those frames lack Jimothy's very fluffy coat and draw Stevie's face. `generate-sheet` drew Stevie's design under Jimothy's name, and the first eye check missed it. They and the drift made from them are in `generated.json`'s `dropped` list with that reason. Jimothy's run 7 positives are cells of his own sheet. A generated sheet of a look-alike cast member needs an eye check against the other members, not only against its own references.
 - **Cost:** about $7.33 on the gateway by the spend ledger: the two runs ($4.37), development checks on seen cases ($2.13), and 7 sheets (one failed its frame count) and 20 drift edits ($0.83).
 
-**What is open:** a proportion change in a strongly posed frame, a held-out walk and family of Jimothy's own, the tolerances named under the rule, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen.
+**What is open:** a proportion change in a strongly posed frame, a held-out walk and family of Jimothy's own, the tolerances named under the rule, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen. #108 took these on; see the next section.
+
+## Identity cast question: only what the animation implies is excused (2026-11-12; assetforge#108)
+
+**The bar is met on the whole set in both runs, but not on either run's held-out frames, so shadow mode stays the default.** `question: "cast"` stays opt-in at 0.5, and the recommendation for a look-alike cast does not change. What still leaks is a body stretched 1.3× in a posed frame: 4 of the 36 held-out drift cases in run 9 and 1 of the 40 in run 8.
+
+**The rule.** The on-model step now excuses only what the pose and the named animation imply. The wording names no species or cast.
+
+- **Excused:** a back arched or hunched, a tail lowered, raised, swung or curled, a head turned, tilted or lowered, and limbs bent, lifted, stretched out or overlapping. So are wings spread or folded, eyes closed in a blink, a crest or ears swept by motion, a body that looks deeper or shorter-legged because the legs bend or it turns, and parts hidden by the view or foreshortened toward or away from it. Background between the limbs is excused too. A held prop or food, or an open mouth, is excused only when the named animation implies it (eating, carrying, calling). Otherwise it counts as something added.
+- **No longer excused:** #104's exemptions beyond the pose are gone: same-hue lighter or more muted tones, texture, a one-mark count difference, and a length change of up to about a third.
+- **Deviations:**
+  - a region in a different hue, or the whole region clearly lighter, darker or more muted ("as if repainted"; shading and lighting are not a colour change);
+  - a marking missing, added or moved;
+  - a see-through hole;
+  - a different count of repeated marks on a part fully in view;
+  - proportions the pose does not produce;
+  - a signature feature missing, added or changed.
+- **Stretch:** "a pose bends the body at the spine and joints but never rescales the figure". A whole body, or a rigid part such as the head, an eye or a beak, longer or shorter in one direction than the references show is a stretch, however the figure is tilted.
+
+The score and the answer are unchanged: p(subject) × p(on-model), with `poseDifferences` apart.
+
+**How it was measured.** The threshold was fixed at 0.5 before every run, on the default `identity-cast` route (GPT-6.1 Terra), on 2D cases with trusted records (every record passed its check in both runs). The prompt was worded only on cases scored before: #104's set, including run 7's preen frames. It took four development passes ($5.90): the first rejected 23 of 105 positives once tones and band counts counted (Stevie's generated walk frames, for "one fewer band", "underside more muted" and "deeper body"), and the wording was revised until those seen cases gave 7 false rejects in 63 Raccoon World positives with no false accepts. Each run's new frames were checked by eye and committed before that run (`heldOut` "#108 run 8" and "#108 run 9"). Each run's rows are rebuilt from the fixture at the commit that run was scored on: run 8 at `63334e5` and run 9 at `b9e5258`. Run the build with `node test/fixtures/identity-set/build.ts <out>`, and add `--held-out "#108 run 8"` or `--held-out "#108 run 9"` for the held-out cut. Later fixture commits change run 8's cut, because `b9e5258` relabels the scratch frames as drift and adds run 9's look-alikes. At `63334e5`, run 8's cut is 224 cases: 35 same, 40 drift, 29 generic and 120 look-alike. The table's 219 count only 115 of those look-alikes, the ones with trusted records.
+
+- **Run 8** added, per bird, 5 new poses (scratch, bow, reach, tuck, land). Each pose has an on-model frame and two drifts: a body stretched 1.3× tall or wide, and a feature (wing hue, crest count, eye ring, or a lighter tone of the wing's own hue). It also added 20 unused cells of Jimothy's own contact sheet (crouch-hop, walk-right-alert, walk-left and idle, as the owner grouped them), each checked by eye against his lock and against Stevie, and 10 posed pixel drifts of them (stretch, muted tone, hue). Cost: 436 cases, $2.86.
+- **Run 8 found a fixture fault:** in the "scratch" pose (head turned, wing raised), the bird drawing puts the eye inside the wing. The model rejected two of those frames for it ("the eye is drawn inside the wing"), and it was right. The pose now carries a `defect`, so its on-model frames are drift by construction, as a crop's defect is.
+- **Run 9** came after run 8 with the prompt unchanged. It added per bird 5 more poses (shake, lean, glance, puff, dip) with the same two drifts, and 10 more unused Jimothy cells (walk-right, walk-right-alert, idle) with 6 posed drifts. Cost: 507 cases, $1.91.
+
+**Numbers** (2D, trusted records, at 0.5; "held out" is that run's new positives and drift with every generic and look-alike negative):
+
+| Run, cases                          | AUC   | Drift AUC | FA    | FR     | Birds AUC, FA / FR  | Raccoon World AUC, FA / FR | Bar     |
+| ----------------------------------- | ----- | --------- | ----- | ------ | ------------------- | -------------------------- | ------- |
+| Run 8, whole set (410)              | 0.989 | 0.983     | 3/270 | 11/140 | 0.998, 1/87 / 3/57  | 0.985, 2/183 / 8/83        | met     |
+| Run 8, held out (219)               | 0.993 | 0.971     | 2/184 | 3/35   | 0.992, 1/51 / 2/15  | 0.995, 1/133 / 1/20        | not met |
+| Run 8, held out, scratch relabelled | 0.994 | 0.977     | 3/187 | 1/32   | 0.996, 2/54 / 0/12  | 0.995, 1/133 / 1/20        | not met |
+| Run 9, whole set (481)              | 0.990 | 0.982     | 7/319 | 5/162  | 0.999, 3/120 / 0/69 | 0.987, 4/199 / 5/93        | met     |
+| Run 9, held out (215)               | 0.994 | 0.968     | 4/190 | 0/25   | 0.992, 2/51 / 0/15  | 0.996, 2/139 / 0/10        | not met |
+| Run 9, new cases only (71)          | 0.975 | 0.968     | 4/46  | 0/25   | 0.986, 2/30 / 0/15  | 0.966, 2/16 / 0/10         | not met |
+
+The "scratch relabelled" row is recomputed from run 8's logged scores with the defect applied, not a fresh run. Per kind at 0.5 (FR for same, FA for each negative kind):
+
+| Run, cases            | Same FR | Drift FA     | Generic FA | Look-alike FA |
+| --------------------- | ------- | ------------ | ---------- | ------------- |
+| Run 8, whole (410)    | 11/140  | 3/126        | 0/29       | 0/115         |
+| Run 8, held out (219) | 3/35    | 2/40 (5.0%)  | 0/29       | 0/115         |
+| Run 9, whole (481)    | 5/162   | 7/165 (4.2%) | 0/29       | 0/125         |
+| Run 9, held out (215) | 0/25    | 4/36 (11.1%) | 0/29       | 0/125         |
+
+Generic and look-alike AUC is 0.992–1.000 in every row. 3D is provisional (18 cases, not judged): it rejects all 16 Stevie renders in both runs (AUC 0.70 in run 8, 0.44 in run 9; no false accept of the 2 drift renders).
+
+- **Run 8 fails on bird false rejects (2/15).** Both are the defective scratch frames. Relabelled, it fails on held-out drift instead: 3/43 is 7%, because fern's scratch frame was accepted. Either way, the bar is not met.
+- **Run 9 fails on held-out drift (4/36).** All four misses are body proportion: pebble and dusk stretched 1.3× in the "dip" pose (tilted about 57°), at 0.97 and 0.94, and Jimothy walk-right cells 10 (1.3× tall, 0.97) and 13 (1.3× wide, 0.85).
+- **Proportion leaks in strong poses; tone and markings do not.** Across both runs' held-out drift, 28 of 30 bird proportion drifts and 7 of 10 Jimothy proportion drifts are caught. Every tone drift is caught: the 6 lighter-tone bird wings and the 3 muted Jimothy cells. So are every hue drift and every eye-ring change. One crest-count drift was missed (fern, 3 → 2 with the crest swept back in "tuck", 0.95). Run 7's preen stretch, now seen, is caught.
+- **Jimothy's new positives pass.** 29 of his 30 held-out cells pass. These are frames of his own art, so a held-out walk and three families (crouch-hop, walk-right-alert, walk-left) are his own. The one rejected cell (crouch-hop 26) was called "vertically squashed", a crouch read as a stretch: the same confusion as the leaks, the other way round.
+- **The whole set's false rejects** are the window photo ("none of the cast") and Stevie's generated walk and eat frames from runs 5 and 7. The stricter rule rejects those frames for one fewer tail band, a lighter lower leg, a tan tail tip or a bulkier body. Without #104's one-mark and same-hue tone excuses, the generator's own small drift now counts. The whole set's false accepts include run 5's stub-tail edit (0.78), which #104 caught.
+- **A lead, not measured on fresh frames:** asking for a written `proportions` comparison (body, head and eyes, length against depth along the body's own axis) before `onModel` caught both dip stretches on the now-seen run 8 and 9 cases. Jimothy's stretch-tall cells still passed (2/16 Raccoon World drift accepted, and one crouch rejected as squashed). It was not shipped. A run that tries it needs fresh poses and fresh art of a second character: Jimothy's sheet has 6 unused cells left (1, 2, 4, 5, 51, 56).
+- **Cost:** $11.84 on the gateway, from the eval reports: $7.08 for development on seen cases (including the `proportions` check) and $4.76 for the two runs. The spend ledger reserved every call against this issue's work item. The fixture frames are cells of committed art or drawn in code, so they cost nothing.
+
+**What is open:** a body stretched about 1.3× in a strongly posed frame. Enforce mode and the `question: "cast"` recommendation for a look-alike cast wait for a run whose held-out frames meet the bar.
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
