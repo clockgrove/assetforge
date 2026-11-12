@@ -158,11 +158,15 @@ test("the cast prompt accepts posture and animation differences, asks for them a
   assert.match(prompt, /do not let them lower onModel/);
   assert.match(prompt, /variation between two drawings of the same model/);
   // Drift still counts: markings, colours, counts, proportions beyond the pose, signature features.
-  assert.match(prompt, /a region in the wrong colour; a marking missing, added or moved/);
   assert.match(prompt, /a clearly different number of repeated marks/);
   assert.match(prompt, /proportions no pose can produce/);
   assert.match(prompt, /a signature feature missing, added or changed/);
   assert.match(prompt, /is missing, not hidden/);
+  assert.match(prompt, /a region or marking in a different hue/);
+  assert.match(
+    prompt,
+    /a marking missing, added or moved; a see-through hole inside the body or face/,
+  );
   assert.match(prompt, /the approved references are the source of truth/);
   assert.match(prompt, /"poseDifferences": \["<each difference the pose or view explains>"\]/);
 });
