@@ -182,7 +182,16 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 
 **What is open:**
 
-- **Clean positives for Stevie:** new idle and walk strips made with today's background removal and checked by eye, then the rerun at 0.5. A photo against illustrated references is a separate question; whether photos belong in a 2D art set is the person approving's call.
+- **Clean positives for Stevie, done (run 5, 2026-11-11 night):** 14 fresh frames from `generate-sheet` with today's background removal (6 idle, 8 walk), checked by eye and free of holes, are in the fixture as `same` items with sheet provenance. At the same thresholds:
+
+  | Question, threshold  | AUC   | False accepts | False rejects | Raccoon World AUC, FA / FR | Birds AUC, FA / FR  | Spend |
+  | -------------------- | ----- | ------------- | ------------- | -------------------------- | ------------------- | ----- |
+  | `cast` (Terra), 0.5  | 0.980 | 1/135         | 7/45 (16%)    | 0.962, 1/102 / 7/27        | 1.000, 0/33 / 0/18  | $1.43 |
+  | `score` (pplx), 0.68 | 0.954 | 22/135        | 2/45          | 0.935, 11/102 / 2/27       | 1.000, 11/33 / 0/18 | $0.02 |
+
+  **The bar is still not met, on false rejects.** All 6 idle frames pass. 5 of the 8 walk frames are rejected for "a more humped back" and "a shorter tail", which is a walking raccoon's posture judged against standing references. The window photo and one Jimothy cell are the other two. The one false accept is a defective old frame at 0.67.
+
+- **Next: posture versus identity.** The on-model judgement should accept posture that comes from the animation (an arched back mid-stride, a lowered or curled tail) and still catch marking, colour and proportion drift. Measure it on frames it has not seen, at a threshold fixed beforehand. Whether photos belong in a 2D art set is the person approving's call.
 - **The 3D numbers wait for #82.**
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)

@@ -25,8 +25,9 @@ import type { CallRecord } from "../../../src/types.ts";
 
 export interface GeneratedItem {
   id: string;
-  kind: "generic" | "drift";
-  route: "still" | "edit";
+  /** `same`: an on-model frame of `subject` cut from an Assetforge `generate-sheet` import. */
+  kind: "generic" | "drift" | "same";
+  route: "still" | "edit" | "sheet";
   /** Generic: what the prompt asks for, put into `genericPrompt`. */
   what?: string;
   /** Drift: whose approved reference was edited, the reference, the edit and the drift it makes. */
@@ -57,7 +58,17 @@ export interface GeneratedProvenance {
   id: string;
   sha256: string;
   source?: { path: string; sha256: string };
-  call: CallRecord;
+  /** Still and edit items: the generation call. */
+  call?: CallRecord;
+  /** Sheet items: the `generate-sheet` import the frame was cut from. */
+  sheet?: {
+    importId: string;
+    createdAt: string;
+    tool: string;
+    sheetSha256: string;
+    frame: string;
+    assetforge: string;
+  };
 }
 
 export const GENERATED_DIR = new URL("./generated/", import.meta.url);
@@ -69,6 +80,8 @@ export async function loadGeneratedManifest(): Promise<GeneratedManifest> {
 }
 
 export function promptFor(manifest: GeneratedManifest, item: GeneratedItem): string {
+  if (item.kind === "same")
+    throw new Error(`${item.id}: a sheet frame is made with generate-sheet, not regenerated here`);
   if (item.kind === "generic") return manifest.genericPrompt.replace("{what}", item.what ?? "");
   return `${item.edit ?? ""}${manifest.editSuffix}`;
 }

@@ -28,13 +28,18 @@ test("every generated recipe is labelled from how it was made and has one proven
   const ids = manifest.items.map((i) => i.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const item of manifest.items) {
-    assert.ok(item.kind === "generic" || item.kind === "drift", item.id);
+    assert.ok(["generic", "drift", "same"].includes(item.kind), item.id);
     assert.ok(item.checked, `${item.id} was checked by eye`);
     if (item.kind === "drift") {
       assert.ok(manifest.subjects.includes(item.subject!), item.id);
       assert.ok(item.from?.startsWith(`references/${item.subject}/`), item.id);
       assert.ok(item.edit && item.drift, item.id);
       assert.ok(promptFor(manifest, item).startsWith(item.edit), item.id);
+    } else if (item.kind === "same") {
+      // An on-model sheet frame: its subject, the sheet route, and no recipe to regenerate it.
+      assert.ok(manifest.subjects.includes(item.subject!), item.id);
+      assert.equal(item.route, "sheet", item.id);
+      assert.throws(() => promptFor(manifest, item), /generate-sheet/);
     } else {
       assert.equal(item.subject, undefined, item.id);
       assert.equal(item.from, undefined, item.id);
@@ -45,8 +50,12 @@ test("every generated recipe is labelled from how it was made and has one proven
     const records = provenance.filter((p) => p.id === item.id);
     assert.equal(records.length, 1, item.id);
     const record = records[0]!;
-    assert.equal(record.call.operation, item.route, item.id);
-    assert.equal(record.call.prompt, promptFor(manifest, item), item.id);
+    if (item.kind === "same") {
+      assert.ok(record.sheet?.importId && record.sheet.sheetSha256 && record.sheet.frame, item.id);
+      continue;
+    }
+    assert.equal(record.call?.operation, item.route, item.id);
+    assert.equal(record.call?.prompt, promptFor(manifest, item), item.id);
     assert.equal(record.source?.path, item.from, item.id);
   }
   // A dropped attempt is never kept under its own id.
@@ -67,13 +76,14 @@ test("generated images match their provenance when the LFS media is present", as
   if (checked === 0) t.skip("Git LFS media not fetched");
 });
 
-test("generated cases: a generic is a negative for every cast member, drift for its own subject", async () => {
+test("generated cases: a generic is a negative for every cast member, drift for its own subject, a sheet frame a positive for its own", async () => {
   const dir = await mkdtemp(join(tmpdir(), "identity-generated-"));
   roots.push(dir);
   const cases = await generatedCases(dir, "art/BIBLE.md");
   const present = new Set(cases.map((c) => c.image));
   for (const c of cases) {
-    assert.equal(c["same"], false);
+    const item = manifest.items.find((i) => c.image === `generated/${i.id}.png`)!;
+    assert.equal(c["same"], item.kind === "same" && c["subject"] === item.subject);
     assert.equal(c["cast"], manifest.cast);
     assert.equal(c.bible, "art/BIBLE.md");
   }
@@ -83,8 +93,12 @@ test("generated cases: a generic is a negative for every cast member, drift for 
     const subjects = mine.map((c) => c["subject"]).sort();
     assert.deepEqual(
       subjects,
-      item.kind === "generic" ? [...manifest.subjects].sort() : [item.subject],
+      item.kind === "drift" ? [item.subject] : [...manifest.subjects].sort(),
     );
-    assert.ok(mine.every((c) => c["kind"] === item.kind));
+    for (const c of mine)
+      assert.equal(
+        c["kind"],
+        item.kind !== "same" ? item.kind : c["subject"] === item.subject ? "same" : "lookalike",
+      );
   }
 });
