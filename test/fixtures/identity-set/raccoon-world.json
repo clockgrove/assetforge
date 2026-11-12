@@ -1,0 +1,427 @@
+{
+  "repository": "clockgrove/raccoon-world",
+  "commit": "e9079d85cbdc52546b9beb3cfcfcd857ead69825",
+  "bible": {
+    "world": "Raccoon World",
+    "preset": "cozy-storybook",
+    "identities": {
+      "stevie": {
+        "version": "2",
+        "approved": true,
+        "turnaround": "../references/stevie/turnaround-three-quarter.png",
+        "signatureFeatures": [
+          "stocky, rounded adult raccoon on short legs, back carried level (not hunched)",
+          "grey-brown coat with a darker, streaked back and a warm tan underside",
+          "dark brown-black eye mask with cream brows and a cream muzzle",
+          "rounded ears with pale rims",
+          "full tail with five dark rings on tan, dark tip",
+          "dark brown lower legs and hand-like paws"
+        ],
+        "proportions": "compact, rounded body on short legs, head held level; stocky rather than lean; sleeker and less hunched than Jimothy",
+        "palette": ["#6b6662", "#282323", "#e2d7c2", "#ae9675", "#3a3330"]
+      },
+      "jimothy": {
+        "version": "1",
+        "approved": true,
+        "turnaround": "../references/jimothy/sheet-cell-03.png",
+        "references": ["../references/jimothy/jimothy-peanut-painted.png"],
+        "signatureFeatures": [
+          "short-spined, round, hunched raccoon",
+          "very fluffy coat with a warm brown cast",
+          "big fluffy tail with broad dark and tan bands",
+          "dark eye mask, cream brows and muzzle, bright round eyes"
+        ],
+        "proportions": "short spine, round chubby body carried low, short legs, big tail",
+        "palette": ["#5c5049", "#282323", "#e2d7c2", "#9c8064", "#3a3330"]
+      }
+    }
+  },
+  "conflict": {
+    "subject": "stevie",
+    "version": "1-text",
+    "note": "Stevie's lock v1 record described him as lean, upright, long-bodied and long-legged, which contradicts his approved turnaround (stocky, short-legged; the lean one is Gracie). Lock v2 corrected it. This record keeps the v1 text against v2's references.",
+    "signatureFeatures": [
+      "lean, upright raccoon on long legs, long-bodied",
+      "grey-brown coat with a darker, streaked back and a warm tan underside",
+      "dark brown-black eye mask with cream brows and a cream muzzle",
+      "rounded ears with pale rims",
+      "full tail with five dark rings on tan, dark tip",
+      "dark brown lower legs and hand-like paws"
+    ],
+    "proportions": "lean, upright, long-bodied, long legs",
+    "positives": [
+      "references/stevie/turnaround-front.png",
+      "references/stevie/turnaround-side.png",
+      "references/stevie/stevie-window-front.png"
+    ],
+    "negatives": [
+      "references/gracie/gracie-sleeping.png",
+      "references/gracie/gracie-lounging.png",
+      "references/gracie/gracie-ice-cube.png"
+    ]
+  },
+  "images": [
+    {
+      "path": "references/stevie/turnaround-front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "2d",
+      "note": "Stevie's approved turnaround, front view (not the identity lock)"
+    },
+    {
+      "path": "references/stevie/turnaround-side.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "2d",
+      "note": "Stevie's approved turnaround, side view (not the identity lock)"
+    },
+    {
+      "path": "references/stevie/turnaround-back.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "2d",
+      "note": "Stevie's approved turnaround, back view (not the identity lock)"
+    },
+    {
+      "path": "references/stevie/stevie-window-front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "2d",
+      "note": "Real-life photo of Stevie face-on at a window (README); a photo, so off-style next to the painted references"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c1/front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c1, front turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c1/side.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c1, side turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c1/three-quarter.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c1, three-quarter turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c1/back.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c1, back turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c2/front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c2, front turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c2/side.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c2, side turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c2/three-quarter.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c2, three-quarter turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c2/back.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c2, back turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c3/front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c3, front turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c3/side.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c3, side turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c3/three-quarter.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c3, three-quarter turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c3/back.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c3, back turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c4/front.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c4, front turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c4/side.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c4, side turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c4/three-quarter.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c4, three-quarter turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/stevie/3d-wave0-candidates/c4/back.png",
+      "subject": "stevie",
+      "same": true,
+      "kind": "same",
+      "medium": "3d",
+      "note": "Stevie wave-0 3D candidate c4, back turntable render (review material, provisional)"
+    },
+    {
+      "path": "references/gracie/gracie-sleeping.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie asleep on the porch rug, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/gracie/gracie-lounging.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie sprawled on a cushion, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/gracie/gracie-ice-cube.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie holding an ice cube, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/gracie/gracie-sleeping.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie asleep on the porch rug, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/gracie/gracie-lounging.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie sprawled on a cushion, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/gracie/gracie-ice-cube.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Gracie holding an ice cube, photo; a different cast member (pale shaggy lower body); off-style photo"
+    },
+    {
+      "path": "references/jimothy/sheet-cell-03.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Jimothy's identity-lock cell: short-spined, round, hunched, very fluffy"
+    },
+    {
+      "path": "references/jimothy/jimothy-peanut-painted.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Jimothy's painted portrait"
+    },
+    {
+      "path": "references/stevie/turnaround-front.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Stevie's approved front view: stocky, level-backed, sleeker than Jimothy"
+    },
+    {
+      "path": "references/stevie/stevie-window-front.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "lookalike",
+      "medium": "2d",
+      "note": "Photo of Stevie at a window; off-style photo"
+    },
+    {
+      "path": "references/poses/standing-upright.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "generic",
+      "medium": "2d",
+      "note": "Kirk's photo of an upright raccoon, not known which one (README); a generic raccoon, off-style photo"
+    },
+    {
+      "path": "references/stevie/gait-reference/adult-fence-walk.png",
+      "subject": "stevie",
+      "same": false,
+      "kind": "generic",
+      "medium": "2d",
+      "note": "Kirk's still of an adult raccoon walking a fence top, individual unknown; a generic raccoon, off-style photo"
+    },
+    {
+      "path": "references/poses/standing-upright.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "generic",
+      "medium": "2d",
+      "note": "Kirk's photo of an upright raccoon, not known which one (README); a generic raccoon, off-style photo"
+    },
+    {
+      "path": "references/stevie/gait-reference/adult-fence-walk.png",
+      "subject": "jimothy",
+      "same": false,
+      "kind": "generic",
+      "medium": "2d",
+      "note": "Kirk's still of an adult raccoon walking a fence top, individual unknown; a generic raccoon, off-style photo"
+    }
+  ],
+  "drift": [
+    {
+      "from": "references/stevie/turnaround-front.png",
+      "subject": "stevie",
+      "edit": "hue-shift",
+      "amount": 150,
+      "medium": "2d",
+      "note": "wrong colours: coat hue rotated 150 degrees"
+    },
+    {
+      "from": "references/stevie/turnaround-front.png",
+      "subject": "stevie",
+      "edit": "desaturate",
+      "amount": 0.9,
+      "medium": "2d",
+      "note": "colours washed out, markings lost"
+    },
+    {
+      "from": "references/stevie/turnaround-front.png",
+      "subject": "stevie",
+      "edit": "stretch-wide",
+      "amount": 1.6,
+      "medium": "2d",
+      "note": "wrong proportions: body stretched wide"
+    },
+    {
+      "from": "references/stevie/turnaround-side.png",
+      "subject": "stevie",
+      "edit": "stretch-tall",
+      "amount": 1.6,
+      "medium": "2d",
+      "note": "wrong proportions: lean, long-bodied (the v1 text's Stevie)"
+    },
+    {
+      "from": "references/stevie/turnaround-three-quarter.png",
+      "subject": "stevie",
+      "edit": "hue-shift",
+      "amount": 180,
+      "medium": "2d",
+      "note": "wrong colours on the identity lock's own view"
+    },
+    {
+      "from": "references/stevie/turnaround-three-quarter.png",
+      "subject": "stevie",
+      "edit": "stretch-tall",
+      "amount": 1.5,
+      "medium": "2d",
+      "note": "lean, tall: wrong proportions on the lock's view"
+    },
+    {
+      "from": "references/stevie/3d-wave0-candidates/c3/front.png",
+      "subject": "stevie",
+      "edit": "hue-shift",
+      "amount": 150,
+      "medium": "3d",
+      "note": "3D render with wrong colours"
+    },
+    {
+      "from": "references/stevie/3d-wave0-candidates/c3/side.png",
+      "subject": "stevie",
+      "edit": "stretch-tall",
+      "amount": 1.6,
+      "medium": "3d",
+      "note": "3D render with lean, tall proportions"
+    },
+    {
+      "from": "references/jimothy/sheet-cell-03.png",
+      "subject": "jimothy",
+      "edit": "hue-shift",
+      "amount": 150,
+      "medium": "2d",
+      "note": "wrong colours"
+    },
+    {
+      "from": "references/jimothy/sheet-cell-03.png",
+      "subject": "jimothy",
+      "edit": "stretch-tall",
+      "amount": 1.6,
+      "medium": "2d",
+      "note": "wrong proportions: tall and thin, not round and short"
+    },
+    {
+      "from": "references/jimothy/jimothy-peanut-painted.png",
+      "subject": "jimothy",
+      "edit": "desaturate",
+      "amount": 0.9,
+      "medium": "2d",
+      "note": "colours washed out"
+    }
+  ]
+}
