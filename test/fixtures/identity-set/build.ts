@@ -93,7 +93,7 @@ export async function buildIdentitySet(
   outDir: string,
   options: { raccoonWorld?: boolean; fetch?: typeof fetch; heldOut?: string } = {},
 ): Promise<{ casesPath: string; cases: unknown[] }> {
-  let cases: Array<{ kind?: unknown; heldOut?: unknown }> = [];
+  let cases: Array<Record<string, unknown>> = [];
   const add = (dir: string, list: PathCase[]) => {
     for (const c of list)
       cases.push({
