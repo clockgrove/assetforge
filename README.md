@@ -87,7 +87,7 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 | Variable                         | Default                                                                                                                 |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`)                                                         |
+| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`); `$TMPDIR/assetforge-spend.jsonl` in a Factory worker   |
 | `ASSETFORGE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset in a Factory worker: `<repo>#<FACTORY_ISSUE>`; otherwise daily limit only) |
 | `ASSETFORGE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                                                                              |
 | `ASSETFORGE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                                                                        |

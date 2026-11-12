@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { BudgetExceededError } from "./budget.ts";
 import { InputError } from "./errors.ts";
@@ -151,7 +151,8 @@ export class SpendLedger {
 
   /**
    * The ledger and limits from the environment: `ASSETFORGE_SPEND_LEDGER` (default
-   * `$XDG_STATE_HOME/assetforge/spend.jsonl`, or `~/.local/state/...`), `ASSETFORGE_WORK_ITEM`
+   * `$XDG_STATE_HOME/assetforge/spend.jsonl`, or `~/.local/state/...`; in a Factory worker, where
+   * `FACTORY_ISSUE` is set, `$TMPDIR/assetforge-spend.jsonl`), `ASSETFORGE_WORK_ITEM`
    * (or `workItem`, from `--work-item`; else a Factory worker's Objective from `FACTORY_ISSUE`),
    * `ASSETFORGE_DAILY_LIMIT_USD` and
    * `ASSETFORGE_WORK_ITEM_LIMIT_USD`.
@@ -162,13 +163,18 @@ export class SpendLedger {
   ): SpendLedger {
     const configured = env[SPEND_ENV.ledger]?.trim();
     const stateHome = env["XDG_STATE_HOME"]?.trim();
+    const temp = env["TMPDIR"]?.trim();
     const path = configured
       ? resolve(configured)
-      : join(
-          stateHome && isAbsolute(stateHome) ? stateHome : join(homedir(), ".local", "state"),
-          "assetforge",
-          "spend.jsonl",
-        );
+      : factoryWorkItem(env) !== undefined
+        ? // A Factory worker's sandbox drops writes outside its stage's temp dir between commands,
+          // so a ledger under the home directory would forget every reservation (assetforge#108).
+          join(temp && isAbsolute(temp) ? temp : tmpdir(), "assetforge-spend.jsonl")
+        : join(
+            stateHome && isAbsolute(stateHome) ? stateHome : join(homedir(), ".local", "state"),
+            "assetforge",
+            "spend.jsonl",
+          );
     const workItem =
       (options.workItem ?? env[SPEND_ENV.workItem])?.trim() || factoryWorkItem(env) || undefined;
     const daily = envLimit(env, SPEND_ENV.dailyLimit);
