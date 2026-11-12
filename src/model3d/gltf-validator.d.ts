@@ -21,7 +21,12 @@ declare module "gltf-validator" {
   }
   export function validateBytes(
     data: Uint8Array,
-    options?: { uri?: string; format?: "glb" | "gltf"; maxIssues?: number },
+    options?: {
+      uri?: string;
+      format?: "glb" | "gltf";
+      maxIssues?: number;
+      externalResourceFunction?: (uri: string) => Promise<Uint8Array>;
+    },
   ): Promise<ValidationReport>;
   export function version(): string;
   const validator: { validateBytes: typeof validateBytes; version: typeof version };

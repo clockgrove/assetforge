@@ -4,6 +4,9 @@ import { requireGrant } from "./license.ts";
 import type { OutputGrant } from "./types.ts";
 
 export const IDENTITY_CAST_OPERATION = "identity-cast";
+export const LOOKDEV_OPERATION = "lookdev";
+export const LOOKDEV_LOCATE_OPERATION = "lookdev-locate";
+export const LOOKDEV_GROOM_OPERATION = "lookdev-groom";
 export const IDENTITY_CHECK_OPERATION = "identity-check";
 
 /** A model route: which gateway model serves an operation, its per-call estimate and its terms. */
@@ -230,6 +233,47 @@ export const defaultRoutes: Routes = {
       },
     },
     providerOptions: { tripo: { usdPerCredit: 0.01 } },
+  },
+  // Look-dev (#82): each flat-lit render of a picked 3D character repainted in the look its
+  // approved references and the bible define, then projected back onto the model's own UVs.
+  [LOOKDEV_OPERATION]: {
+    model: "openai/gpt-image-2",
+    estimatedCostUsd: 0.25,
+    size: "1024x1024",
+    outputGrant: {
+      license: "LicenseRef-openai-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  // Look-dev (#82): where the eyes and nose are on a close-up render, as pixel points and radii.
+  [LOOKDEV_LOCATE_OPERATION]: {
+    model: "google/gemini-3-flash",
+    estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-google-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  // Look-dev (#82): one season's groom (lengths, densities, tip tint) read from the target's traits.
+  [LOOKDEV_GROOM_OPERATION]: {
+    model: "google/gemini-3-flash",
+    estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-google-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
   },
   // Holes: one enlarged frame with its enclosed see-through areas marked. $0.003 to $0.008 a call
   // (#51's proof); the estimate is an upper bound.

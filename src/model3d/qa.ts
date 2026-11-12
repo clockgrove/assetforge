@@ -18,8 +18,22 @@ const deterministic = (check: string, passed: boolean, reason: string): Reason =
 });
 
 /** The Khronos glTF validator's verdict: no errors passes; warnings are listed, not failed. */
-export async function validatorCheck(bytes: Uint8Array): Promise<Reason> {
-  const report = await validateBytes(bytes, { format: "glb", maxIssues: 50 });
+export async function validatorCheck(
+  bytes: Uint8Array,
+  resources?: Record<string, Uint8Array>,
+): Promise<Reason> {
+  const report = await validateBytes(bytes, {
+    format: "glb",
+    maxIssues: 50,
+    ...(resources && {
+      externalResourceFunction: (uri: string) => {
+        const found = resources[decodeURIComponent(uri)];
+        return found
+          ? Promise.resolve(found)
+          : Promise.reject(new Error(`external resource ${uri} was not provided`));
+      },
+    }),
+  });
   const { numErrors, numWarnings, messages } = report.issues;
   const errors = messages.filter((m) => m.severity === 0).slice(0, 5);
   const detail = errors.map((m) => `${m.code} at ${m.pointer ?? "?"}: ${m.message}`).join("; ");
