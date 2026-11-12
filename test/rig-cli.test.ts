@@ -214,6 +214,11 @@ test("stage fits the shared rig, generates the walk, checks every clip, and pick
     clipsOf(a!).map((c) => c.name),
     ["walk"],
   );
+  // A target reads the rig identity and each clip's loop and generated flags from the glb's
+  // extras, and compares them with the manifest's fields.
+  const c1 = run["candidates"][0];
+  assert.deepEqual(a!.json.asset["extras"], { rig: c1.fields.rig });
+  assert.deepEqual(a!.json.animations?.[0]?.["extras"], { loop: true, generated: true });
   const renders = await readdir(join(w.runs, run["runId"], "c1-character-3d"));
   for (const name of ["front.png", "side.png", "clip-walk-0.png", "walk-side.png"]) {
     assert.ok(renders.includes(name), name);

@@ -96,10 +96,12 @@ export function buildRiggedGlb(
   skeleton: Skeleton,
   skin: SkinWeights,
   clips: GeneratedClip[],
+  /** The shared-rig identity the target compares (`asset.extras.rig`), as the manifest records it. */
+  rig: { template: string; sha256: string },
 ): Glb {
   const out = new BinWriter();
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge shared rig" },
+    asset: { version: "2.0", generator: "assetforge shared rig", extras: { rig } },
     scene: 0,
     scenes: [{ nodes: [0] }],
   };
@@ -218,7 +220,13 @@ export function buildRiggedGlb(
         sampler: samplers.length - 1,
         target: { node: jointNode(root), path: "translation" },
       });
-      return { name: clip.family, channels, samplers };
+      // glTF has no playback-loop flag; targets read it, and whether the clip was generated, here.
+      return {
+        name: clip.family,
+        channels,
+        samplers,
+        extras: { loop: clip.loop, generated: true },
+      };
     });
   }
 

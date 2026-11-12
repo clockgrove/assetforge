@@ -73,7 +73,12 @@ export async function rigCharacter(options: {
       });
     }
   }
-  const bytes = writeGlb(buildRiggedGlb(options.source, mesh, skeleton, skin, clips));
+  const bytes = writeGlb(
+    buildRiggedGlb(options.source, mesh, skeleton, skin, clips, {
+      template: rig.templatePath,
+      sha256: rig.templateSha256,
+    }),
+  );
   const glb = parseGlb(bytes);
 
   const reasons: Reason[] = [];

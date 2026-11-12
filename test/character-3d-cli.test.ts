@@ -251,6 +251,8 @@ test("stage writes rigged candidates with clips, renders and per-candidate QA; p
     clipsOf(glb).map((c) => c.name),
     ["idle"],
   );
+  // A target reads each clip's loop flag from the animation's extras, matching the manifest.
+  assert.deepEqual(glb.json.animations?.[0]?.["extras"], { loop: true });
   assert.ok(measure(glb).bones > 0);
 
   const picked = await cli([
