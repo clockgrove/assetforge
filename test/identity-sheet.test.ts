@@ -45,7 +45,7 @@ function setup(score: number) {
     image: () => ({ images: [], costUsd: 0 }),
     // Enforce mode first checks the record against its references (#92); this one agrees.
     vision: (request) => ({
-      text: request.prompt.includes("source of truth")
+      text: request.prompt.includes("For each written claim")
         ? JSON.stringify({ consistent: true, conflicts: [] })
         : "",
       costUsd: 0,

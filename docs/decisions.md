@@ -144,13 +144,23 @@ A follow-up the same day found a second cause: the record contradicted its refer
 | `cast`, who only, 0.5           | 0.931 | 0.750     | 1.000       | 1.000          | 23% (16/69)   | 0%            | 36% / 0%      | 11% / 0%              |
 | `cast` with on-model check, 0.5 | 1.000 | 1.000     | 1.000       | 1.000          | 0% (0/69)     | 7% (2/30)     | 0% / 0%       | 0% / 17% (2/12)       |
 
+**Per kind and per cast** (same run; the trusted 2D negatives are 19 drift, 19 generic and 31 look-alike; a kind's false rejects are the 30 positives, so they equal the overall figure):
+
+| Question, threshold             | Drift FA    | Generic FA | Look-alike FA | Birds AUC | Raccoon World AUC |
+| ------------------------------- | ----------- | ---------- | ------------- | --------- | ----------------- |
+| `score` (pplx), 0.68            | 79% (15/19) | 0% (0/19)  | 0% (0/31)     | not kept  | not kept          |
+| `cast`, who only, 0.5           | not kept    | not kept   | not kept      | not kept  | not kept          |
+| `cast` with on-model check, 0.5 | 0% (0/19)   | 0% (0/19)  | 0% (0/31)     | 1.000     | 1.000             |
+
+The per-case logs of these runs were not kept, so only the cells that follow from the recorded figures are filled. All 15 of `score`'s false accepts are drift: generic and look-alike AUC is 1.000, so every such negative scores below every positive, including the one positive under 0.68. With overall AUC 1.000, every subset of the on-model run, so each cast, is also 1.000. "Not kept" cells need the rerun that enforce waits for anyway (below), where `identity-eval` reports them per kind and per cast.
+
 - **Choosing among the cast tells look-alikes and generics apart.** Every question reaches AUC 1.000 on those kinds with trusted records, where the single-reference lock was at chance (above).
 - **Drift was the gap.** "Who is this" answers "Stevie" for an orange or ringless Stevie (0.96–0.98). So the cast call now also asks whether the candidate is on-model for the subject against its references, and the score is p(subject) × p(on-model). That closes drift on trusted records.
 - **It misses the bar on one count:** Raccoon World's false rejects at 0.5 are 2 of 12 Jimothy cells (0.29 each, for a pale forehead stripe and a narrower muzzle). The sweep's 0.29 has no errors, but it was picked on the same set.
-- **It is strict across views of a one-reference lock.** Counting Stevie's untrusted record as if trusted, his side and back turnaround views score 0.29–0.35 ("one more tail band"), and all 14 comparison-strip frames score 0.01–0.13 (narrower face, domed back, weaker streaking). False rejects for Raccoon World are then 50% (15/30).
+- **It is strict across views of a one-reference lock.** Counting Stevie's untrusted record as if trusted, his side and back turnaround views score 0.29–0.35 ("one more tail band"), and all 14 comparison-strip frames score 0.01–0.13 (narrower face, domed back, weaker streaking). Those 14 frames are generated, so each carries an eye check against his turnaround in the fixture: all show his mask, ears, coat, stocky short-legged body and banded tail; the domed back and softer streaking are rendering variation, so they stay labelled same. False rejects for Raccoon World are then 50% (15/30).
 - **3D (provisional, 18 cases):** AUC 0.41–0.72; every Stevie render is rejected at any of these thresholds.
 - **Cost:** the measured runs cost $1.92 (pplx $0.02; Terra $0.83 and $1.06 with the on-model check, about $0.006 a case). The generated images cost $0.75.
-- **Prompt wording:** the run with the on-model check said "the approved references are the source of truth"; the shipped prompt says "follow the references" instead, because "source of truth" is how the record check is told apart.
+- **Prompt wording:** the shipped on-model sentence is the one the run used: "the approved references are the source of truth".
 
 **Before enforce is turned on for any cast,** these must be met:
 

@@ -50,7 +50,7 @@ test("identity-eval reports the combined set per kind, cast and medium, and catc
       throw new Error("no image generation");
     },
     vision: (request) => {
-      if (request.prompt.includes("source of truth")) {
+      if (request.prompt.includes("For each written claim")) {
         const conflicting =
           /long legs/.test(request.prompt) ||
           (request.prompt.includes('"fern"') && request.prompt.includes(fernText));

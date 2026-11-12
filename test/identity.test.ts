@@ -425,7 +425,7 @@ function visionScript(cast: string, check: string) {
       throw new Error("no images in identity tests");
     },
     vision: (request) => ({
-      text: request.prompt.includes("source of truth") ? check : cast,
+      text: request.prompt.includes("For each written claim") ? check : cast,
       costUsd: 0.001,
     }),
   });
@@ -514,7 +514,7 @@ test("the cast question also asks whether the subject is on-model; drift scores 
   assert.ok(sent.kind === "vision");
   if (sent.kind !== "vision") return;
   assert.match(sent.request.prompt, /on-model for "fox", whoever you chose/);
-  assert.match(sent.request.prompt, /follow the references/);
+  assert.match(sent.request.prompt, /the approved references are the source of truth/);
   assert.match(sent.request.prompt, /"onModel": p, "deviations"/);
   // Who it is (0.9) times whether it is on-model (0.2).
   assert.ok(Math.abs(score.score! - 0.18) < 1e-9);
@@ -525,6 +525,38 @@ test("the cast question also asks whether the subject is on-model; drift scores 
   );
   assert.deepEqual(parseCastAnswer('{"choice": "fox", "onModel": 7}', ["fox"]).onModel, 1);
   assert.equal(parseCastAnswer('{"choice": "fox", "onModel": "high"}', ["fox"]).onModel, undefined);
+});
+
+test("a failing candidate of the right character names its deviations at any on-model value; a passing one does not", async () => {
+  const f = await castBible();
+  const cast = await loadCast(await loadBible(f.biblePath));
+  const fox = cast[0]!;
+  const run = async (onModel: number) =>
+    scoreIdentity({
+      caller: caller(
+        visionScript(
+          `{"probabilities": {"fox": 0.95, "kit": 0.03, "neither": 0.02}, "choice": "fox", "onModel": ${onModel}, "deviations": ["ears are rounded"], "reason": "a fox"}`,
+          CONSISTENT,
+        ),
+      ),
+      ...fox,
+      candidate: candidate(),
+      describe: "a still",
+      settings: identitySettings({
+        identity: { question: "cast", mode: "enforce", threshold: 0.68 },
+      }),
+      cast,
+    });
+  // 0.95 × 0.6 = 0.57 < 0.68: filtered, and the reason says why although on-model is above 0.5.
+  const failing = await run(0.6);
+  assert.equal(failing.filtered, true);
+  assert.match(
+    failing.reason,
+    /< threshold 0\.68 .*: fox \(confidence 0\.95\); off-model \(on-model 0\.60\): ears are rounded$/,
+  );
+  const passing = await run(0.9);
+  assert.equal(passing.passed, true);
+  assert.doesNotMatch(passing.reason, /off-model/);
 });
 
 test("cast answers parse probabilities or a bare choice and refuse anything else", () => {

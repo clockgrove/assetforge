@@ -65,6 +65,8 @@ export interface CropEntry {
   cells: number[];
   medium: "2d" | "3d";
   note: string;
+  /** Generated frames only: each cell's eye check, which is what its `same: true` label rests on. */
+  checked?: Record<string, string>;
 }
 export type DriftEdit = "hue-shift" | "desaturate" | "stretch-wide" | "stretch-tall";
 
@@ -257,7 +259,8 @@ export async function buildRaccoonWorldSet(
       }
       const image = `crops/${crop.subject}-${crop.name}-${cell}.png`;
       await writeFile(join(outDir, image), encodePng(out));
-      const where = `cell ${cell} of ${crop.from}: ${crop.note}`;
+      const check = crop.checked?.[String(cell)];
+      const where = `cell ${cell} of ${crop.from}: ${crop.note}${check ? ` (checked ${check})` : ""}`;
       cases.push({
         image,
         subject: crop.subject,

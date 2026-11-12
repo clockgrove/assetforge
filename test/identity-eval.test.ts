@@ -67,7 +67,7 @@ function provider(foxProbabilities: number[], check: string) {
       throw new Error("no images");
     },
     vision: (request) => {
-      if (request.prompt.includes("source of truth")) return { text: check };
+      if (request.prompt.includes("For each written claim")) return { text: check };
       const p = foxProbabilities[cast++]!;
       return {
         text: JSON.stringify({ probabilities: { fox: p, kit: 1 - p, neither: 0 }, choice: "fox" }),

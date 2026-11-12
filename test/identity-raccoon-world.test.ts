@@ -135,3 +135,21 @@ test("crops yield one same case and one look-alike per other identity, at grid s
       assert.equal(raster.height, crop.grid.height);
     }
 });
+
+test("every generated strip frame labelled same carries its own eye check, which reaches the case note", async () => {
+  const strips = manifest.crops.filter((c) => c.from.includes("comparison-candidates/"));
+  assert.ok(strips.length > 0);
+  for (const crop of strips)
+    for (const cell of crop.cells)
+      assert.match(
+        crop.checked?.[String(cell)] ?? "",
+        /^\d{4}-\d{2}-\d{2}, by eye/,
+        `${crop.name} ${cell}`,
+      );
+  const { cases } = await build();
+  const frame = cases.find((c) => c.same && c.image === `crops/stevie-walk-3.png`)!;
+  assert.match(
+    frame.note ?? "",
+    /\(checked 2026-11-11, by eye against the turnaround: Stevie, walk frame 3/,
+  );
+});
