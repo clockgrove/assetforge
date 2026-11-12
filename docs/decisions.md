@@ -191,8 +191,48 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 
   **The bar is still not met, on false rejects.** All 6 idle frames pass. 5 of the 8 walk frames are rejected for "a more humped back" and "a shorter tail", which is a walking raccoon's posture judged against standing references. The window photo and one Jimothy cell are the other two. The one false accept is a defective old frame at 0.67.
 
-- **Next: posture versus identity.** The on-model judgement should accept posture that comes from the animation (an arched back mid-stride, a lowered or curled tail) and still catch marking, colour and proportion drift. Measure it on frames it has not seen, at a threshold fixed beforehand. Whether photos belong in a 2D art set is the person approving's call.
+- **Next: posture versus identity.** Done in #104; see the next section. Whether photos belong in a 2D art set is the person approving's call.
 - **The 3D numbers wait for #82.**
+
+## Identity cast question: animation posture is not drift (2026-11-12; assetforge#104)
+
+**The bar is met on the whole set, but not on the frames held out for the run, so shadow mode stays the default** and `question: "cast"` stays opt-in at 0.5. On run 7's held-out frames, Raccoon World is clean, but 2 of 12 posed bird drift cases are accepted.
+
+**The rule.** The cast question's on-model step now judges each feature as it would look in the references' pose. Differences the pose, view or animation phase explains are not deviations, and the model lists them apart as `poseDifferences`, which never lower `onModel`. Examples are an arched or hunched back, a tail that is lowered, swung, curled or foreshortened, a turned or lowered head, bent limbs, spread or folded wings, and parts hidden by the view. Rendering variation between two drawings is not a deviation either: shading, lighter or more muted tones of the same hue, and texture. Nor is what the animation adds, such as food held or background between the limbs. These still count as deviations:
+
+- a region or marking in a different hue, including flecks across a mask or brow;
+- a marking missing, added or moved;
+- a see-through hole in the body or face;
+- a clearly different count of repeated marks on a part that shows them all;
+- proportions no pose can produce: body build or shape, head size, or a limb, tail or ear whose length differs by more than swing or foreshortening explains (at most about a third);
+- a missing or changed signature feature.
+
+The wording names no species. Sheet import and planning now name the animation family in the candidate's description when the spec has one. The score is unchanged: p(subject) × p(on-model).
+
+**How it was measured.** The threshold was fixed before each run at 0.5, the shipped default, on the default `identity-cast` route (GPT-6.1 Terra). Prompt wording was only ever changed on cases already scored ("seen"). Every run's new frames were added, checked by eye and committed before that run, and never used to adjust the prompt before it.
+
+- **Development (seen frames only):** run 5's Stevie walk frames and the existing drift. The first wording made the model count tail bands on a foreshortened tail (7 of 8 walk frames rejected). It also excused a stub tail, a stretched bird and a tailless Jimothy. The wording was revised until those 50 cases scored AUC 1.000 with no errors.
+- **Run 6 (held-out frames):** a second walk and a sniff cycle for Stevie, a walk and an eat cycle for Jimothy (28 `generate-sheet` frames), 8 drift edits of the new walk frames, and per bird 4 animation poses (flap, peck, look-back, crest-swept) with 4 posed drift cases. 294 cases, $2.09.
+- **Run 7 (held-out frames, prompt v3):** after run 6, the prompt was revised on run 6's cases (now seen). Then, before run 7, it added a third Stevie walk and an eat cycle (14 frames). It added 8 unused cells of Jimothy's own contact sheet (4 walk, 4 sit-groom) and 11 drift edits in those poses. Per bird it added 4 new poses (hop, preen, glide, turn) with posed drift. 341 cases, $2.28.
+
+**Numbers** (2D, trusted records; every record passed its check; "held out" means that run's new positives and drift with every generic and look-alike negative; FA / FR are false accepts and false rejects at 0.5):
+
+| Run, cases                 | AUC   | Drift AUC | Generic AUC | Look-alike AUC | FA     | FR    | Birds AUC, FA / FR | Raccoon World AUC, FA / FR | Bar     |
+| -------------------------- | ----- | --------- | ----------- | -------------- | ------ | ----- | ------------------ | -------------------------- | ------- |
+| Run 6, whole set (268)     | 0.924 | 0.882     | 0.944       | 0.949          | 30/183 | 12/85 | 1.000, 0/45 / 0/30 | 0.869, 30/138 / 12/55      | not met |
+| Run 6, held out (176)      | 0.907 | 0.858     | 0.897       | 0.921          | 15/136 | 10/40 | 1.000, 0/33 / 0/12 | 0.856, 15/103 / 10/28      | not met |
+| Run 7, whole set (315)     | 0.991 | 0.984     | 0.993       | 0.997          | 2/210  | 1/105 | 0.999, 2/57 / 0/42 | 0.989, 0/153 / 1/63        | met     |
+| Run 7, held out (181)      | 0.996 | 0.973     | 1.000       | 1.000          | 2/147  | 0/34  | 0.996, 2/33 / 0/12 | 1.000, 0/114 / 0/22        | not met |
+| Run 7, new cases only (79) | 0.986 | 0.973     | n/a         | 1.000          | 2/45   | 0/34  | 0.990, 2/12 / 0/12 | 1.000, 0/33 / 0/22         | not met |
+
+3D (provisional, 18 cases, not judged): run 6 AUC 0.20, run 7 AUC 0.72; most Stevie renders are still rejected, as before.
+
+- **Posture is no longer drift.** Run 7 rejected none of its 34 held-out animation frames: Stevie's walk and eat frames, Jimothy's own walk and sit-groom cells, and the bird poses. On the whole set, the 5 Stevie walk frames run 5 rejected now pass. The one false reject left is the window photo, called "none of the cast".
+- **Drift is still caught in a pose.** All 11 posed Raccoon World drift edits in run 7 score low, as do run 5's drift and the defective pre-#56 strip frames. The 2 misses are bird drift in the run 7 "preen" pose (tilted, head turned): a body stretched 1.3× tall scored 0.94 and 0.98. On held-out drift that is 2/23 (8.7%), over the 5% bar, and for the bird cast 2/33 (6.1%). This is the bar's failure.
+- **Run 6 failed for two reasons, both fixed before run 7.** The first was a wording that excused tone and marking-edge differences: the defective strip frames, with orange showing through holes in the face, passed at 0.82–0.92, as did a hue-shifted Jimothy. The prompt now counts a hue change and a see-through hole, and run 7 rejects them. The second was that all 14 generated Jimothy frames were called Stevie. On a second look the model was right: those frames lack Jimothy's very fluffy coat and draw Stevie's face. `generate-sheet` drew Stevie's design under Jimothy's name, and the first eye check missed it. They and the drift made from them are in `generated.json`'s `dropped` list with that reason. Jimothy's run 7 positives are cells of his own sheet. A generated sheet of a look-alike cast member needs an eye check against the other members, not only against its own references.
+- **Cost:** about $7.33 on the gateway by the spend ledger: the two runs ($4.37), development checks on seen cases ($2.13), and 7 sheets (one failed its frame count) and 20 drift edits ($0.83).
+
+**What is open:** a proportion change in a strongly posed frame, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen.
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
