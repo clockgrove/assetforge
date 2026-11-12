@@ -158,7 +158,7 @@ The per-case logs of these runs were not kept, so only the cells that follow fro
 - **Drift was the gap.** "Who is this" answers "Stevie" for an orange or ringless Stevie (0.96–0.98). So the cast call now also asks whether the candidate is on-model for the subject against its references, and the score is p(subject) × p(on-model). That closes drift on trusted records.
 - **It misses the bar on one count:** Raccoon World's false rejects at 0.5 are 2 of 12 Jimothy cells (0.29 each, for a pale forehead stripe and a narrower muzzle). The sweep's 0.29 has no errors, but it was picked on the same set.
 - **It is strict across views of a one-reference lock.** Counting Stevie's untrusted record as if trusted, his side and back turnaround views score 0.29–0.35 ("one more tail band"), and all 14 comparison-strip frames score 0.01–0.13 (narrower face, domed back, weaker streaking). Those 14 frames are generated, so each carries an eye check against his turnaround in the fixture: all show his mask, ears, coat, stocky short-legged body and banded tail; the domed back and softer streaking are rendering variation, so they stay labelled same. False rejects for Raccoon World are then 50% (15/30).
-- **3D (provisional, 18 cases):** AUC 0.41–0.72; every Stevie render is rejected at any of these thresholds.
+- **3D (provisional, 18 cases):** AUC 0.41–0.72; every Stevie render is rejected at any of these thresholds. After look-dev (#82): see "3D after look-dev" below.
 - **Cost:** the measured runs cost $1.92 (pplx $0.02; Terra $0.83 and $1.06 with the on-model check, about $0.006 a case). The generated images cost $0.75.
 - **Prompt wording:** the shipped on-model sentence is the one the run used: "the approved references are the source of truth".
 
@@ -192,7 +192,33 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
   **The bar is still not met, on false rejects.** All 6 idle frames pass. 5 of the 8 walk frames are rejected for "a more humped back" and "a shorter tail", which is a walking raccoon's posture judged against standing references. The window photo and one Jimothy cell are the other two. The one false accept is a defective old frame at 0.67.
 
 - **Next: posture versus identity.** Done in #104; see the next section. Whether photos belong in a 2D art set is the person approving's call.
-- **The 3D numbers wait for #82.**
+- **The 3D numbers:** after look-dev, below.
+
+**3D after look-dev (2026-11-12; assetforge#82, Outcome 9; provisional, no threshold set).** These are the 3D cases of the set: Stevie's 16 wave-0 renders and their 2 drift edits, plus the looked-dev renders of the real run (`docs/examples/look-dev/stevie/`). The looked-dev renders are 10 same (summer and winter coats; front, three-quarter, side, back and the close-up) and 3 pixel drift (hue shift, tall stretch, colour removed). They are scored against Stevie's lock v3 (record check passed). `node test/fixtures/identity-set/build.ts <out> --medium 3d` writes the 31 cases. Thresholds are the shipped defaults, fixed before the run.
+
+| Question, threshold  | Cases           | AUC   | Same FR | Drift FA | Mean same score | Spend  |
+| -------------------- | --------------- | ----- | ------- | -------- | --------------- | ------ |
+| `score` (pplx), 0.68 | all 3D (31)     | 0.723 | 22/26   | 0/5      | 0.56            | $0.001 |
+|                      | wave 0 (18)     | 0.656 | 12/16   | 0/2      | 0.57            |        |
+|                      | looked-dev (13) | 0.867 | 10/10   | 0/3      | 0.55            |        |
+| `cast` (Terra), 0.5  | all 3D (31)     | 0.608 | 26/26   | 0/5      | 0.02            | $0.31  |
+|                      | wave 0 (18)     | 0.578 | 16/16   | 0/2      | 0.03            |        |
+|                      | looked-dev (13) | 0.533 | 10/10   | 0/3      | 0.01            |        |
+
+- **Per kind:** same and drift only. **Generic and look-alike 3D cases are missing.** No other cast member has a 3D model yet, so 3D look-alikes wait for wave 1. There is no generic 3D raccoon render either.
+- **Per cast:** Raccoon World only. The birds have no 3D cases.
+- **Every lit 3D render of Stevie is still rejected,** before and after look-dev, at both thresholds. `cast` names Stevie every time (confidence about 0.96), then calls the render off-model. For the looked-dev renders it gives a "much darker brown" chest and body without the warm tan chest, a smaller cream muzzle, and a larger head.
+- **The darkness is the renderer's lighting, not the albedo.** Rendered unlit, the looked-dev model's three-quarter view averages RGB 118,98,82 and the restyled view it was projected from averages 120,99,82. Assetforge's turntable lighting (ambient 0.35 plus one key light) brings the figure to about 0.7 of that, and the shell-fur preview shades its shells darker toward the root.
+- **Diagnostic, unlit renders** (not in the set; 4 views each; $0.09):
+
+  | Render                 | `score` mean (range) | `cast` mean (range) |
+  | ---------------------- | -------------------- | ------------------- |
+  | before look-dev, unlit | 0.63 (0.53–0.71)     | 0.03 (0.00–0.07)    |
+  | after look-dev, unlit  | 0.69 (0.66–0.71)     | 0.15 (0.08–0.29)    |
+
+  After look-dev, the remaining complaints are mostly about the mesh: a narrower body, slimmer front legs and a larger head than the turnaround. Look-dev does not regenerate the mesh. The others are softer tail bands and a tan tail tip.
+
+- **What this means for a 3D threshold.** No question separates the looked-dev positives from drift at the shipped thresholds. `score` ranks looked-dev renders above their drift (AUC 0.867), but every one falls below 0.68. 3D stays provisional, and identity on 3D stays shadow-only.
 
 ## Identity cast question: animation posture is not drift (2026-11-12; assetforge#104)
 

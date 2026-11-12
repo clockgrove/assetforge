@@ -1,14 +1,16 @@
 import "./fixtures/spend-env.ts";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { after, test } from "node:test";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import { evaluateIdentity } from "../src/identity-eval.ts";
 import { defaultRoutes } from "../src/routes.ts";
 import { createRaster, encodePng, setPixel } from "../src/image/raster.ts";
 import { buildIdentitySet, heldOutCut } from "./fixtures/identity-set/build.ts";
+import { LOOKDEV_DRIFT, lookdevCases } from "./fixtures/identity-set/lookdev.ts";
 
 const roots: string[] = [];
 after(async () => {
@@ -161,4 +163,39 @@ test("the held-out cut keeps one run's positives and drift with every generic an
     buildIdentitySet(join(dir, "none"), { raccoonWorld: false, heldOut: "#104 run 99" }),
     /no case is held out/,
   );
+});
+
+test("looked-dev renders are 3D positives for Stevie with pixel drift; LFS pointers are left out", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "identity-set-"));
+  roots.push(dir);
+  const source = join(dir, "source");
+  await mkdir(source);
+  const raster = createRaster(8, 6);
+  for (let y = 0; y < 6; y++)
+    for (let x = 0; x < 8; x++) setPixel(raster, x, y, [120 + x * 10, 90, 60 + y * 10, 255]);
+  await writeFile(join(source, "after-summer-front.png"), encodePng(raster));
+  await writeFile(join(source, "after-winter-back.png"), encodePng(raster));
+  await writeFile(
+    join(source, "after-summer-side.png"),
+    "version https://git-lfs.github.com/spec/v1\noid sha256:00\nsize 1\n",
+  );
+  const out = join(dir, "raccoon-world");
+  const cases = await lookdevCases(out, "art/BIBLE.md", {
+    sourceDir: pathToFileURL(`${source}/`),
+  });
+  const same = cases.filter((c) => c.same);
+  assert.deepEqual(
+    same.map((c) => c.image),
+    ["lookdev/stevie-after-summer-front.png", "lookdev/stevie-after-winter-back.png"],
+  );
+  assert.ok(cases.every((c) => c.medium === "3d" && c.subject === "stevie"));
+  assert.ok(cases.every((c) => c.cast === "raccoon-world" && c.bible === "art/BIBLE.md"));
+  // Only the drift whose source render is present: the hue shift of the summer front view.
+  const drift = cases.filter((c) => c.kind === "drift");
+  assert.equal(LOOKDEV_DRIFT[0]!.from, "after-summer-front");
+  assert.deepEqual(
+    drift.map((c) => c.image),
+    ["lookdev/stevie-after-summer-front-hue-shift.png"],
+  );
+  for (const c of cases) assert.ok((await stat(join(out, c.image as string))).size > 0);
 });
