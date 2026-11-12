@@ -162,19 +162,19 @@ The per-case logs of these runs were not kept, so only the cells that follow fro
 - **Cost:** the measured runs cost $1.92 (pplx $0.02; Terra $0.83 and $1.06 with the on-model check, about $0.006 a case). The generated images cost $0.75.
 - **Prompt wording:** the shipped on-model sentence is the one the run used: "the approved references are the source of truth".
 
-**Rerun on Stevie's lock v3 (2026-11-11, 7:39 PM PST; thresholds fixed before the run).** Raccoon World's lock v3 (clockgrove/raccoon-world#72, commit 5070a0b) fixed the record: it now passes its check and lists the front, side and back views as references. The fixture now pins that commit. The thresholds were fixed beforehand at the shipped defaults: `cast` at 0.5 and `score` at 0.68. On 2D, trusted records, there were 156 cases (48 positives):
+**Rerun on Stevie's lock v3 (2026-11-11, 7:39 PM PST; thresholds fixed before the run).** Raccoon World's lock v3 (clockgrove/raccoon-world#72, commit 5070a0b) fixed the record: it now passes its check and lists the front, side and back views as references. The fixture now pins that commit. The thresholds were fixed beforehand at the shipped defaults: `cast` at 0.5 and `score` at 0.68. Stevie's three newly listed views were removed from the candidates, so no lock reference is scored against itself. On 2D, trusted records, there were 152 cases (45 positives):
 
 | Question, threshold  | AUC   | Drift AUC | Generic AUC | Look-alike AUC | False accepts | False rejects | Birds FA / FR | Raccoon World FA / FR | Spend |
 | -------------------- | ----- | --------- | ----------- | -------------- | ------------- | ------------- | ------------- | --------------------- | ----- |
-| `cast` (Terra), 0.5  | 0.982 | 0.975     | 0.977       | 0.991          | 0% (0/108)    | 33% (16/48)   | 0% / 0%       | 0% / 53% (16/30)      | $1.26 |
-| `score` (pplx), 0.68 | 0.865 | 0.676     | 0.976       | 0.930          | 21% (23/108)  | 33% (16/48)   | 36% / 0%      | 15% / 53%             | $0.01 |
+| `cast` (Terra), 0.5  | 0.980 | 0.972     | 0.976       | 0.988          | 0% (0/107)    | 33% (15/45)   | 0% / 0%       | 0% / 56% (15/27)      | $0.33 |
+| `score` (pplx), 0.68 | 0.854 | 0.657     | 0.975       | 0.921          | 21% (22/107)  | 36% (16/45)   | 33% / 0%      | 15% / 59%             | $0.02 |
 
-**The bar is not met, and only on false rejects.** `cast` accepted no wrong character, generic or drift edit. Its 16 false rejects are all Raccoon World:
+**The bar is not met, and only on false rejects.** `cast` accepted no wrong character, generic or drift edit. Its 15 false rejects are all Raccoon World:
 
-- 13 of the 14 frames of Stevie's comparison strips, and 2 of Jimothy's sheet cells. The model named the right character every time (confidence 0.95–0.99), but its on-model check scored rendering variation as drift: shorter tail, fewer distinct bands, orange flecks on the brows, smaller eyes, a domed back.
+- 13 of the 14 frames of Stevie's comparison strips, and 1 of Jimothy's sheet cells. The model named the right character every time (confidence 0.95–0.99), but its on-model check scored rendering variation as drift: shorter tail, fewer distinct bands, orange flecks on the brows, smaller eyes, a domed back.
 - The photo of Stevie at the window, called "none of the cast": a real photo against illustrated references.
 
-The sweep's best threshold, 0.0245, would give 3% false accepts and 2% false rejects, but it was picked on this set and is not a result. **Shadow mode stays the default, and `question: "cast"` is not switched on for Raccoon World yet.** 3D (provisional, 18 cases) rejects every Stevie render (AUC 0.61).
+The sweep's best threshold, 0.036, would give 1 false accept and 2 false rejects, but it was picked on this set and is not a result. **Shadow mode stays the default, and `question: "cast"` is not switched on for Raccoon World yet.** 3D (provisional, 18 cases) rejects every Stevie render (AUC 0.77).
 
 **What is open:**
 
