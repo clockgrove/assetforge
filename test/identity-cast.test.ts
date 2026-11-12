@@ -152,13 +152,17 @@ test("the cast prompt accepts posture and animation differences, asks for them a
   assert.match(prompt, /from its "walk" animation/);
   assert.match(prompt, /may name its animation/);
   assert.match(prompt, /as it would look if the candidate stood in the references' pose/);
-  assert.match(prompt, /a back arched, hunched or stretched mid-stride/);
+  assert.match(prompt, /a back arched or hunched mid-stride/);
   assert.match(prompt, /a tail lowered, raised, swung, curled or foreshortened/);
   assert.match(prompt, /is NOT a deviation/);
   assert.match(prompt, /do not let them lower onModel/);
-  assert.match(prompt, /the count of any repeated mark \(rings, bands, stripes, feathers, spots\)/);
-  assert.match(prompt, /proportions the pose cannot explain/);
-  assert.match(prompt, /signature feature that is missing, added or changed/);
+  assert.match(prompt, /variation between two drawings of the same model/);
+  // Drift still counts: markings, colours, counts, proportions beyond the pose, signature features.
+  assert.match(prompt, /a region in the wrong colour; a marking missing, added or moved/);
+  assert.match(prompt, /a clearly different number of repeated marks/);
+  assert.match(prompt, /proportions no pose can produce/);
+  assert.match(prompt, /a signature feature missing, added or changed/);
+  assert.match(prompt, /is missing, not hidden/);
   assert.match(prompt, /the approved references are the source of truth/);
   assert.match(prompt, /"poseDifferences": \["<each difference the pose or view explains>"\]/);
 });
