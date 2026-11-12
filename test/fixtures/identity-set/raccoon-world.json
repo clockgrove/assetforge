@@ -54,11 +54,7 @@
       "dark brown lower legs and hand-like paws"
     ],
     "proportions": "lean, upright, long-bodied, long legs",
-    "positives": [
-      "references/stevie/turnaround-front.png",
-      "references/stevie/turnaround-side.png",
-      "references/stevie/stevie-window-front.png"
-    ],
+    "positives": ["references/stevie/stevie-window-front.png"],
     "negatives": [
       "references/gracie/gracie-sleeping.png",
       "references/gracie/gracie-lounging.png",
@@ -66,30 +62,6 @@
     ]
   },
   "images": [
-    {
-      "path": "references/stevie/turnaround-front.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, front view (not the identity lock)"
-    },
-    {
-      "path": "references/stevie/turnaround-side.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, side view (not the identity lock)"
-    },
-    {
-      "path": "references/stevie/turnaround-back.png",
-      "subject": "stevie",
-      "same": true,
-      "kind": "same",
-      "medium": "2d",
-      "note": "Stevie's approved turnaround, back view (not the identity lock)"
-    },
     {
       "path": "references/stevie/stevie-window-front.png",
       "subject": "stevie",
@@ -273,14 +245,6 @@
       "kind": "lookalike",
       "medium": "2d",
       "note": "Gracie holding an ice cube, photo; a different cast member (pale shaggy lower body); off-style photo"
-    },
-    {
-      "path": "references/stevie/turnaround-front.png",
-      "subject": "jimothy",
-      "same": false,
-      "kind": "lookalike",
-      "medium": "2d",
-      "note": "Stevie's approved front view: stocky, level-backed, sleeker than Jimothy"
     },
     {
       "path": "references/stevie/stevie-window-front.png",

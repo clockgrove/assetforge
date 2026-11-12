@@ -44,7 +44,7 @@ async function build() {
 test("the Raccoon World set builds from the manifest with loadable bibles and every kind", async () => {
   const { biblePath, conflictBiblePath, cases } = await build();
   const bible = await loadBible(biblePath);
-  assert.equal(bible.data.identities["stevie"]?.version, "2");
+  assert.equal(bible.data.identities["stevie"]?.version, "3");
   assert.ok(bible.data.identities["jimothy"]);
   const conflict = await loadBible(conflictBiblePath);
   const record = conflict.data.identities["stevie"]!;
