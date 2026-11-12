@@ -82,6 +82,12 @@ test("a Factory worker's default ledger is in its stage's TMPDIR, which persists
     join("/run/stage-tmp", "assetforge-spend.jsonl"),
   );
   assert.equal(SpendLedger.fromEnv(worker).path, join(tmpdir(), "assetforge-spend.jsonl"));
+  // Factory's stage-persistent state directory, when it gives one, is preferred.
+  assert.equal(
+    SpendLedger.fromEnv({ ...worker, TMPDIR: "/run/stage-tmp", FACTORY_STATE_DIR: "/run/state" })
+      .path,
+    join("/run/state", "assetforge-spend.jsonl"),
+  );
   // An explicit ledger still wins.
   assert.equal(
     SpendLedger.fromEnv({ ...worker, ASSETFORGE_SPEND_LEDGER: "/shared/ledger.jsonl" }).path,

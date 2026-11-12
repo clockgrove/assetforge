@@ -52,7 +52,7 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 - Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetforge never prompts.
 - Run `stage --dry-run` first. It spends nothing and needs no key.
 - Name the work item (`ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective; a Factory worker gets its Objective from `FACTORY_ISSUE` by default). Paid calls across runs are capped at $10 a day and $5 per work item by default; see [Spend limits](#spend-limits).
-- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetforge reaches.
+- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetforge reaches. Inside a Factory stage, `FACTORY_GATEWAY_URL` points calls at Factory's metering relay instead, which holds the real key and counts each call against the Objective's caps.
 - Agents stage, humans pick (PRD §5.7). Agents never run `pick` or `write-families` and never confirm a grouping.
 
 ## Commands and exit codes
@@ -85,12 +85,12 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 `--cap` bounds one run. Every paid call (not scripted ones, `--provider-script`) is also recorded in a spend ledger shared by every run on the machine (or in the CI job), and refused (exit 3) before it is made when it would cross a daily limit or the limit of its work item. `--dry-run` shows the spend left under each.
 
-| Variable                         | Default                                                                                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`); `$TMPDIR/assetforge-spend.jsonl` in a Factory worker   |
-| `ASSETFORGE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset in a Factory worker: `<repo>#<FACTORY_ISSUE>`; otherwise daily limit only) |
-| `ASSETFORGE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                                                                              |
-| `ASSETFORGE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                                                                        |
+| Variable                         | Default                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`); `assetforge-spend.jsonl` in `$FACTORY_STATE_DIR` (else `$TMPDIR`) in a Factory worker |
+| `ASSETFORGE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset in a Factory worker: `<repo>#<FACTORY_ISSUE>`; otherwise daily limit only)                                |
+| `ASSETFORGE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                                                                                                             |
+| `ASSETFORGE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                                                                                                       |
 
 A target profile can set `spend.dailyLimitUsd` and `spend.workItemLimitUsd`; the stricter of the profile and the environment applies. See [docs/target-profile.md](docs/target-profile.md#spend-limits-across-runs).
 
