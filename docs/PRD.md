@@ -46,14 +46,14 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 ## 4. Concepts
 
-- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid, and the world's **style profile**: alpha mode (binary or soft), colour rule (a fixed palette or full colour), edge rendering (crisp or antialiased) and size limits per asset role. Clockgrove's world packs each declare one (#61): Raccoon World is painterly, and flat-cartoon and pixel-art packs are equally valid. Then naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
+- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid, and the world's **style profile**: alpha mode (binary or soft), colour rule (a fixed palette or full colour), edge rendering (crisp or antialiased) and size limits per asset role. Clockgrove's world packs each declare one (#61), and flat-cartoon and pixel-art packs are as valid as Raccoon World's. A bible can declare per-domain looks that a spec names (`look`), so characters and environments can differ: Raccoon World's characters are naturalistic, matching Stevie's approved turnaround, and its yard is lightly painterly (Kirk, 2026-11-11). Then naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
 - **Style bible.** The world's visual (and later audio) constitution, as data in the target repository:
   - approved reference images: character sheets, turnarounds, props, a perspective sample;
   - the colour rule the style profile names: a colour script (key colours and value ranges per time of day) for a full-colour world, or the palette for a fixed-palette one;
   - the lighting key;
   - line and texture notes;
   - negative examples;
-  - the mood words and the reference image. For Raccoon World: painterly rendered storybook realism, a high three-quarter isometric camera, soft fur, full colour, large environment pieces, warm lantern light against cool dusk rain (Clockgrove `docs/design/reference/raccoon-world-reference.png`).
+  - the mood words and the reference image. For Raccoon World: rendered storybook realism with a lightly painterly yard and naturalistic, high-quality characters (Stevie's approved turnaround), a high three-quarter isometric camera, soft fur, full colour, large environment pieces, warm lantern light against cool dusk rain (Clockgrove `docs/design/reference/raccoon-world-reference.png`).
 
   It has a version. Every output records the bible version it was made under.
 - **Asset spec.** One requested asset: kind (sprite strip, still, portrait, icon, tile, effect, loop, model), identity, animation family, frame count and size, anchor and footprint, variants, and any per-asset references.
@@ -225,7 +225,7 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 | Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | Wave 8 §10.2, #21, #66 | 5.5 material maps, 5.8 effects |
 | Icons: weather, material events, entity modes, actions, relationships, privacy, status | Wave 8 §10.2 | 5.8 icon families |
 | Modular layers and atlases, never one flattened illustration | Wave 8 §10.2 | Per-asset specs; layering in the target profile |
-| Look: painterly rendered storybook realism, high three-quarter isometric camera, soft fur, full colour; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1, the reference mockup | Style bible, 5.3 |
+| Look: rendered storybook realism (lightly painterly yard, naturalistic characters per Stevie's turnaround), high three-quarter isometric camera, soft fur, full colour; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1, the reference mockup | Style bible, 5.3 |
 | Golden scene approval | pipeline.md | 5.4 in-context preview, using the golden renderer |
 | Audio: rain loops, ambience, birds, rustling, water, subtle cues; mute and volume groups; nothing conveyed by sound alone; sensory-safe defaults | Wave 8 §10.3 | 5.8 audio |
 | Creator-authored world packs (Wave 7), community assets (PRD v0.5 §16) | Wave 7, PRD | 5.7 agent use; the style bible as the creator's guardrail |

@@ -32,7 +32,7 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Objectives:**
 - A shared raccoon rig and generated gait (assetforge#84): one skeleton template fitted to every raccoon, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom (Kirk, 2026-11-10).
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
-- Character look-dev (assetforge#82): a painted albedo in the bible's style, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
+- Character look-dev (assetforge#82): an albedo in the target's character look (for Raccoon World, Stevie's approved turnaround: naturalistic illustrated fur, not photographic and not heavily painterly; Kirk, 2026-11-11), fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
 - Gracie, Juniper, a kit and Jimothy as rigged models from their approved references. Gracie joined on 2026-11-10 (Kirk); her signature is the lighter, greyer, longer fur on her lower body (clockgrove/raccoon-world `references/gracie/`).
 - Raccoon World: the cast approved and committed to clockgrove/raccoon-world.
 
