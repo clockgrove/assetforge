@@ -92,13 +92,31 @@ function normalise(a: Vec): Vec {
   return [a[0] / l, a[1] / l, a[2] / l];
 }
 
-/** Renders one view of the model into an opaque RGBA raster. */
-export function renderView(glb: Glb, options: RenderOptions): Raster {
-  const size = options.sizePx;
-  const raster = createRaster(size, size);
-  raster.data.fill(BACKGROUND);
-  for (let i = 3; i < raster.data.length; i += 4) raster.data[i] = 255;
+/** The fixed turntable camera for one view: where it is, its axes and its pixel projection. */
+export interface ViewCamera {
+  sizePx: number;
+  eye: Vec;
+  forward: Vec;
+  right: Vec;
+  up: Vec;
+  /** Focal length in pixels. */
+  focal: number;
+  near: number;
+  /** A world point's pixel position (x right, y down) and its depth along the view axis. */
+  project(x: number, y: number, z: number): Vec;
+}
 
+/**
+ * The camera `renderView` uses: 15° above the horizon at `yawDeg`, framed on the bounds so their
+ * bounding sphere fills 90% of the view. Exported so other passes (look-dev's back-projection)
+ * map pixels to the same rays.
+ */
+export function viewCamera(options: {
+  sizePx: number;
+  yawDeg: number;
+  framing: Bounds;
+}): ViewCamera {
+  const size = options.sizePx;
   const { min, max } = options.framing;
   const centre: Vec = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
   const radius = Math.max(Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2, 1e-6);
@@ -120,6 +138,37 @@ export function renderView(glb: Glb, options: RenderOptions): Raster {
   const up = cross(right, forward);
   const focal = size / 2 / tanHalf;
   const near = Math.max(distance - radius * 4, distance * 0.01);
+  return {
+    sizePx: size,
+    eye,
+    forward,
+    right,
+    up,
+    focal,
+    near,
+    project(x, y, z) {
+      const dx = x - eye[0];
+      const dy = y - eye[1];
+      const dz = z - eye[2];
+      const depth = dx * forward[0] + dy * forward[1] + dz * forward[2];
+      return [
+        size / 2 + (focal * (dx * right[0] + dy * right[1] + dz * right[2])) / depth,
+        size / 2 - (focal * (dx * up[0] + dy * up[1] + dz * up[2])) / depth,
+        depth,
+      ];
+    },
+  };
+}
+
+/** Renders one view of the model into an opaque RGBA raster. */
+export function renderView(glb: Glb, options: RenderOptions): Raster {
+  const size = options.sizePx;
+  const raster = createRaster(size, size);
+  raster.data.fill(BACKGROUND);
+  for (let i = 3; i < raster.data.length; i += 4) raster.data[i] = 255;
+
+  const camera = viewCamera(options);
+  const { eye, forward, right, up, focal, near } = camera;
 
   const depthBuffer = new Float64Array(size * size).fill(Infinity);
   const texel: Vec = [0, 0, 0];
