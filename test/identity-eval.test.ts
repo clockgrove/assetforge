@@ -171,6 +171,39 @@ test("a record that contradicts its references marks every case that used it", a
   assert.ok(report.recordChecks.every((c) => !c.consistent));
   assert.ok(report.results.every((r) => r.untrustedRecord === true));
   assert.ok(report.results.every((r) => r.score?.filtered === false));
+  // Nothing is measured on a record that never filters: no sweep, threshold, AUC or bar.
+  assert.deepEqual(report.sweep, []);
+  assert.equal(report.recommended, undefined);
+  assert.equal(report.auc, undefined);
+  assert.deepEqual(report.media, {});
+  assert.equal(report.untrusted?.cases, 2);
+  assert.equal(report.untrusted?.positives, 1);
+  assert.equal(report.untrusted?.falseRejects, 0);
+});
+
+test("a set with no 2D case recommends no threshold; 3D stays provisional", async () => {
+  const f = await fixture([
+    { image: "a.png", subject: "fox", same: true, medium: "3d" },
+    { image: "b.png", subject: "fox", same: false, kind: "lookalike", medium: "3d" },
+  ]);
+  const report = await evaluateIdentity({
+    biblePath: f.woodland,
+    casesPath: f.casesPath,
+    profile: castProfile,
+    routes: defaultRoutes,
+    provider: provider([0.9, 0.1], CONSISTENT),
+    providerName: "scripted",
+    capUsd: 5,
+  });
+  assert.equal(report.scored, 2);
+  assert.deepEqual(report.sweep, []);
+  assert.equal(report.recommended, undefined);
+  assert.equal(report.auc, undefined);
+  assert.equal(report.labelAgreement, undefined);
+  assert.equal(report.media["2d"], undefined);
+  assert.equal(report.media["3d"]?.provisional, true);
+  assert.equal(report.media["3d"]?.recommended, undefined);
+  assert.equal(report.media["3d"]?.configured.auc, 1);
 });
 
 test("case validation refuses unknown or contradictory labels and a case without a bible", async () => {
@@ -234,4 +267,11 @@ test("the breakdown measures kinds against all positives and judges the provisio
   assert.equal(bad.bar.met, false);
   assert.ok(bad.bar.failures.includes("kind drift: false accepts 100% > 5%"));
   assert.ok(bad.bar.failures.includes("kind same: false rejects 50% > 10%"));
+  // Cast B has no positives: it cannot be measured, so it fails rather than passing on 0%.
+  assert.ok(bad.bar.failures.includes("cast B: not measured (no positives)"));
+  const onlyPositives = breakdown([{ score: 0.9, same: true, kind: "same", cast: "A" }], 0.68);
+  assert.deepEqual(onlyPositives.bar.failures, [
+    "overall: not measured (no negatives)",
+    "cast A: not measured (no negatives)",
+  ]);
 });

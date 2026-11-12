@@ -74,7 +74,7 @@ test("drift images differ from their sources and are labelled different", async 
   }
 });
 
-test("every manifest path is in a listed reference folder and no lock reference is a same-subject candidate", () => {
+test("every manifest path is in a listed reference folder and no cast member's lock reference is a candidate", () => {
   const folders = ["stevie", "gracie", "jimothy", "poses"].map((f) => `references/${f}/`);
   const paths = [
     ...manifest.images.map((i) => i.path),
@@ -87,9 +87,12 @@ test("every manifest path is in a listed reference folder and no lock reference 
       folders.some((f) => p.startsWith(f)),
       p,
     );
-  for (const [name, lock] of Object.entries(manifest.bible.identities)) {
-    const refs = [lock.turnaround, ...(lock.references ?? [])].map((r) => r.replace("../", ""));
-    for (const i of manifest.images)
-      if (i.subject === name) assert.ok(!refs.includes(i.path), i.path);
-  }
+  // The cast question shows every member's lock references beside the candidate, so a lock
+  // reference used as any case's candidate would be answered by image identity.
+  const lockRefs = Object.values(manifest.bible.identities).flatMap((lock) =>
+    [lock.turnaround, ...(lock.references ?? [])].map((r) => r.replace("../", "")),
+  );
+  for (const i of manifest.images) assert.ok(!lockRefs.includes(i.path), i.path);
+  for (const p of [...manifest.conflict.positives, ...manifest.conflict.negatives])
+    assert.ok(!lockRefs.includes(p), p);
 });

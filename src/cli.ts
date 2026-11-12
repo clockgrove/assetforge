@@ -1539,9 +1539,11 @@ function formatMedium(medium: string, m: MediumReport, threshold: number): strin
     line("overall", b),
     ...Object.entries(b.byKind).map(([k, g]) => line(`kind ${k}`, g)),
     ...Object.entries(b.byCast).map(([c, g]) => line(`cast ${c}`, g)),
-    b.bar.met
-      ? "  enforce bar (provisional): met"
-      : `  enforce bar (provisional): not met: ${b.bar.failures.join("; ")}`,
+    m.provisional
+      ? "  enforce bar: not judged on provisional 3D"
+      : b.bar.met
+        ? "  enforce bar (provisional): met"
+        : `  enforce bar (provisional): not met: ${b.bar.failures.join("; ")}`,
   ];
 }
 
@@ -1596,11 +1598,11 @@ hold a game's private art. See docs/generation-knobs.md.`,
       `${report.scored} of ${report.cases} cases scored by ${report.model} (${report.question}), ${report.failed} failed, $${report.spentUsd.toFixed(6)} spent`,
       ...report.sweep.map(
         (r) =>
-          `  threshold ${r.threshold.toFixed(3)}: ${r.correct}/${report.scored} correct (${pct(r.accuracy)}), ${r.falseRejects} false rejects, ${r.falseAccepts} false accepts`,
+          `  threshold ${r.threshold.toFixed(3)}: ${r.correct} correct (${pct(r.accuracy)}), ${r.falseRejects} false rejects, ${r.falseAccepts} false accepts`,
       ),
       report.recommended
         ? `recommended threshold ${report.recommended.threshold.toFixed(3)} (${pct(report.recommended.accuracy)})`
-        : "no threshold recommended: nothing was scored",
+        : "no threshold recommended: no 2D case of a trusted record was scored",
       `configured threshold ${report.configured.threshold}: ${pct(report.configured.accuracy)}`,
       ...(report.qaAgreement
         ? [
@@ -1611,6 +1613,11 @@ hold a game's private art. See docs/generation-knobs.md.`,
         const m = report.media[medium];
         return m ? formatMedium(medium, m, report.configured.threshold) : [];
       }),
+      ...(report.untrusted
+        ? [
+            `untrusted records (kept out of the threshold and the bar): ${report.untrusted.cases} cases at threshold ${report.configured.threshold}, false accepts ${pct(report.untrusted.falseAcceptRate)}, false rejects ${pct(report.untrusted.falseRejectRate)}`,
+          ]
+        : []),
       ...report.recordChecks.map((c) => `record check: ${c.reason}`),
     ];
     return { exitCode: 0, fields: { ...report }, human: lines.join("\n") };

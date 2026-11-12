@@ -105,6 +105,8 @@ export interface GenerationPlan {
     threshold: number;
     question: IdentityQuestionKind;
     route: Route;
+    /** Enforce mode only: the route that checks the record against its references first. */
+    checkRoute?: Route;
   };
   spec: AssetSpec;
   specDir: string;
@@ -615,6 +617,12 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
             ] as Route,
             identitySetting.question === "cast" ? IDENTITY_CAST_OPERATION : "identity",
           ),
+          ...(identitySetting.mode === "enforce" && {
+            checkRoute: route(
+              (options.routes ?? defaultRoutes)[IDENTITY_CHECK_OPERATION] as Route,
+              IDENTITY_CHECK_OPERATION,
+            ),
+          }),
         }
       : undefined;
   const generationUsd =
@@ -623,9 +631,7 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
         settings.qaRoute.estimatedCostUsd +
         (identityCheck?.route.estimatedCostUsd ?? 0)) +
     // Enforce mode first checks the record against its references, once per run.
-    (identityCheck?.mode === "enforce"
-      ? ((options.routes ?? defaultRoutes)[IDENTITY_CHECK_OPERATION]?.estimatedCostUsd ?? 0)
-      : 0);
+    (identityCheck?.checkRoute?.estimatedCostUsd ?? 0);
   const compilerEstimate = options.provider ? settings.llmRoute.estimatedCostUsd : 0;
   const budget = new Budget(
     settings.capUsd,
@@ -900,6 +906,7 @@ export async function applyPlan(
           ...(check && {
             [check.question === "cast" ? IDENTITY_CAST_OPERATION : "identity"]: check.route,
           }),
+          ...(check?.checkRoute && { [IDENTITY_CHECK_OPERATION]: check.checkRoute }),
         },
         ...(options.log && { log: options.log }),
       });

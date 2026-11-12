@@ -455,7 +455,8 @@ function memoisedCheck(
  * Scores one candidate against an identity record. A provider failure becomes a failed score
  * with the error as its reason (it filters in enforce mode, fail closed); a budget refusal or
  * invalid input is thrown as usual. In enforce mode the record is first checked against its own
- * references (once per caller and lock); a record that is not trusted scores in shadow mode only.
+ * references (once per caller and lock); a record that disagrees with them scores in shadow mode
+ * only, and a check that could not run filters every candidate (fail closed).
  */
 export async function scoreIdentity(options: {
   caller: Caller;
@@ -479,6 +480,18 @@ export async function scoreIdentity(options: {
       ? await memoisedCheck(caller, record, options.references, options.edges)
       : undefined);
   const trusted = check === undefined || (check.checked && check.consistent);
+  // A check that could not run is a provider failure: in enforce mode it fails closed, as a
+  // failed score does, rather than turning filtering off.
+  if (check && !check.checked && options.settings.mode === "enforce") {
+    const score = await scoreOnce(options);
+    return {
+      ...score,
+      passed: false,
+      filtered: true,
+      reason: `${score.reason}; filtered: ${check.reason}, so the record cannot be trusted (fail closed)`,
+      recordCheck: { checked: false, consistent: false, reason: check.reason },
+    };
+  }
   const settings = trusted ? options.settings : { ...options.settings, mode: "shadow" as const };
   const score = await scoreOnce({ ...options, settings });
   if (trusted) return score;
@@ -492,14 +505,58 @@ export async function scoreIdentity(options: {
   };
 }
 
+/**
+ * The most images one cast call sends, the candidate included. The `identity-cast` route's flat
+ * estimate is an upper bound for a call of this size, so capping the images keeps every
+ * reservation an upper bound however large the cast grows.
+ */
+export const IDENTITY_CAST_MAX_IMAGES = 16;
+
+/**
+ * Trims the cast's references to fit one call: every member keeps its first reference (the
+ * turnaround), then further references are added one per member in turn, the subject first. A cast
+ * with more members than fit is refused.
+ */
+export function capCastReferences(cast: CastMember[], subject: string): CastMember[] {
+  const room = IDENTITY_CAST_MAX_IMAGES - 1;
+  if (cast.length > room)
+    throw new InputError(
+      `the cast question fits at most ${room} identity records in one call; this bible has ${cast.length}`,
+    );
+  const total = cast.reduce((n, m) => n + m.references.length, 0);
+  if (total <= room) return cast;
+  const order = [
+    ...cast.filter((m) => m.record.subject === subject),
+    ...cast.filter((m) => m.record.subject !== subject),
+  ];
+  const keep = new Map(cast.map((m) => [m.record.subject, Math.min(1, m.references.length)]));
+  let used = [...keep.values()].reduce((a, b) => a + b, 0);
+  for (let round = 1; used < room; round++) {
+    let added = false;
+    for (const m of order) {
+      if (used >= room) break;
+      if (m.references.length > round) {
+        keep.set(m.record.subject, round + 1);
+        used++;
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return cast.map((m) => ({ ...m, references: m.references.slice(0, keep.get(m.record.subject)) }));
+}
+
 async function scoreOnce(options: Parameters<typeof scoreIdentity>[0]): Promise<IdentityScore> {
   const { caller, record, settings } = options;
   const operation = settings.question === "cast" ? IDENTITY_CAST_OPERATION : IDENTITY_OPERATION;
   const cast =
     settings.question === "cast"
-      ? options.cast?.some((m) => m.record.subject === record.subject)
-        ? options.cast
-        : [{ record, references: options.references }]
+      ? capCastReferences(
+          options.cast?.some((m) => m.record.subject === record.subject)
+            ? options.cast
+            : [{ record, references: options.references }],
+          record.subject,
+        )
       : undefined;
   const images = [
     options.candidate,

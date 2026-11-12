@@ -164,7 +164,16 @@ export function breakdown(
   const bar = IDENTITY_ENFORCE_BAR;
   const pct = (n: number) => `${Number((n * 100).toFixed(1))}%`;
   const failures: string[] = [];
-  const judge = (label: string, g: Group) => {
+  // A group the set cannot measure never passes: it is listed as not measured.
+  const judge = (label: string, g: Group, needsNegatives = true) => {
+    const missing = [
+      ...(g.positives === 0 ? ["no positives"] : []),
+      ...(needsNegatives && g.negatives === 0 ? ["no negatives"] : []),
+    ];
+    if (missing.length > 0) {
+      failures.push(`${label}: not measured (${missing.join(", ")})`);
+      return;
+    }
     if (g.auc !== undefined && g.auc < bar.auc)
       failures.push(`${label}: AUC ${g.auc.toFixed(3)} < ${bar.auc}`);
     if (g.falseAcceptRate > bar.falseAcceptRate)
@@ -177,7 +186,8 @@ export function breakdown(
       );
   };
   judge("overall", overall);
-  for (const [k, g] of Object.entries(byKind)) judge(`kind ${k}`, g);
+  // The "same" kind measures false rejects alone, so it needs positives only.
+  for (const [k, g] of Object.entries(byKind)) judge(`kind ${k}`, g, k !== "same");
   for (const [c, g] of Object.entries(byCast)) judge(`cast ${c}`, g);
   return { ...overall, byKind, byCast, bar: { met: failures.length === 0, failures } };
 }
@@ -189,18 +199,27 @@ export interface EvalReport {
   model: string;
   question: IdentityQuestionKind;
   spentUsd: number;
-  /** Accuracy of each candidate threshold over the scored 2D cases (all cases when none are 2D). */
+  /**
+   * Accuracy of each candidate threshold over the scored 2D cases of trusted records; empty, with
+   * no recommendation, when there are none (3D never sets a threshold).
+   */
   sweep: ThresholdRow[];
   recommended?: ThresholdRow;
   /** Accuracy at the profile's configured threshold. */
   configured: ThresholdRow;
-  /** AUC of the 2D cases. */
+  /** AUC of the 2D cases of trusted records. */
   auc?: number;
   /** Agreement between identity (at the recommended threshold) and the cases' QA verdicts. */
   qaAgreement?: IdentityAgreement;
   /** Agreement between identity (at the recommended threshold) and the labels. */
   labelAgreement?: IdentityAgreement;
+  /** Cases of trusted records only, by medium. */
   media: { "2d"?: MediumReport; "3d"?: MediumReport };
+  /**
+   * Cases scored against a record that disagrees with its references or could not be checked, at
+   * the configured threshold. They are kept out of the sweep, the AUC, the media and the bar.
+   */
+  untrusted?: Group;
   /** One check per (bible, subject) used: does its record agree with its own references. */
   recordChecks: IdentityRecordCheck[];
   results: EvalCaseResult[];
@@ -355,9 +374,13 @@ export async function evaluateIdentity(options: {
   }
 
   const scored = results.filter((r) => r.score?.score !== undefined);
-  // Thresholds rest on 2D cases only; 3D is reported apart and provisional.
-  const twoD = scored.filter((r) => r.medium === "2d");
-  const basis = twoD.length > 0 ? twoD : scored;
+  // A record that disagrees with its references does not filter, so nothing is measured on it:
+  // its cases are reported as their own group, apart from the threshold and the bar.
+  const trusted = scored.filter((r) => !r.untrustedRecord);
+  const untrustedCases = scored.filter((r) => r.untrustedRecord);
+  // Thresholds rest on 2D cases only; 3D is reported apart and provisional, and a set with no
+  // 2D case recommends nothing.
+  const basis = trusted.filter((r) => r.medium === "2d");
   const points = basis.map((r) => ({ score: r.score!.score!, same: r.same }));
   const { rows, recommended } = sweepThresholds(points);
   const at = (threshold: number): ThresholdRow => {
@@ -376,7 +399,7 @@ export async function evaluateIdentity(options: {
   const withQa = basis.filter((r) => r.qa !== undefined);
   const media: EvalReport["media"] = {};
   for (const medium of EVAL_MEDIA) {
-    const of = scored
+    const of = trusted
       .filter((r) => r.medium === medium)
       .map((r) => ({ score: r.score!.score!, same: r.same, kind: r.kind, cast: r.cast }));
     if (of.length === 0) continue;
@@ -409,6 +432,13 @@ export async function evaluateIdentity(options: {
       ),
     }),
     media,
+    ...(untrustedCases.length > 0 && {
+      untrusted: group(
+        untrustedCases.filter((r) => r.same).map((r) => ({ score: r.score!.score! })),
+        untrustedCases.filter((r) => !r.same).map((r) => ({ score: r.score!.score! })),
+        settings.threshold,
+      ),
+    }),
     recordChecks: [...checks.values()],
     results,
   };

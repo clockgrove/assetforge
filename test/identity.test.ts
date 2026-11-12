@@ -15,7 +15,9 @@ import {
   MIN_DECISION_EDGE,
   IDENTITY_CAST_OPERATION,
   IDENTITY_CHECK_OPERATION,
+  IDENTITY_CAST_MAX_IMAGES,
   agreement,
+  capCastReferences,
   checkIdentityRecord,
   forDecision,
   identityReason,
@@ -26,7 +28,7 @@ import {
   scoreIdentity,
   sweepThresholds,
 } from "../src/identity.ts";
-import type { IdentityRecordCheck } from "../src/identity.ts";
+import type { CastMember, IdentityRecordCheck } from "../src/identity.ts";
 import { evaluateIdentity, rocAuc } from "../src/identity-eval.ts";
 import { createRaster, decodeImage, encodePng, setPixel } from "../src/image/raster.ts";
 import { sha256 } from "../src/request.ts";
@@ -343,11 +345,18 @@ test("identity-eval scores a local labelled set, logs every call and recommends 
     casesPath,
     profile: syntheticProfile(),
     routes: defaultRoutes,
-    provider: scripted((_request, index) => ({
-      answer: { type: "score", score: scores[index]! },
-      confidence: 0.6,
-      costUsd: 0.00002,
-    })),
+    provider: new ScriptedProvider({
+      image: () => {
+        throw new Error("no images in identity tests");
+      },
+      // The record check agrees, so the record is trusted and its cases are measured.
+      vision: () => ({ text: CONSISTENT, costUsd: 0 }),
+      decide: (_request, index) => ({
+        answer: { type: "score", score: scores[index]! },
+        confidence: 0.6,
+        costUsd: 0.00002,
+      }),
+    }),
     providerName: "scripted",
     capUsd: 1,
     logPath,
@@ -563,7 +572,7 @@ test("enforce with a record that contradicts its references scores but does not 
   );
 });
 
-test("enforce with a consistent record filters; an unreadable check leaves the record untrusted", async () => {
+test("enforce with a consistent record filters; an unreadable check fails closed", async () => {
   const f = await castBible();
   const cast = await loadCast(await loadBible(f.biblePath));
   const fox = cast[0]!;
@@ -586,16 +595,33 @@ test("enforce with a consistent record filters; an unreadable check leaves the r
   assert.equal(record.checked, false);
   assert.equal(record.consistent, false);
   assert.match(record.reason, /could not be checked/);
+  const fox1 = '{"choice": "fox"}';
   const unchecked = await scoreIdentity({
-    caller: caller(visionScript(none, "garbled")),
+    caller: caller(visionScript(fox1, "garbled")),
     ...fox,
     candidate: candidate(),
     describe: "a still",
     settings,
     cast,
   });
-  assert.equal(unchecked.filtered, false);
+  // The cast answer names the subject (score 1), yet a check that could not run filters it.
+  assert.equal(unchecked.mode, "enforce");
+  assert.equal(unchecked.filtered, true);
+  assert.equal(unchecked.passed, false);
   assert.equal(unchecked.recordCheck?.checked, false);
+  assert.match(unchecked.reason, /could not be checked.*fail closed/);
+  // In shadow mode no check runs, so nothing changes there.
+  const shadow = await scoreIdentity({
+    caller: caller(visionScript(fox1, "garbled")),
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings: { ...settings, mode: "shadow" },
+    cast,
+  });
+  assert.equal(shadow.filtered, false);
+  assert.equal(shadow.passed, true);
+  assert.equal(shadow.recordCheck, undefined);
 });
 
 test("the ROC AUC counts ties as half and needs both classes", () => {
@@ -621,5 +647,44 @@ test("the ROC AUC counts ties as half and needs both classes", () => {
       { score: 0.5, same: false },
     ]),
     0.5,
+  );
+});
+
+test("a cast call never sends more than the capped number of images", () => {
+  const member = (subject: string, count: number) =>
+    ({
+      record: { subject },
+      references: Array.from({ length: count }, (_, i) => ({ role: `${subject}-${i}` })),
+    }) as unknown as CastMember;
+  const small = [member("a", 3), member("b", 2)];
+  assert.equal(capCastReferences(small, "a"), small);
+  const room = IDENTITY_CAST_MAX_IMAGES - 1;
+  // Ten references each: everyone keeps the turnaround, then one more each in turn, subject first.
+  const big = capCastReferences([member("a", 10), member("b", 10), member("c", 10)], "b");
+  const counts = big.map((m) => m.references.length);
+  assert.equal(
+    counts.reduce((x, y) => x + y, 0),
+    room,
+  );
+  assert.deepEqual(counts, [5, 5, 5]);
+  assert.equal(big[0]!.references[0]!.role, "a-0");
+  const uneven = capCastReferences([member("a", 1), member("b", 30)], "a");
+  assert.deepEqual(
+    uneven.map((m) => m.references.length),
+    [1, room - 1],
+  );
+  const lopsided = capCastReferences([member("a", 20), member("b", 20)], "b");
+  // 15 slots over two members: the subject gets the odd one.
+  assert.deepEqual(
+    lopsided.map((m) => m.references.length),
+    [7, 8],
+  );
+  assert.throws(
+    () =>
+      capCastReferences(
+        Array.from({ length: room + 1 }, (_, i) => member(`m${i}`, 1)),
+        "m0",
+      ),
+    /at most 15 identity records/,
   );
 });

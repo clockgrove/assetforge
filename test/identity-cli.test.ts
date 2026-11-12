@@ -341,6 +341,11 @@ test("identity-eval prints the per-medium breakdown, the bar and the record chec
   );
   assert.match(result.stdout, /kind same: 1 cases, false accepts 0%, false rejects 0%/);
   assert.match(result.stdout, /cast Synthetic: /);
-  assert.match(result.stdout, /enforce bar \(provisional\): met/);
+  // One positive and no 2D negative: the 2D groups cannot be measured, so the bar is not met.
+  assert.match(
+    result.stdout,
+    /enforce bar \(provisional\): not met: overall: not measured \(no negatives\); cast Synthetic: not measured \(no negatives\)/,
+  );
+  assert.match(result.stdout, /enforce bar: not judged on provisional 3D/);
   assert.match(result.stdout, /record check: record "stevie" lock stevie-3 agrees/);
 });
