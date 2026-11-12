@@ -6,21 +6,28 @@ import { tmpdir } from "node:os";
 import { BIBLE_PRESETS, loadBible, serializeBible } from "../src/bible.ts";
 import { Budget } from "../src/budget.ts";
 import { Caller } from "../src/calls.ts";
+import { ProviderError } from "../src/errors.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import type { Script } from "../src/gateway/scripted.ts";
 import {
   DEFAULT_IDENTITY_THRESHOLD,
   IDENTITY_LEVELS,
   MIN_DECISION_EDGE,
+  IDENTITY_CAST_OPERATION,
+  IDENTITY_CHECK_OPERATION,
   agreement,
+  checkIdentityRecord,
   forDecision,
   identityReason,
   identitySettings,
+  loadCast,
   loadIdentity,
+  parseCastAnswer,
   scoreIdentity,
   sweepThresholds,
 } from "../src/identity.ts";
-import { evaluateIdentity } from "../src/identity-eval.ts";
+import type { IdentityRecordCheck } from "../src/identity.ts";
+import { evaluateIdentity, rocAuc } from "../src/identity-eval.ts";
 import { createRaster, decodeImage, encodePng, setPixel } from "../src/image/raster.ts";
 import { sha256 } from "../src/request.ts";
 import { defaultRoutes } from "../src/routes.ts";
@@ -85,6 +92,23 @@ function caller(provider: ScriptedProvider, log?: (m: string) => void) {
   });
 }
 
+/** A passed record check, so enforce-mode tests need no vision call. */
+const trusted = (record: {
+  subject: string;
+  version: string;
+  sha256: string;
+}): IdentityRecordCheck => ({
+  subject: record.subject,
+  lockVersion: record.version,
+  lockSha256: record.sha256,
+  checked: true,
+  consistent: true,
+  conflicts: [],
+  reason: "agrees",
+  model: "test",
+  costUsd: 0,
+});
+
 const candidate = (bytes = png(64, 32)) => ({
   role: "candidate",
   path: "(candidate)",
@@ -144,6 +168,7 @@ test("a Score decision becomes a 0..1 identity score with its label, confidence,
     candidate: candidate(),
     describe: "a still",
     settings: identitySettings(syntheticProfile(), "enforce"),
+    recordCheck: trusted(identity.record),
   });
   assert.equal(score.score, 0.75);
   assert.equal(score.label, IDENTITY_LEVELS[3]);
@@ -201,6 +226,7 @@ test("below the threshold: shadow mode records and marks the reason, enforce mod
     candidate: candidate(),
     describe: "a still",
     settings: identitySettings(syntheticProfile(), "enforce"),
+    recordCheck: trusted(identity.record),
   });
   assert.equal(enforce.filtered, true);
   assert.equal(identityReason(enforce).shadow, undefined);
@@ -216,6 +242,7 @@ test("a Boolean decision uses the probability of true; a failed call fails close
     candidate: candidate(),
     describe: "a still",
     settings: identitySettings(profile, "enforce"),
+    recordCheck: trusted(identity.record),
   });
   assert.equal(yes.score, 0.9);
   assert.equal(yes.label, "true");
@@ -231,6 +258,7 @@ test("a Boolean decision uses the probability of true; a failed call fails close
     candidate: candidate(),
     describe: "a still",
     settings: identitySettings(profile, "enforce"),
+    recordCheck: trusted(identity.record),
   });
   assert.equal(enforce.filtered, true);
   assert.equal(enforce.score, undefined);
@@ -256,6 +284,7 @@ test("a Boolean decision uses the probability of true; a failed call fails close
     candidate: candidate(),
     describe: "a still",
     settings: identitySettings(profile, "enforce"),
+    recordCheck: trusted(identity.record),
   });
   assert.equal(none.filtered, true);
 });
@@ -357,5 +386,240 @@ test("identity-eval scores a local labelled set, logs every call and recommends 
       capUsd: 0.001,
     }),
     /cap/,
+  );
+});
+
+/** A synthetic bible with two look-alike characters, `fox` (two references) and `kit` (one). */
+async function castBible() {
+  const f = await lockedBible();
+  const doc = await loadBible(f.biblePath);
+  await writeFile(join(f.dir, "kit-turnaround.png"), png(32, 16));
+  doc.data.identities["kit"] = {
+    version: "kit-1",
+    approved: true,
+    turnaround: "kit-turnaround.png",
+    signatureFeatures: ["blue scarf"],
+    proportions: "two heads tall",
+    palette: ["#3264c8"],
+  };
+  await writeFile(
+    f.biblePath,
+    serializeBible(doc.data, "# Synthetic\n\n## Do's and Don'ts\nDo.\n"),
+  );
+  return f;
+}
+
+/** Vision answers: the record check by its prompt, everything else is a cast answer. */
+function visionScript(cast: string, check: string) {
+  return new ScriptedProvider({
+    image: () => {
+      throw new Error("no images in identity tests");
+    },
+    vision: (request) => ({
+      text: request.prompt.includes("source of truth") ? check : cast,
+      costUsd: 0.001,
+    }),
+  });
+}
+
+const CONSISTENT = '{"consistent": true, "conflicts": []}';
+const CONFLICTED =
+  '{"consistent": false, "conflicts": [{"field": "proportions", "text": "lean, long legs", "observed": "stocky, short legs"}]}';
+
+test("the cast question is one vision call over the whole cast's references", async () => {
+  const f = await castBible();
+  const doc = await loadBible(f.biblePath);
+  const cast = await loadCast(doc);
+  assert.deepEqual(
+    cast.map((m) => m.record.subject),
+    ["fox", "kit"],
+  );
+  const fox = cast[0]!;
+  const provider = visionScript(
+    '```json\n{"probabilities": {"fox": 0.2, "kit": 0.7, "neither": 0.1, "dog": 5}, "choice": "kit", "reason": "blue scarf"}\n```',
+    CONSISTENT,
+  );
+  const call = caller(provider);
+  const score = await scoreIdentity({
+    caller: call,
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings: identitySettings({ identity: { question: "cast" } }),
+    cast,
+  });
+  assert.equal(provider.calls.length, 1);
+  const sent = provider.calls[0]!;
+  assert.equal(sent.kind, "vision");
+  if (sent.kind !== "vision") return;
+  assert.equal(sent.request.model, "openai/gpt-6.1-terra");
+  // The candidate, fox's two references, then kit's one.
+  assert.equal(sent.request.images.length, 4);
+  assert.match(sent.request.prompt, /Image 1 is the candidate: a still/);
+  assert.match(sent.request.prompt, /Images 2–3 are approved references of "fox"/);
+  assert.match(sent.request.prompt, /Image 4 is an approved reference of "kit"/);
+  assert.match(sent.request.prompt, /blue scarf/);
+  assert.match(sent.request.prompt, /including one of the same species or kind, is "neither"/);
+  assert.equal(call.records[0]!.operation, IDENTITY_CAST_OPERATION);
+  assert.equal(score.question, "cast");
+  assert.ok(Math.abs(score.score! - 0.2) < 1e-9);
+  assert.equal(score.label, "kit");
+  assert.ok(Math.abs(score.confidence! - 0.7) < 1e-9);
+  assert.equal(score.passed, false);
+  assert.equal(score.costUsd, 0.001);
+  assert.match(
+    score.reason,
+    /^identity 0\.20 < threshold 0\.68 against "fox" lock fox-1: kit \(confidence 0\.70\); looks like "kit": blue scarf; shadow mode/,
+  );
+  // Without the cast, the subject stands alone.
+  const alone = visionScript('{"choice": "fox"}', CONSISTENT);
+  const solo = await scoreIdentity({
+    caller: caller(alone),
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings: identitySettings({ identity: { question: "cast" } }),
+  });
+  assert.equal(solo.score, 1);
+  const soloCall = alone.calls[0]!;
+  assert.equal(soloCall.kind === "vision" && soloCall.request.images.length, 3);
+});
+
+test("cast answers parse probabilities or a bare choice and refuse anything else", () => {
+  const names = ["fox", "kit"];
+  const p = parseCastAnswer(
+    'Sure: {"probabilities": {"fox": 3, "kit": 1, "neither": -2, "x": 9}, "choice": "fox"} done',
+    names,
+  );
+  assert.deepEqual(p.probabilities, { fox: 0.75, kit: 0.25, neither: 0 });
+  assert.equal(p.choice, "fox");
+  assert.deepEqual(parseCastAnswer('{"choice": "neither", "reason": "a dog"}', names), {
+    choice: "neither",
+    probabilities: {},
+    reason: "a dog",
+  });
+  assert.equal(parseCastAnswer('{"probabilities": {"kit": 0.9, "fox": 0.1}}', names).choice, "kit");
+  assert.throws(() => parseCastAnswer("no idea", names), ProviderError);
+  assert.throws(() => parseCastAnswer('{"choice": "badger"}', names), ProviderError);
+  assert.throws(() => parseCastAnswer("{}", names), ProviderError);
+});
+
+test("an unreadable cast answer is a failed score that fails closed in enforce mode", async () => {
+  const f = await castBible();
+  const cast = await loadCast(await loadBible(f.biblePath));
+  const fox = cast[0]!;
+  const score = await scoreIdentity({
+    caller: caller(visionScript("I think it is the fox.", CONSISTENT)),
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings: identitySettings({ identity: { question: "cast" } }, "enforce"),
+    cast,
+    recordCheck: trusted(fox.record),
+  });
+  assert.equal(score.score, undefined);
+  assert.equal(score.filtered, true);
+  assert.match(score.reason, /failed: .*no JSON object/);
+  assert.equal(score.costUsd, 0.001);
+});
+
+test("enforce with a record that contradicts its references scores but does not filter, and says why", async () => {
+  const f = await castBible();
+  const cast = await loadCast(await loadBible(f.biblePath));
+  const fox = cast[0]!;
+  const none = '{"choice": "neither", "reason": "a different animal"}';
+  const provider = visionScript(none, CONFLICTED);
+  const call = caller(provider);
+  const settings = identitySettings({ identity: { question: "cast" } }, "enforce");
+  const options = { caller: call, ...fox, describe: "a still", settings, cast };
+  const first = await scoreIdentity({ ...options, candidate: candidate() });
+  assert.equal(first.score, 0);
+  assert.equal(first.mode, "shadow");
+  assert.equal(first.filtered, false);
+  assert.match(first.reason, /looks like none of the cast: a different animal/);
+  assert.match(
+    first.reason,
+    /record not trusted \(record "fox" lock fox-1 disagrees with its references: proportions "lean, long legs" vs "stocky, short legs"\), not used for filtering until a person fixes the text or the references/,
+  );
+  assert.equal(first.recordCheck?.consistent, false);
+  assert.equal(identityReason(first).shadow, true);
+  // The check ran once for the caller and lock; the second candidate reuses it.
+  await scoreIdentity({ ...options, candidate: candidate() });
+  assert.deepEqual(
+    call.records.map((r) => r.operation),
+    [IDENTITY_CHECK_OPERATION, IDENTITY_CAST_OPERATION, IDENTITY_CAST_OPERATION],
+  );
+  // Shadow mode never runs the check.
+  const shadowCall = caller(visionScript(none, CONFLICTED));
+  await scoreIdentity({
+    ...options,
+    caller: shadowCall,
+    settings: identitySettings({ identity: { question: "cast" } }),
+    candidate: candidate(),
+  });
+  assert.deepEqual(
+    shadowCall.records.map((r) => r.operation),
+    [IDENTITY_CAST_OPERATION],
+  );
+});
+
+test("enforce with a consistent record filters; an unreadable check leaves the record untrusted", async () => {
+  const f = await castBible();
+  const cast = await loadCast(await loadBible(f.biblePath));
+  const fox = cast[0]!;
+  const none = '{"choice": "kit"}';
+  const settings = identitySettings({ identity: { question: "cast" } }, "enforce");
+  const call = caller(visionScript(none, CONSISTENT));
+  const filtered = await scoreIdentity({
+    caller: call,
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings,
+    cast,
+  });
+  assert.equal(filtered.mode, "enforce");
+  assert.equal(filtered.filtered, true);
+  assert.equal(filtered.recordCheck, undefined);
+  assert.equal(call.records[0]!.operation, IDENTITY_CHECK_OPERATION);
+  const record = await checkIdentityRecord({ caller: caller(visionScript(none, "{}")), ...fox });
+  assert.equal(record.checked, false);
+  assert.equal(record.consistent, false);
+  assert.match(record.reason, /could not be checked/);
+  const unchecked = await scoreIdentity({
+    caller: caller(visionScript(none, "garbled")),
+    ...fox,
+    candidate: candidate(),
+    describe: "a still",
+    settings,
+    cast,
+  });
+  assert.equal(unchecked.filtered, false);
+  assert.equal(unchecked.recordCheck?.checked, false);
+});
+
+test("the ROC AUC counts ties as half and needs both classes", () => {
+  assert.equal(rocAuc([{ score: 1, same: true }]), undefined);
+  assert.equal(
+    rocAuc([
+      { score: 0.9, same: true },
+      { score: 0.1, same: false },
+    ]),
+    1,
+  );
+  assert.equal(
+    rocAuc([
+      { score: 0.5, same: true },
+      { score: 0.5, same: false },
+    ]),
+    0.5,
+  );
+  assert.equal(
+    rocAuc([
+      { score: 0.2, same: true },
+      { score: 0.8, same: true },
+      { score: 0.5, same: false },
+    ]),
+    0.5,
   );
 });

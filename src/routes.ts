@@ -3,6 +3,9 @@ import { parseJsonFile } from "./json.ts";
 import { requireGrant } from "./license.ts";
 import type { OutputGrant } from "./types.ts";
 
+export const IDENTITY_CAST_OPERATION = "identity-cast";
+export const IDENTITY_CHECK_OPERATION = "identity-check";
+
 /** A model route: which gateway model serves an operation, its per-call estimate and its terms. */
 export interface Route {
   model: string;
@@ -136,6 +139,32 @@ export const defaultRoutes: Routes = {
       relabel: true,
     },
     providerTerms: "Perplexity API Terms of Service, via Vercel AI Gateway (as of 2026-11-08)",
+  },
+  // Identity as a choice among the whole cast's references (#92): one vision call per candidate.
+  [IDENTITY_CAST_OPERATION]: {
+    model: "openai/gpt-6.1-terra",
+    estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-openai-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-11)",
+  },
+  // Whether an identity record's written signature agrees with its own approved references (#92).
+  [IDENTITY_CHECK_OPERATION]: {
+    model: "openai/gpt-6.1-terra",
+    estimatedCostUsd: 0.02,
+    outputGrant: {
+      license: "LicenseRef-openai-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-11)",
   },
   // Identity-flicker judgement between consecutive animation frames.
   flicker: {

@@ -55,8 +55,11 @@ function scripted(answers: number[]) {
   setPixel(image, 1, 1, [120, 90, 80, 255]);
   return new ScriptedProvider({
     image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(image) }] }),
-    vision: () => ({
-      text: JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
+    vision: (request) => ({
+      // Enforce mode first checks the record against its references (#92); this one agrees.
+      text: request.prompt.includes("source of truth")
+        ? JSON.stringify({ consistent: true, conflicts: [] })
+        : JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
     }),
     decide: (_request, index) => {
       const score = answers[index] as number;
@@ -125,6 +128,16 @@ test("enforce mode filters the below-threshold candidate and says why", async ()
   assert.match(record.rejections![0]!.reasons[0]!.reason, /lock 7/);
   assert.equal(record.candidates[0]!.reasons.at(-1)?.passed, true);
   assert.equal(record.candidates[0]!.reasons.at(-1)?.shadow, undefined);
+});
+
+test("enforce mode checks the record against its references once per run", async () => {
+  const { provider } = await run([3.6, 3.6, 3.6], {
+    profile: { identity: { mode: "enforce" } },
+  });
+  const checks = provider.calls.filter(
+    (c) => c.kind === "vision" && c.request.prompt.includes("source of truth"),
+  );
+  assert.equal(checks.length, 1);
 });
 
 test("the mode option overrides the profile, and off plans no scoring", async () => {

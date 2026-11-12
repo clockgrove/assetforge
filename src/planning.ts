@@ -31,16 +31,18 @@ import { applyStyle } from "./image/apply-style.ts";
 import { matteFigure } from "./sheet/matte.ts";
 import { wholeImageFigure } from "./sheet/slice.ts";
 import { resolveStyle } from "./style.ts";
-import { defaultRoutes } from "./routes.ts";
+import { IDENTITY_CAST_OPERATION, IDENTITY_CHECK_OPERATION, defaultRoutes } from "./routes.ts";
 import type { Route, Routes } from "./routes.ts";
 import {
   agreement,
+  checkIdentityRecord,
   identityReason,
   identitySettings,
+  loadCast,
   loadIdentity,
   scoreIdentity,
 } from "./identity.ts";
-import type { IdentityMode } from "./identity.ts";
+import type { IdentityMode, IdentityQuestionKind, IdentityRecordCheck } from "./identity.ts";
 import type { AssetSpec, CallRecord, LoadedReference, Reason, TargetProfile } from "./types.ts";
 import type { RunRecord } from "./loop.ts";
 import { writeRun } from "./loop.ts";
@@ -101,7 +103,7 @@ export interface GenerationPlan {
   identityCheck?: {
     mode: Exclude<IdentityMode, "off">;
     threshold: number;
-    question: "score" | "boolean";
+    question: IdentityQuestionKind;
     route: Route;
   };
   spec: AssetSpec;
@@ -607,14 +609,23 @@ export async function createPlan(options: CreatePlanOptions): Promise<Generation
           mode: identitySetting.mode,
           threshold: identitySetting.threshold,
           question: identitySetting.question,
-          route: route((options.routes ?? defaultRoutes).identity, "identity"),
+          route: route(
+            (options.routes ?? defaultRoutes)[
+              identitySetting.question === "cast" ? IDENTITY_CAST_OPERATION : "identity"
+            ] as Route,
+            identitySetting.question === "cast" ? IDENTITY_CAST_OPERATION : "identity",
+          ),
         }
       : undefined;
   const generationUsd =
     settings.candidates *
-    (frameCount * settings.modelRoute.estimatedCostUsd +
-      settings.qaRoute.estimatedCostUsd +
-      (identityCheck?.route.estimatedCostUsd ?? 0));
+      (frameCount * settings.modelRoute.estimatedCostUsd +
+        settings.qaRoute.estimatedCostUsd +
+        (identityCheck?.route.estimatedCostUsd ?? 0)) +
+    // Enforce mode first checks the record against its references, once per run.
+    (identityCheck?.mode === "enforce"
+      ? ((options.routes ?? defaultRoutes)[IDENTITY_CHECK_OPERATION]?.estimatedCostUsd ?? 0)
+      : 0);
   const compilerEstimate = options.provider ? settings.llmRoute.estimatedCostUsd : 0;
   const budget = new Budget(
     settings.capUsd,
@@ -858,6 +869,8 @@ export async function applyPlan(
   const loadedIdentity =
     check && plan.identity ? await loadIdentity(doc, plan.identity.subject) : undefined;
   if (check && !loadedIdentity) throw new InputError("stale plan: identity changed since planning");
+  const cast = check?.question === "cast" && loadedIdentity ? await loadCast(doc) : undefined;
+  let recordCheck: IdentityRecordCheck | undefined;
   const pairs: Array<{ qa: boolean; identity: boolean }> = [];
   const run: RunRecord = {
     runId,
@@ -884,7 +897,9 @@ export async function applyPlan(
           ...defaultRoutes,
           planned: plan.settings.modelRoute,
           "planned-qa": plan.settings.qaRoute,
-          ...(check && { identity: check.route }),
+          ...(check && {
+            [check.question === "cast" ? IDENTITY_CAST_OPERATION : "identity"]: check.route,
+          }),
         },
         ...(options.log && { log: options.log }),
       });
@@ -986,6 +1001,14 @@ export async function applyPlan(
         score < plan.settings.strictness ||
         score > 1
       );
+      // Enforce mode checks the record against its references once per run, before the first score.
+      if (check?.mode === "enforce" && loadedIdentity && !recordCheck)
+        recordCheck = await checkIdentityRecord({
+          caller,
+          record: loadedIdentity.record,
+          references: loadedIdentity.references,
+          edges: style.edges,
+        });
       const identity =
         check && loadedIdentity
           ? await scoreIdentity({
@@ -999,6 +1022,8 @@ export async function applyPlan(
                   : `a sprite strip of ${frames.length} frames side by side`,
               settings: { mode: check.mode, threshold: check.threshold, question: check.question },
               edges: style.edges,
+              ...(cast && { cast }),
+              ...(recordCheck && { recordCheck }),
             })
           : undefined;
       if (identity) pairs.push({ qa: qaPassed, identity: identity.passed });
