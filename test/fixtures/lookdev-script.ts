@@ -1,7 +1,7 @@
 /**
  * A scripted look-dev provider for tests and offline runs. Restyle calls answer with their render
  * warmed in colour (so the projected albedo visibly changes); the locate call puts both eyes and
- * the nose near the close-up's centre (`SCRIPT_LOOKDEV_EYES` overrides the reply); groom calls
+ * the nose on the synthetic quadruped's head in the close-up (`SCRIPT_LOOKDEV_EYES` overrides the reply); groom calls
  * answer lengths per region, with a frosted tint for a season named `winter`.
  */
 import type { Script } from "../../src/gateway/scripted.ts";
@@ -27,10 +27,10 @@ const script: Script = {
           process.env["SCRIPT_LOOKDEV_EYES"] ??
           JSON.stringify({
             eyes: [
-              { x: 236, y: 240, r: 14 },
-              { x: 276, y: 240, r: 14 },
+              { x: 232, y: 195, r: 45 },
+              { x: 278, y: 195, r: 45 },
             ],
-            nose: { x: 256, y: 270, r: 10 },
+            nose: { x: 255, y: 232, r: 12 },
           }),
         costUsd: 0.001,
       };

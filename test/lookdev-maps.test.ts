@@ -213,7 +213,8 @@ test("groom length is zero exactly on the bare mask; tint only with a season tin
     skeleton,
   );
   assert.ok(tinted.tint);
-  const at = bare.indexOf(0) === -1 ? 0 : texels.covered.findIndex((c, i) => c === 1 && bare[i] === 0);
+  const at =
+    bare.indexOf(0) === -1 ? 0 : texels.covered.findIndex((c, i) => c === 1 && bare[i] === 0);
   assert.deepEqual([...tinted.tint!.data.subarray(at * 4, at * 4 + 4)], [255, 128, 0, 128]);
   const bareAt = bare.indexOf(1);
   assert.equal(tinted.tint!.data[bareAt * 4 + 3], 0);

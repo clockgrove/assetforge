@@ -238,6 +238,10 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
    They also record `targetProfileSha256`. A `rig` run keeps the source's provenance, with its calls, cost and output grant, and adds `parameters.rerig` (`sourceModel`, the source file's name only, and `sourceModelSha256`) and a `rig-generated-gait` step. That step's input is the source model's hash and its output is the re-rigged model's hash.
 
+## Look-dev
+
+`assetforge look-dev` gives a picked, rigged character a base colour in the target's character look, fur groom maps per season and eyes that catch light, and stages it for `pick`: see [look-dev.md](look-dev.md).
+
 ## Spend
 
 `stage` reserves every call against the cap before the first one: generation, rigging, clips and identity, for every candidate. A run that does not fit is refused (exit 3). `--dry-run` prints the forecast without a key. The default routes reserve $1.001 per candidate, so 4 candidates reserve $4.004 against the $5 cap. Each call settles at the cost Tripo reports (its credits × $0.01) or, failing that, at its estimate. Every candidate's provenance carries its own `costUsd`.

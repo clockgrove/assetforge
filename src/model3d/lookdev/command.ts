@@ -444,6 +444,70 @@ export function parseMarkers(
   return { eyes, nose };
 }
 
+/**
+ * Paints a soft catch-light into each eye of the albedo: a small near-white spot on the eye's
+ * surface, offset from its centre toward the key light (above, in front, to the character's
+ * left, as the turntable light). Changes only texels inside the eye markers.
+ */
+export function paintCatchLights(
+  albedo: Raster,
+  texels: TexelMap,
+  eyes: SurfaceMarker[],
+  forward: Vec3,
+): number {
+  const left: Vec3 = [forward[2], 0, -forward[0]];
+  const l = [0.8 * 0 + 0.6 * forward[0] + 0.3 * left[0], 0.8, 0.6 * forward[2] + 0.3 * left[2]];
+  const ll = Math.hypot(l[0]!, l[1]!, l[2]!);
+  const light: Vec3 = [l[0]! / ll, l[1]! / ll, l[2]! / ll];
+  let painted = 0;
+  const size = texels.size;
+  for (const eye of eyes) {
+    // The eye's outward normal: the mean normal of its texels.
+    const n: Vec3 = [0, 0, 0];
+    const inside: number[] = [];
+    for (let i = 0; i < size * size; i++) {
+      if (!texels.covered[i]) continue;
+      const dx = texels.position[i * 3]! - eye.point[0];
+      const dy = texels.position[i * 3 + 1]! - eye.point[1];
+      const dz = texels.position[i * 3 + 2]! - eye.point[2];
+      if (dx * dx + dy * dy + dz * dz > eye.radius * eye.radius) continue;
+      inside.push(i);
+      for (let k = 0; k < 3; k++) n[k]! += texels.normal[i * 3 + k]!;
+    }
+    const nl = Math.hypot(...n);
+    if (inside.length === 0 || nl === 0) continue;
+    const normal: Vec3 = [n[0] / nl, n[1] / nl, n[2] / nl];
+    const along = light[0] * normal[0] + light[1] * normal[1] + light[2] * normal[2];
+    const t: Vec3 = [
+      light[0] - normal[0] * along,
+      light[1] - normal[1] * along,
+      light[2] - normal[2] * along,
+    ];
+    const tl = Math.hypot(...t) || 1;
+    const centre: Vec3 = [
+      eye.point[0] + (t[0] / tl) * eye.radius * 0.35,
+      eye.point[1] + (t[1] / tl) * eye.radius * 0.35,
+      eye.point[2] + (t[2] / tl) * eye.radius * 0.35,
+    ];
+    const r = eye.radius * 0.3;
+    for (const i of inside) {
+      const d = Math.hypot(
+        texels.position[i * 3]! - centre[0],
+        texels.position[i * 3 + 1]! - centre[1],
+        texels.position[i * 3 + 2]! - centre[2],
+      );
+      if (d >= r) continue;
+      const w = 0.92 * (1 - (d / r) ** 2);
+      for (let c = 0; c < 3; c++) {
+        const o = i * 4 + c;
+        albedo.data[o] = Math.round(albedo.data[o]! * (1 - w) + 250 * w);
+      }
+      painted++;
+    }
+  }
+  return painted;
+}
+
 /** The groom skeleton from the skin and, when the target declares one, its rig template. */
 function groomSkeleton(glb: Glb, rig: LoadedRig | undefined, forward: Vec3): GroomSkeleton {
   const json = glb.json;
@@ -635,6 +699,17 @@ export async function lookDev(
     log,
   });
 
+  // The run directory exists before the first call, so a run that stops part-way keeps the
+  // views it already paid for.
+  const now = options.now ?? (() => new Date());
+  const runId =
+    options.runId ??
+    `${now().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const runDir = resolve(options.runsDir, runId);
+  const id = "c1";
+  const dir = `${id}-${CHARACTER_3D_KIND}`;
+  await mkdir(join(runDir, dir), { recursive: true });
+
   const texels = bakeTexels(glb, textureSize, textured.image);
   const skeleton = groomSkeleton(glb, rig, forward);
   const regions = texelRegions(texels, skeleton);
@@ -663,7 +738,6 @@ export async function lookDev(
   });
 
   // 1. Albedo: restyle flat-lit renders and project them back onto the UVs.
-  const roleList = references.map((r) => r.role);
   const projected = [];
   const viewArtifacts: Array<{ name: string; bytes: Uint8Array }> = [];
   for (const v of LOOKDEV_VIEWS) {
@@ -701,6 +775,7 @@ export async function lookDev(
       { name: `lookdev-view-${v.name}-render.png`, bytes: flatPng },
       { name: `lookdev-view-${v.name}-restyled.png`, bytes: encodePng(aligned) },
     );
+    for (const a of viewArtifacts.slice(-2)) await writeFile(join(runDir, dir, a.name), a.bytes);
     log(`look-dev: restyled the ${v.name} view`);
   }
   const depths = projected.map((p) => depthMap(glb, p.camera));
@@ -710,7 +785,7 @@ export async function lookDev(
       ? sourceTexture
       : resize(sourceTexture, textureSize, textureSize);
   const albedo = dilate(fillUnseen(projection, texels, source), texels.covered, 8);
-  const albedoPng = encodePng(albedo);
+  let albedoPng = encodePng(albedo);
 
   // The new albedo goes into the model before the eyes and close-ups are made.
   replaceImage(glb, textured.image, albedoPng);
@@ -731,6 +806,13 @@ export async function lookDev(
     markers = parseMarkers(locateText, locateCamera, depthMap(glb, locateCamera));
   } catch {
     markers = { eyes: [], nose: [] };
+  }
+  // A catch-light painted into each eye, toward the key light, so the eyes read as wet at the
+  // closest zoom whatever the eye geometry; the glossy eye material adds the live highlight.
+  if (markers.eyes.length > 0) {
+    paintCatchLights(albedo, texels, markers.eyes, forward);
+    albedoPng = encodePng(albedo);
+    replaceImage(glb, textured.image, albedoPng);
   }
 
   // 3. Groom: bare masks, then each season's maps.
@@ -990,14 +1072,6 @@ export async function lookDev(
   });
 
   // Stage the candidate.
-  const now = options.now ?? (() => new Date());
-  const runId =
-    options.runId ??
-    `${now().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
-  const runDir = resolve(options.runsDir, runId);
-  const id = "c1";
-  const dir = `${id}-${CHARACTER_3D_KIND}`;
-  await mkdir(join(runDir, dir), { recursive: true });
   const artifactNames: string[] = [];
   for (const a of artifacts) {
     await writeFile(join(runDir, dir, a.name), a.bytes);
