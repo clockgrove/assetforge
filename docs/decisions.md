@@ -169,17 +169,29 @@ The per-case logs of these runs were not kept, so only the cells that follow fro
 | `cast` (Terra), 0.5  | 0.980 | 0.972     | 0.976       | 0.988          | 0% (0/107)    | 33% (15/45)   | 0% / 0%       | 0% / 56% (15/27)      | $0.33 |
 | `score` (pplx), 0.68 | 0.854 | 0.657     | 0.975       | 0.921          | 21% (22/107)  | 36% (16/45)   | 33% / 0%      | 15% / 59%             | $0.02 |
 
-**The bar is not met, and only on false rejects.** `cast` accepted no wrong character, generic or drift edit. Its 15 false rejects are all Raccoon World:
+**The bar is not met.** `cast` accepted no wrong character, generic or drift edit. Its 15 false rejects were all Raccoon World: 13 of the 14 frames of Stevie's comparison strips, 1 of Jimothy's sheet cells, and the photo of Stevie at the window, called "none of the cast" (a real photo against illustrated references). The model named the right character on every strip frame (confidence 0.95–0.99). Its on-model check reported orange flecks on the brows and mask, a thinner tail and smaller eyes.
 
-- 13 of the 14 frames of Stevie's comparison strips, and 1 of Jimothy's sheet cells. The model named the right character every time (confidence 0.95–0.99), but its on-model check scored rendering variation as drift: shorter tail, fewer distinct bands, orange flecks on the brows, smaller eyes, a domed back.
-- The photo of Stevie at the window, called "none of the cast": a real photo against illustrated references.
+**Those frames are defective, not on-model.** Each has 4 to 8 see-through holes in the face, 269 to 386 px per frame, with orange colour under them. `enclosedAreas` (#56) finds them; Jimothy's cells have none. The background removal left them before #56 fixed it (#51): the strips were made at 6bae78a on 2026-11-09, hours before #56 merged. The fixture now records this as the crops' `defect`, so those frames are drift of Stevie, labelled from how they were made. The check was right to reject them. With them relabelled, run 2's logged scores give, at the same thresholds:
 
-The sweep's best threshold, 0.036, would give 1 false accept and 2 false rejects, but it was picked on this set and is not a result. **Shadow mode stays the default, and `question: "cast"` is not switched on for Raccoon World yet.** 3D (provisional, 18 cases) rejects every Stevie render (AUC 0.77).
+| Question, threshold  | AUC   | False accepts | False rejects | Raccoon World AUC, FA / FR | Birds AUC, FA / FR  |
+| -------------------- | ----- | ------------- | ------------- | -------------------------- | ------------------- |
+| `cast` (Terra), 0.5  | 0.973 | 1/121         | 2/31          | 0.929, 1/88 / 2/13         | 1.000, 0/33 / 0/18  |
+| `score` (pplx), 0.68 | 0.947 | 22/121        | 2/31          | 0.896, 11/88 / 2/13        | 1.000, 11/33 / 0/18 |
+
+These are recomputed from logged scores, not a fresh run. The fresh run (run 3) stopped part-way when the gateway account ran out of credit, so it is not recorded. **Overall `cast` meets the bar, but Raccoon World does not:** its false rejects are the window photo and one Jimothy cell out of 13 positives, and its one false accept is a defective Stevie frame at 0.54. Stevie has almost no 2D positives left: his approved views are now his lock's references, and his strips are defective. **Shadow mode stays the default, and `question: "cast"` is not switched on for Raccoon World yet.** 3D (provisional, 18 cases) rejects every Stevie render (AUC 0.77).
 
 **What is open:**
 
-- **The on-model check is too strict on generated frames.** It needs to tell rendering and pose variation from identity drift, measured on a held-out set at a threshold fixed beforehand.
-- **Some comparison-strip frames may really be off-model**, for example orange flecks and a shorter tail. Whether they count as on-model is a labelling call for the person who approves the art. Their "same" labels stay until that is decided.
+- **Clean positives for Stevie, done (run 5, 2026-11-11 night):** 14 fresh frames from `generate-sheet` with today's background removal (6 idle, 8 walk), checked by eye and free of holes, are in the fixture as `same` items with sheet provenance. At the same thresholds:
+
+  | Question, threshold  | AUC   | False accepts | False rejects | Raccoon World AUC, FA / FR | Birds AUC, FA / FR  | Spend |
+  | -------------------- | ----- | ------------- | ------------- | -------------------------- | ------------------- | ----- |
+  | `cast` (Terra), 0.5  | 0.980 | 1/135         | 7/45 (16%)    | 0.962, 1/102 / 7/27        | 1.000, 0/33 / 0/18  | $1.43 |
+  | `score` (pplx), 0.68 | 0.954 | 22/135        | 2/45          | 0.935, 11/102 / 2/27       | 1.000, 11/33 / 0/18 | $0.02 |
+
+  **The bar is still not met, on false rejects.** All 6 idle frames pass. 5 of the 8 walk frames are rejected for "a more humped back" and "a shorter tail", which is a walking raccoon's posture judged against standing references. The window photo and one Jimothy cell are the other two. The one false accept is a defective old frame at 0.67.
+
+- **Next: posture versus identity.** The on-model judgement should accept posture that comes from the animation (an arched back mid-stride, a lowered or curled tail) and still catch marking, colour and proportion drift. Measure it on frames it has not seen, at a threshold fixed beforehand. Whether photos belong in a 2D art set is the person approving's call.
 - **The 3D numbers wait for #82.**
 
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)

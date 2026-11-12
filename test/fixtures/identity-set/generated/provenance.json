@@ -684,5 +684,173 @@
         "relabel": true
       }
     }
+  },
+  {
+    "id": "stevie-idle-clean-1",
+    "sha256": "870f34b1e67df11264c54c82b91a18b3b01e9a13c04e78c1ef1fdaca4e1ed039",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f001",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-idle-clean-2",
+    "sha256": "ff3735d4a0a3d656e0eb364aac2e899602a206df67a5bfd27164f7c78cef9b19",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f002",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-idle-clean-3",
+    "sha256": "cf7e588fb5105b92eee5b51d8d33b33b62b1902b46f36774b262e0fdb54b2ddb",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f003",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-idle-clean-4",
+    "sha256": "69defa369b7b868e2f867e7b935e8f25591a82f9f6415302252c421b1910d955",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f004",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-idle-clean-5",
+    "sha256": "f2af63b129c6820615c61620e467c081ecfef9585616690f8bf5f6e0adcb7841",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f005",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-idle-clean-6",
+    "sha256": "86485e37e94d9c128baeac72c79cd0ae8dc2589e6e18149681bae95006b7c8ac",
+    "sheet": {
+      "importId": "2026-11-12T05-01-40-040Z-a4dc8e",
+      "createdAt": "2026-11-12T05:01:40.816Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "c590c731ab774a167cd2b28a309def8efebc4957d3e219b11943f4af194c7930",
+      "frame": "f006",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-1",
+    "sha256": "7e0225c27e3bba1d891356730d418ef8e5cde6e65320be0bf1effc946754cb8f",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f001",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-2",
+    "sha256": "838df6d40025e74d0e62f21c97975f2a605e9a056648732becfd9c46c45672cf",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f002",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-3",
+    "sha256": "a9013f0cc0f116e4c3241df8857b108b4747a8303d3522c6d217a8256d35426c",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f003",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-4",
+    "sha256": "9aad02d67d8cc65b17534502fb2a4d9b9fb80683051a5f09af2b1fa45067e684",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f004",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-5",
+    "sha256": "ad9d8be8154bcc63b4ea56ba080a49cf2437ee2fef4e9eba3d77f42442c84faf",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f005",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-6",
+    "sha256": "ea642f5ee4997361ff4f4d6b91f89b0015881dd13e65f864d556e0fd618a2c86",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f006",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-7",
+    "sha256": "3616f4e5876701e86232d5ef355a5b8320f97f991c27ba6aa6df5f265ca17f25",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f007",
+      "assetforge": "69bb566"
+    }
+  },
+  {
+    "id": "stevie-walk-clean-8",
+    "sha256": "020195ce450207cb7c02e447d56a78519bf779450857c242d005ecf643d27e35",
+    "sheet": {
+      "importId": "2026-11-12T05-00-56-316Z-281cea",
+      "createdAt": "2026-11-12T05:00:57.019Z",
+      "tool": "openai/gpt-image-2",
+      "sheetSha256": "d5c8addab7d4468b845da4543394da0676d85387808c4a94499419155972f879",
+      "frame": "f008",
+      "assetforge": "69bb566"
+    }
   }
 ]

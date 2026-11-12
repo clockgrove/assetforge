@@ -20,7 +20,8 @@ interface PathCase {
 
 /**
  * The committed generated images as cases in the Raccoon World set: a generic is a negative
- * against every cast member, a drift image a negative against its own subject. Images are copied
+ * against every cast member, a drift image a negative against its own subject, and a sheet frame
+ * checked on-model a positive for its subject and a look-alike for every other member. Images are copied
  * to `<raccoonWorldDir>/generated/`, beside the set's bible. A checkout without its Git LFS media
  * (CI's) holds pointer files; those items are left out with a note on stderr.
  */
@@ -38,22 +39,26 @@ export async function generatedCases(raccoonWorldDir: string, bible: string) {
     }
     const image = `generated/${item.id}.png`;
     await copyFile(source, join(raccoonWorldDir, image));
-    const subjects = item.kind === "generic" ? manifest.subjects : [item.subject!];
+    const subjects = item.kind === "drift" ? [item.subject!] : manifest.subjects;
     const note =
       item.kind === "generic"
         ? `generated on-style generic (${item.route} route, no reference): ${item.what}`
-        : `generated drift of ${item.from} (${item.route} route): ${item.drift}`;
-    for (const subject of subjects)
+        : item.kind === "same"
+          ? `generated ${item.subject} frame (${item.route} route): ${item.what} (checked ${item.checked})`
+          : `generated drift of ${item.from} (${item.route} route): ${item.drift}`;
+    for (const subject of subjects) {
+      const same = item.kind === "same" && subject === item.subject;
       cases.push({
         image,
         subject,
-        same: false,
-        kind: item.kind,
+        same,
+        kind: item.kind === "same" ? (same ? "same" : "lookalike") : item.kind,
         cast: manifest.cast,
         medium: "2d",
         bible,
         note,
       });
+    }
   }
   if (missing.length > 0)
     console.error(

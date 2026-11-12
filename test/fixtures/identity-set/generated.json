@@ -188,6 +188,118 @@
       "edit": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same brown-grey as the rest of the head.",
       "drift": "missing signature feature: eye mask",
       "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-idle-clean-1",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 1 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-idle-clean-2",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 2 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-idle-clean-3",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 3 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-idle-clean-4",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 4 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-idle-clean-5",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 5 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-idle-clean-6",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "idle frame 6 of 6, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's three-quarter view: mask, cream brows and muzzle, pale-rimmed round ears, grey-brown coat with a tan underside, stocky rounded body on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none above 25 px, all between legs or tail)"
+    },
+    {
+      "id": "stevie-walk-clean-1",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 1 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-2",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 2 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-3",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 3 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-4",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 4 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-5",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 5 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-6",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 6 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-7",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 7 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
+    },
+    {
+      "id": "stevie-walk-clean-8",
+      "kind": "same",
+      "subject": "stevie",
+      "route": "sheet",
+      "what": "walk frame 8 of 8, Assetforge generate-sheet from lock v3 with today's background removal",
+      "checked": "2026-11-12, by eye against Stevie's side view: profile with mask, cream brows and muzzle, pale-rimmed ears, grey-brown coat, rounded gently arched back on short dark legs, ringed tail with a dark tip; no see-through holes (enclosedAreas finds none)"
     }
   ],
   "dropped": [

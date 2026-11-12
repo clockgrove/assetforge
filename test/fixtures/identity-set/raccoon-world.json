@@ -399,7 +399,8 @@
         "3": "2026-11-11, by eye against the turnaround: Stevie, idle frame 3; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
         "4": "2026-11-11, by eye against the turnaround: Stevie, idle frame 4; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
         "5": "2026-11-11, by eye against the turnaround: Stevie, idle frame 5; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature"
-      }
+      },
+      "defect": "see-through holes in the face (4 to 8 enclosed areas, 269 to 386 px per frame, found by enclosedAreas at alpha 128) with orange colour under them, left by the background removal before #56 fixed it (#51); the strip was made at 6bae78a on 2026-11-09, before #56 merged"
     },
     {
       "from": "references/stevie/comparison-candidates/walk/strip.png",
@@ -424,7 +425,8 @@
         "5": "2026-11-11, by eye against the turnaround: Stevie, walk frame 5 (down pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
         "6": "2026-11-11, by eye against the turnaround: Stevie, walk frame 6 (passing pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
         "7": "2026-11-11, by eye against the turnaround: Stevie, walk frame 7 (up pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature"
-      }
+      },
+      "defect": "see-through holes in the face (4 to 8 enclosed areas, 269 to 386 px per frame, found by enclosedAreas at alpha 128) with orange colour under them, left by the background removal before #56 fixed it (#51); the strip was made at 6bae78a on 2026-11-09, before #56 merged"
     },
     {
       "from": "docs/design/reference/jimothy-sprite-sheet.png",
