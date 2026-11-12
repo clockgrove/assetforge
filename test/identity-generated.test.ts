@@ -32,7 +32,13 @@ test("every generated recipe is labelled from how it was made and has one proven
     assert.ok(item.checked, `${item.id} was checked by eye`);
     if (item.kind === "drift") {
       assert.ok(manifest.subjects.includes(item.subject!), item.id);
-      assert.ok(item.from?.startsWith(`references/${item.subject}/`), item.id);
+      // An approved reference, or a committed on-model frame of the same subject (posed drift).
+      const frame = manifest.items.find((i) => item.from === `generated/${i.id}.png`);
+      assert.ok(
+        item.from?.startsWith(`references/${item.subject}/`) ||
+          (frame?.kind === "same" && frame.subject === item.subject),
+        item.id,
+      );
       assert.ok(item.edit && item.drift, item.id);
       assert.ok(promptFor(manifest, item).startsWith(item.edit), item.id);
     } else if (item.kind === "same") {
@@ -95,10 +101,14 @@ test("generated cases: a generic is a negative for every cast member, drift for 
       subjects,
       item.kind === "drift" ? [item.subject] : [...manifest.subjects].sort(),
     );
-    for (const c of mine)
+    for (const c of mine) {
+      if (item.family)
+        assert.match(String(c["describe"]), new RegExp(`"${item.family}" animation`));
+      else assert.equal(c["describe"], undefined, item.id);
       assert.equal(
         c["kind"],
         item.kind !== "same" ? item.kind : c["subject"] === item.subject ? "same" : "lookalike",
       );
+    }
   }
 });

@@ -35,6 +35,13 @@ export interface GeneratedItem {
   from?: string;
   edit?: string;
   drift?: string;
+  /**
+   * The animation family a sheet frame comes from, or the family of the frame a drift was edited
+   * from; the case then describes the candidate as a frame of that animation, as a run does.
+   */
+  family?: string;
+  /** Added after the prompt it measures was written, so that prompt was never tuned on it. */
+  heldOut?: string;
   seed?: number;
   /** When and what was checked by eye before the image was kept. */
   checked?: string;
@@ -97,6 +104,19 @@ export function shrink(src: Raster, maxSide: number): Raster {
   return resampleTo(src, scale, { x: 0, y: 0 }, size, "antialiased");
 }
 
+/**
+ * A drift item's source: an approved reference at the pinned commit, or (`generated/<id>.png`) a
+ * committed sheet frame, so drift can be made in an animation pose too.
+ */
+async function sourceBytes(manifest: GeneratedManifest, from: string): Promise<Uint8Array> {
+  if (from.startsWith("generated/"))
+    return new Uint8Array(await readFile(new URL(from.slice("generated/".length), GENERATED_DIR)));
+  const url = `https://media.githubusercontent.com/media/${manifest.repository}/${manifest.commit}/${from}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 async function main() {
@@ -141,10 +161,7 @@ async function main() {
     const references = [];
     if (item.kind === "drift") {
       if (!item.from) throw new Error(`${item.id}: drift needs "from"`);
-      const url = `https://media.githubusercontent.com/media/${manifest.repository}/${manifest.commit}/${item.from}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
+      const bytes = await sourceBytes(manifest, item.from);
       source = { path: item.from, sha256: sha256(bytes) };
       references.push({
         role: "source",

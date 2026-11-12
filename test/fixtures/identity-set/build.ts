@@ -21,7 +21,8 @@ interface PathCase {
 /**
  * The committed generated images as cases in the Raccoon World set: a generic is a negative
  * against every cast member, a drift image a negative against its own subject, and a sheet frame
- * checked on-model a positive for its subject and a look-alike for every other member. Images are copied
+ * checked on-model a positive for its subject and a look-alike for every other member. A frame of an
+ * animation (or drift made from one) is described as a frame of that family. Images are copied
  * to `<raccoonWorldDir>/generated/`, beside the set's bible. A checkout without its Git LFS media
  * (CI's) holds pointer files; those items are left out with a note on stderr.
  */
@@ -57,6 +58,11 @@ export async function generatedCases(raccoonWorldDir: string, bible: string) {
         medium: "2d",
         bible,
         note,
+        // A frame of an animation is described as one, as a run describes its candidate.
+        ...(item.family !== undefined && {
+          describe: `a frame of one character's "${item.family}" animation`,
+        }),
+        ...(item.heldOut !== undefined && { heldOut: item.heldOut }),
       });
     }
   }

@@ -4,6 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { loadBible } from "../src/bible.ts";
+import { Budget } from "../src/budget.ts";
+import { Caller } from "../src/calls.ts";
+import { ScriptedProvider } from "../src/gateway/scripted.ts";
+import {
+  identityCastPrompt,
+  identitySettings,
+  parseCastAnswer,
+  scoreIdentity,
+  type CastMember,
+} from "../src/identity.ts";
+import { createRaster, encodePng } from "../src/image/raster.ts";
+import { sha256 } from "../src/request.ts";
+import { defaultRoutes } from "../src/routes.ts";
 import { decodeImage } from "../src/image/raster.ts";
 import { BIRDS, buildBirdCastSet, type BirdParams } from "./fixtures/identity-set/birds.ts";
 
@@ -52,6 +65,22 @@ test("every image decodes and none is byte-identical to a reference", async () =
   }
 });
 
+test("held-out animation poses: each bird has one on-model frame and one drift per pose, the pose named and the drift not", async () => {
+  const { set } = await build();
+  const held = set.cases.filter((c) => c.heldOut === "#104");
+  for (const name of Object.keys(BIRDS)) {
+    const mine = held.filter((c) => c.subject === name);
+    assert.equal(mine.filter((c) => c.kind === "same").length, 4, name);
+    assert.equal(mine.filter((c) => c.kind === "drift").length, 4, name);
+    for (const c of mine) {
+      assert.match(c.describe ?? "", /^a frame of one character's "[a-z-]+" animation$/);
+      // A posed positive keeps every feature the record names; posed drift changes one.
+      if (c.kind === "same") assert.deepEqual(paramsOf(c.note), BIRDS[name]);
+      else assert.notDeepEqual(paramsOf(c.note), BIRDS[name]);
+    }
+  }
+});
+
 test("generic birds match no cast member's parameters", async () => {
   const { set } = await build();
   const generics = set.cases.filter((c) => c.kind === "generic");
@@ -86,4 +115,115 @@ test("the build is deterministic and the bible's references exist", async () => 
     assert.ok(lock.references?.length);
     for (const ref of [lock.turnaround, ...lock.references!]) await readFile(join(a.dir, ref));
   }
+});
+
+function member(subject: string): CastMember {
+  const bytes = encodePng(createRaster(8, 8));
+  return {
+    record: {
+      subject,
+      version: `${subject}-1`,
+      sha256: sha256(Buffer.from(subject)),
+      fingerprint: {
+        signatureFeatures: ["ringed tail"],
+        proportions: "stocky",
+        palette: ["#808080"],
+      },
+      references: [],
+    },
+    references: [
+      {
+        role: "identity:approved-reference",
+        path: `${subject}.png`,
+        mediaType: "image/png",
+        bytes,
+        sha256: sha256(bytes),
+      },
+    ],
+  };
+}
+
+test("the cast prompt accepts posture and animation differences, asks for them apart, and still counts drift", () => {
+  const prompt = identityCastPrompt(
+    [member("mina")],
+    "mina",
+    'a numbered contact sheet of 8 frames of one character, from its "walk" animation',
+  );
+  assert.match(prompt, /from its "walk" animation/);
+  assert.match(prompt, /may name its animation/);
+  assert.match(prompt, /as it would look if the candidate stood in the references' pose/);
+  assert.match(prompt, /a back arched, hunched or stretched mid-stride/);
+  assert.match(prompt, /a tail lowered, raised, swung, curled or foreshortened/);
+  assert.match(prompt, /is NOT a deviation/);
+  assert.match(prompt, /do not let them lower onModel/);
+  assert.match(prompt, /the count of any repeated mark \(rings, bands, stripes, feathers, spots\)/);
+  assert.match(prompt, /proportions the pose cannot explain/);
+  assert.match(prompt, /signature feature that is missing, added or changed/);
+  assert.match(prompt, /the approved references are the source of truth/);
+  assert.match(prompt, /"poseDifferences": \["<each difference the pose or view explains>"\]/);
+});
+
+test("the cast answer parser accepts poseDifferences and still parses an answer without them", () => {
+  const withPose = parseCastAnswer(
+    '{"choice": "mina", "onModel": 0.9, "poseDifferences": ["back arched mid-stride", " ", 3], "deviations": []}',
+    ["mina"],
+  );
+  assert.deepEqual(withPose.poseDifferences, ["back arched mid-stride"]);
+  assert.equal(withPose.onModel, 0.9);
+  assert.equal(withPose.deviations, undefined);
+  const without = parseCastAnswer('{"choice": "mina", "onModel": 0.9}', ["mina"]);
+  assert.equal(without.poseDifferences, undefined);
+  assert.equal(
+    parseCastAnswer('{"choice": "mina", "poseDifferences": "tail"}', ["mina"]).poseDifferences,
+    undefined,
+  );
+});
+
+test("an answer that lists pose differences with a high onModel passes and the score ignores them", async () => {
+  const cast = [member("mina"), member("otto")];
+  const provider = new ScriptedProvider({
+    image: () => {
+      throw new Error("no images");
+    },
+    vision: () => ({
+      text: '{"probabilities": {"mina": 0.95, "otto": 0.03, "neither": 0.02}, "choice": "mina", "onModel": 0.95, "deviations": [], "poseDifferences": ["back arched mid-stride", "tail lowered"], "reason": "mina walking"}',
+      costUsd: 0.001,
+    }),
+  });
+  const bytes = encodePng(createRaster(16, 8));
+  const score = await scoreIdentity({
+    caller: new Caller({
+      provider,
+      providerName: "scripted",
+      budget: new Budget(1),
+      routes: defaultRoutes,
+    }),
+    ...cast[0]!,
+    candidate: {
+      role: "candidate",
+      path: "(candidate)",
+      mediaType: "image/png",
+      bytes,
+      sha256: sha256(bytes),
+    },
+    describe: 'a sprite strip of 8 frames side by side, from its "walk" animation',
+    settings: identitySettings({
+      identity: { question: "cast", mode: "enforce", threshold: 0.68 },
+    }),
+    cast,
+    recordCheck: {
+      subject: "mina",
+      lockVersion: cast[0]!.record.version,
+      lockSha256: cast[0]!.record.sha256,
+      checked: true,
+      consistent: true,
+      conflicts: [],
+      reason: "agrees",
+      model: "test",
+      costUsd: 0,
+    },
+  });
+  assert.ok(Math.abs(score.score! - 0.9025) < 1e-9);
+  assert.equal(score.passed, true);
+  assert.doesNotMatch(score.reason, /off-model/);
 });

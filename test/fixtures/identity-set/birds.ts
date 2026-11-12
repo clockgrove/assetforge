@@ -22,6 +22,8 @@ export interface EvalCaseJson {
   note?: string;
   /** Set on cases scored against a record whose text contradicts its own references. */
   conflict?: boolean;
+  /** The Objective that added the case after the prompt it measures was written. */
+  heldOut?: string;
 }
 
 export type BellyShape = "round" | "heart" | "stripe";
@@ -45,6 +47,11 @@ export interface BirdView {
   dx: number;
   dy: number;
   bg: string;
+  /** Animation poses; none of them changes a feature the record names. */
+  wingsSpread?: boolean;
+  headTurned?: boolean;
+  /** Radians the crest feathers are swept back about their bases. */
+  crestSwept?: number;
 }
 
 const BODY = "#d8c3a5";
@@ -124,6 +131,19 @@ const SECOND_VIEW: BirdView = {
   bg: "#e6eef5",
 };
 
+const POSES: { name: string; view: BirdView }[] = [
+  {
+    name: "flap",
+    view: { ...CANONICAL_VIEW, tilt: -0.1, scale: 0.8, wingsSpread: true, bg: "#e8f0e4" },
+  },
+  { name: "peck", view: { ...CANONICAL_VIEW, tilt: 0.7, scale: 0.8, bg: "#f5e9dc" } },
+  {
+    name: "look-back",
+    view: { ...CANONICAL_VIEW, tilt: -0.1, headTurned: true, bg: "#efe6f0" },
+  },
+  { name: "crest-swept", view: { ...CANONICAL_VIEW, tilt: 0.1, crestSwept: 0.6, bg: "#dfe6ea" } },
+];
+
 type Pt = [number, number];
 const inEllipse = (u: number, v: number, cx: number, cy: number, rx: number, ry: number) =>
   ((u - cx) / rx) ** 2 + ((v - cy) / ry) ** 2 <= 1;
@@ -160,6 +180,16 @@ export function drawBird(params: BirdParams, view: BirdView): Raster {
   const cos = Math.cos(-view.tilt);
   const sin = Math.sin(-view.tilt);
   const wingEllipse = view.wingUp ? [-22, -8, 22, 40] : [-15, 12, 38, 22];
+  const eyeU = view.headTurned ? -28 : 28;
+  const beakSide = view.headTurned ? -1 : 1;
+  const beak: Pt[] = [
+    [60 * beakSide, -14],
+    [92 * beakSide, -4],
+    [60 * beakSide, 8],
+  ];
+  const sweep = view.crestSwept ?? 0;
+  const spreadCos = Math.cos(-0.45);
+  const spreadSin = Math.sin(-0.45);
   for (let y = 0; y < CANVAS; y++) {
     for (let x = 0; x < CANVAS; x++) {
       const px = (x - CANVAS / 2 - view.dx) / view.scale;
@@ -171,17 +201,16 @@ export function drawBird(params: BirdParams, view: BirdView): Raster {
       v /= params.stretch[1];
       const [wx, wy, wrx, wry] = wingEllipse as [number, number, number, number];
       let colour: readonly number[] = bg;
-      if (inEllipse(u, v, 28, -20, 3.5, 3.5)) colour = ink;
-      else if (params.eyeRing && inEllipse(u, v, 28, -20, 13, 13)) colour = white;
-      else if (
-        inPolygon(u, v, [
-          [60, -14],
-          [92, -4],
-          [60, 8],
-        ])
-      )
-        colour = colours.beak;
-      else if (inEllipse(u, v, wx, wy, wrx, wry)) colour = colours.wing;
+      // A raised wing reaching past the body outline, tipped back about its root.
+      const su = u + 20;
+      const sv = v + 10;
+      const spread =
+        view.wingsSpread === true &&
+        inEllipse(su * spreadCos - sv * spreadSin, su * spreadSin + sv * spreadCos, -52, 0, 64, 20);
+      if (inEllipse(u, v, eyeU, -20, 3.5, 3.5)) colour = ink;
+      else if (params.eyeRing && inEllipse(u, v, eyeU, -20, 13, 13)) colour = white;
+      else if (inPolygon(u, v, beak)) colour = colours.beak;
+      else if (spread || inEllipse(u, v, wx, wy, wrx, wry)) colour = colours.wing;
       else if (
         (params.belly === "round" && inEllipse(u, v, 10, 30, 26, 26)) ||
         (params.belly === "heart" && inHeart(u, v, 10, 30, 22)) ||
@@ -192,7 +221,9 @@ export function drawBird(params: BirdParams, view: BirdView): Raster {
       else
         for (let i = 0; i < params.crest; i++) {
           const cx = (i - (params.crest - 1) / 2) * 16;
-          if (inEllipse(u, v, cx, -76, 6, 20)) colour = colours.crest;
+          const along = -(u - cx) * Math.sin(sweep) - (v + 56) * Math.cos(sweep);
+          const across = (u - cx) * Math.cos(sweep) - (v + 56) * Math.sin(sweep);
+          if (inEllipse(along, across, 20, 0, 20, 6)) colour = colours.crest;
         }
       setPixel(raster, x, y, [colour[0]!, colour[1]!, colour[2]!, 255]);
     }
@@ -361,8 +392,9 @@ export async function buildBirdCastSet(
     note: string,
     extra: Partial<EvalCaseJson> = {},
     bible = "BIBLE.md",
+    view?: BirdView,
   ) => {
-    await write(file, params, randomView(rng));
+    await write(file, params, view ?? randomView(rng));
     cases.push({
       image: file,
       subject,
@@ -438,6 +470,38 @@ export async function buildBirdCastSet(
       conflict,
       "BIBLE.conflict.md",
     );
+  }
+
+  const heldOut = "held out, #104";
+  for (const name of names) {
+    const bird = BIRDS[name]!;
+    const drifts = driftVariants(name, rng);
+    for (const [i, pose] of POSES.entries()) {
+      const describe = `a frame of one character's "${pose.name}" animation`;
+      await add(
+        `${name}-pose-${pose.name}.png`,
+        bird,
+        name,
+        "same",
+        `${name} in its "${pose.name}" animation pose (${heldOut})`,
+        { describe, heldOut: "#104" },
+        "BIBLE.md",
+        pose.view,
+      );
+      const d = drifts[i]!;
+      if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
+        throw new Error("a drift variant equals a cast member");
+      await add(
+        `${name}-pose-drift-${pose.name}.png`,
+        d.params,
+        name,
+        "drift",
+        `${name} in its "${pose.name}" animation pose, edited: ${d.what} (${heldOut})`,
+        { describe, heldOut: "#104" },
+        "BIBLE.md",
+        pose.view,
+      );
+    }
   }
 
   await writeFile(join(outDir, "cases.json"), `${JSON.stringify(cases, null, 2)}\n`);
