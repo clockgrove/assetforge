@@ -1,0 +1,688 @@
+[
+  {
+    "id": "stevie-drift-plain-tail",
+    "sha256": "c9f5be04c7cd9f7974e99be927c9f57720ee0d42cfecb9694afc2a5bc463ffbf",
+    "source": {
+      "path": "references/stevie/turnaround-front.png",
+      "sha256": "2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Remove all the dark rings from the raccoon's tail, so the whole tail is one plain, even grey-brown colour. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9201,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-front.png",
+            "sha256": "2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"
+          }
+        ]
+      },
+      "referenceHashes": ["2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"],
+      "seed": 9201,
+      "requestId": "gen_01M76Q39BJ8Z62Q6F1HVZ4CPKB",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:48:58.283Z",
+      "finishedAt": "2026-11-12T01:49:04.094Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-walk-side",
+    "sha256": "324e384cf41d774ad50816cc00dc862834ab48ad6c6c4e3e27ceb1b86773a95e",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of an adult raccoon walking, side view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q3JQGZ06N7WM8GB64JNYT",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:49:08.299Z",
+      "finishedAt": "2026-11-12T01:49:21.615Z",
+      "costUsd": 0.01361,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-slender-sitting",
+    "sha256": "ac4fcaeaaab7052fe3e7a0f73c16e16c69b58ccfaf1f884398fc4dddb94faa4f",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a slender young raccoon sitting upright, three-quarter view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q3ZQBCR46FXTYDHD3QY96",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:49:21.692Z",
+      "finishedAt": "2026-11-12T01:49:30.606Z",
+      "costUsd": 0.006335,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-old-heavy",
+    "sha256": "e098ec86b8e7f21c4cedc6f15c3c751bb7b11a4f1c1ac738cb97da5c05408036",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a heavy-set old raccoon with a greying muzzle, standing on all fours, three-quarter view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q48KEHNRG8MXGTF0T0TWC",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:49:30.672Z",
+      "finishedAt": "2026-11-12T01:49:47.746Z",
+      "costUsd": 0.02393,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-silver-front",
+    "sha256": "be91207605d0c0eae6effb4340ea5a2ede59d3e9de91dd9b04e546ab7330533c",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a raccoon with a pale, silvery coat and a narrow eye mask, standing on all fours, front view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q4S7EX3CM6KBADEX3VN7X",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:49:47.806Z",
+      "finishedAt": "2026-11-12T01:50:03.812Z",
+      "costUsd": 0.023945,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-dark-walking",
+    "sha256": "485290f0d71beb41d4df017e828990aeba300429d5768a70afe9df241b00055c",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a raccoon with a dark, almost black coat walking, three-quarter view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q58XW274DR370B8JERRRB",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:50:03.870Z",
+      "finishedAt": "2026-11-12T01:50:19.232Z",
+      "costUsd": 0.023905,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-upright",
+    "sha256": "13974ca222e1f07bec4693552e07115f23394ffa83601e4d31d7012e9b6a0d65",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a raccoon standing on its hind legs, front view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q5QZSX048X94R6FZV6NAD",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:50:19.294Z",
+      "finishedAt": "2026-11-12T01:50:43.381Z",
+      "costUsd": 0.006335,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-curled-asleep",
+    "sha256": "65db9b91df5baed24bd504480a28162049a8b1915bddf46cd87d734934d67c16",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a raccoon curled up asleep, seen from above at three-quarter. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q6FJ6M7WJ4JMRY4XYPAX6",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:50:43.428Z",
+      "finishedAt": "2026-11-12T01:50:57.002Z",
+      "costUsd": 0.013635,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "generic-kit-trotting",
+    "sha256": "57bd58160b4d35c32e84a449d9284e5a3f7214a4269d18da9408d5af6de507cd",
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Naturalistic illustration of a raccoon kit (a young raccoon) trotting, side view. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": []
+      },
+      "referenceHashes": [],
+      "requestId": "gen_01M76Q6WWXGSQF636ETN95FBTK",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:50:57.087Z",
+      "finishedAt": "2026-11-12T01:51:06.692Z",
+      "costUsd": 0.006355,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-long-legs",
+    "sha256": "a2e8fc6f8280f61cd7eda7d15f2b6b4194f894273cd1ff2007cc32e0b71421f0",
+    "source": {
+      "path": "references/stevie/turnaround-side.png",
+      "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Give the raccoon very long, thin legs, about twice as long as they are now, so the body stands high off the ground. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9204,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-side.png",
+            "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+          }
+        ]
+      },
+      "referenceHashes": ["638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"],
+      "seed": 9204,
+      "requestId": "gen_01M76Q7HRNYT7W2Y40XMHZRT51",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:51:18.129Z",
+      "finishedAt": "2026-11-12T01:51:24.146Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-orange-coat",
+    "sha256": "1473e09d8c9fb3756d6247adbedb3314b56593304dc5c296030059ccf6aa1fbf",
+    "source": {
+      "path": "references/stevie/turnaround-three-quarter.png",
+      "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Change the colour of the raccoon's body fur to a bright rusty orange-red, like a red fox. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9205,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-three-quarter.png",
+            "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+          }
+        ]
+      },
+      "referenceHashes": ["a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"],
+      "seed": 9205,
+      "requestId": "gen_01M76Q7QY5TBMFF2TD67GAXGD3",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:51:24.445Z",
+      "finishedAt": "2026-11-12T01:51:30.460Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-spotted",
+    "sha256": "ae810fb148fe4dc0cbf5a592661bac97a9c009d65e92b347b909474b73c2fdf8",
+    "source": {
+      "path": "references/stevie/turnaround-side.png",
+      "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Cover the raccoon's back and sides with large, round black spots, like a leopard's. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9208,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-side.png",
+            "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+          }
+        ]
+      },
+      "referenceHashes": ["638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"],
+      "seed": 9208,
+      "requestId": "gen_01M76Q89AYW4BXS8BAF6442TNE",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:51:42.318Z",
+      "finishedAt": "2026-11-12T01:51:47.840Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-drift-lean",
+    "sha256": "df70911790a2dbd9a583699e8c3bbc59b37a99f381f872f18aa50e5e7299b684",
+    "source": {
+      "path": "references/jimothy/jimothy-peanut-painted.png",
+      "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Make the raccoon lean, slim and long-bodied, with sleek, short, flat fur and long legs, instead of round, fluffy and hunched. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9212,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/jimothy/jimothy-peanut-painted.png",
+            "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+          }
+        ]
+      },
+      "referenceHashes": ["f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"],
+      "seed": 9212,
+      "requestId": "gen_01M76Q8Q2AXPHTH4PTPYED63ZR",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:51:56.059Z",
+      "finishedAt": "2026-11-12T01:52:04.098Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-drift-silver-coat",
+    "sha256": "8d9403dc222b6d41403c64ee9b8c83d203ab1bdcea103ea78183174671888926",
+    "source": {
+      "path": "references/jimothy/jimothy-peanut-painted.png",
+      "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+    },
+    "call": {
+      "operation": "edit",
+      "model": "bfl/flux-kontext-pro",
+      "route": "vercel-ai-gateway:edit:bfl/flux-kontext-pro",
+      "prompt": "Change the colour of the raccoon's fur to a cool, pale silver-white, with no brown anywhere. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "seed": 9213,
+        "references": [
+          {
+            "role": "source",
+            "path": "references/jimothy/jimothy-peanut-painted.png",
+            "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+          }
+        ]
+      },
+      "referenceHashes": ["f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"],
+      "seed": 9213,
+      "requestId": "gen_01M76Q8Z59VWTQH7RZ1EMHBA19",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:52:04.387Z",
+      "finishedAt": "2026-11-12T01:52:11.562Z",
+      "costUsd": 0.04,
+      "costSource": "provider",
+      "providerTerms": "Black Forest Labs API Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-bfl-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-no-mask",
+    "sha256": "fb418d4f5bbe6ab048264aef7d9b248344de06a816b4935ec0fd059dac1a3a45",
+    "source": {
+      "path": "references/stevie/turnaround-three-quarter.png",
+      "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same grey-brown as the rest of the head. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-three-quarter.png",
+            "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+          }
+        ]
+      },
+      "referenceHashes": ["a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"],
+      "requestId": "gen_01M76QAFETV3YYA0JW0C4M2MPR",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:52:53.963Z",
+      "finishedAt": "2026-11-12T01:53:06.798Z",
+      "costUsd": 0.019072,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-pointed-ears",
+    "sha256": "4bc10374dc74323be0e7663c34a22f677431a0d9d2ae984b611ba07ad84813dd",
+    "source": {
+      "path": "references/stevie/turnaround-three-quarter.png",
+      "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's ears tall, narrow and pointed, like a fox's ears, with no pale rims. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-three-quarter.png",
+            "sha256": "a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"
+          }
+        ]
+      },
+      "referenceHashes": ["a1883f9f3e0a5b293157e6b57c89bed9c880bc72f484cd38a9fd9d9e375b1609"],
+      "requestId": "gen_01M76QAW5YAE64RBFM6R3JVMVK",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:53:07.093Z",
+      "finishedAt": "2026-11-12T01:53:20.226Z",
+      "costUsd": 0.019052,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-stub-tail",
+    "sha256": "018bb2bdec2a4865e5a97823b8a8f2d671b277db652b1f0863f974fcb6590885",
+    "source": {
+      "path": "references/stevie/turnaround-side.png",
+      "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's tail a very short stub, about a quarter of its current length. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-side.png",
+            "sha256": "638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"
+          }
+        ]
+      },
+      "referenceHashes": ["638757a486fac5adfa08a0c38b4f9c6b85bdf31308883756c1146f085643cfd0"],
+      "requestId": "gen_01M76QB9GJCACD7GG6F02XF6HQ",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:53:20.717Z",
+      "finishedAt": "2026-11-12T01:53:32.651Z",
+      "costUsd": 0.019032,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "stevie-drift-dark-muzzle",
+    "sha256": "5efc52935412a56e80c5b9833bdc6a63210ed45fa2427665fbbd97147edb66ff",
+    "source": {
+      "path": "references/stevie/turnaround-front.png",
+      "sha256": "2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Make the raccoon's muzzle and brows dark brown instead of cream, so the face has no pale markings. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/stevie/turnaround-front.png",
+            "sha256": "2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"
+          }
+        ]
+      },
+      "referenceHashes": ["2d0b8263e757d122fc2e8b48a510fcb723b8cb1f022e674df3d9bc6d265b6fa7"],
+      "requestId": "gen_01M76QBNXVA0V58V1CDSECNEXE",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:53:33.466Z",
+      "finishedAt": "2026-11-12T01:53:46.103Z",
+      "costUsd": 0.019047,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-drift-plain-tail",
+    "sha256": "58c572b47e6160422e14e43b55c1a464cbb5362cd0ff8b12facdde269f65b809",
+    "source": {
+      "path": "references/jimothy/jimothy-peanut-painted.png",
+      "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the dark bands from the raccoon's tail, so the whole tail is one plain, even brown colour. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/jimothy/jimothy-peanut-painted.png",
+            "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+          }
+        ]
+      },
+      "referenceHashes": ["f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"],
+      "requestId": "gen_01M76QC34SNGQH1FYKFW4N042Q",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:53:46.809Z",
+      "finishedAt": "2026-11-12T01:54:07.668Z",
+      "costUsd": 0.035848,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  },
+  {
+    "id": "jimothy-drift-no-mask",
+    "sha256": "2a98b4e211f54ace2ea292516b3d9f6c42211c90215eb82b72b2d6d918b828d6",
+    "source": {
+      "path": "references/jimothy/jimothy-peanut-painted.png",
+      "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+    },
+    "call": {
+      "operation": "still",
+      "model": "openai/gpt-image-2",
+      "route": "vercel-ai-gateway:still:openai/gpt-image-2",
+      "prompt": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same brown-grey as the rest of the head. Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+      "parameters": {
+        "size": "1024x1024",
+        "references": [
+          {
+            "role": "source",
+            "path": "references/jimothy/jimothy-peanut-painted.png",
+            "sha256": "f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"
+          }
+        ]
+      },
+      "referenceHashes": ["f6dcdcf6f462a645283788d50822385d1a59213e0a94cd998d803bffcc193e42"],
+      "requestId": "gen_01M76QCQQNGW5DPPARXN67WSXX",
+      "requestIdSource": "provider",
+      "startedAt": "2026-11-12T01:54:07.947Z",
+      "finishedAt": "2026-11-12T01:54:28.118Z",
+      "costUsd": 0.035863,
+      "costSource": "provider",
+      "providerTerms": "OpenAI Services Agreement and Usage Policies, via Vercel AI Gateway (as of 2026-11-07)",
+      "outputGrant": {
+        "license": "LicenseRef-openai-api",
+        "plan": "api",
+        "commercial": true,
+        "relabel": true
+      }
+    }
+  }
+]

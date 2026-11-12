@@ -407,5 +407,52 @@
       "medium": "2d",
       "note": "colours washed out"
     }
+  ],
+  "crops": [
+    {
+      "from": "references/stevie/comparison-candidates/idle/strip.png",
+      "subject": "stevie",
+      "name": "idle",
+      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 6 },
+      "cells": [0, 1, 2, 3, 4, 5],
+      "medium": "2d",
+      "note": "Owner-picked idle strip made by Assetforge generate-sheet from Stevie's approved turnaround (raccoon-world README)",
+      "checked": {
+        "0": "2026-11-11, by eye against the turnaround: Stevie, idle frame 0; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "1": "2026-11-11, by eye against the turnaround: Stevie, idle frame 1; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "2": "2026-11-11, by eye against the turnaround: Stevie, idle frame 2; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "3": "2026-11-11, by eye against the turnaround: Stevie, idle frame 3; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "4": "2026-11-11, by eye against the turnaround: Stevie, idle frame 4; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "5": "2026-11-11, by eye against the turnaround: Stevie, idle frame 5; mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature"
+      }
+    },
+    {
+      "from": "references/stevie/comparison-candidates/walk/strip.png",
+      "subject": "stevie",
+      "name": "walk",
+      "grid": { "x": 0, "y": 0, "width": 192, "height": 192, "columns": 8 },
+      "cells": [0, 1, 2, 3, 4, 5, 6, 7],
+      "medium": "2d",
+      "note": "Stevie walk strip made by Assetforge generate-sheet from his approved turnaround (raccoon-world comparison candidates)",
+      "checked": {
+        "0": "2026-11-11, by eye against the turnaround: Stevie, walk frame 0 (contact pose, near legs forward); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "1": "2026-11-11, by eye against the turnaround: Stevie, walk frame 1 (down pose); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "2": "2026-11-11, by eye against the turnaround: Stevie, walk frame 2 (passing pose); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "3": "2026-11-11, by eye against the turnaround: Stevie, walk frame 3 (up pose, far foreleg reaching); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "4": "2026-11-11, by eye against the turnaround: Stevie, walk frame 4 (contact pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "5": "2026-11-11, by eye against the turnaround: Stevie, walk frame 5 (down pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "6": "2026-11-11, by eye against the turnaround: Stevie, walk frame 6 (passing pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature",
+        "7": "2026-11-11, by eye against the turnaround: Stevie, walk frame 7 (up pose, other side); mask, cream brows and muzzle, cream-rimmed round ears, grey-brown coat with paler belly, stocky body on short dark legs and banded tail with a dark tip all match his turnaround; the back is more domed and the flank streaking softer than the three-quarter view, which is rendering variation, not a changed feature"
+      }
+    },
+    {
+      "from": "docs/design/reference/jimothy-sprite-sheet.png",
+      "subject": "jimothy",
+      "name": "sheet",
+      "grid": { "x": 0, "y": 22, "width": 192, "height": 208, "columns": 8, "rowPitch": 230 },
+      "cells": [0, 6, 9, 14, 17, 22, 27, 28, 33, 39, 42, 50],
+      "medium": "2d",
+      "note": "Jimothy's 57-frame contact sheet, the source of his lock (cell 3, which is excluded here)"
+    }
   ]
 }

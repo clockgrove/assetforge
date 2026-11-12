@@ -46,6 +46,27 @@ export interface RaccoonWorldManifest {
     medium: "2d" | "3d";
     note: string;
   }[];
+  crops: CropEntry[];
+}
+export interface CropEntry {
+  from: string;
+  subject: string;
+  /** Short readable source name used in the crop file name. */
+  name: string;
+  grid: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    columns: number;
+    rowPitch?: number;
+    columnPitch?: number;
+  };
+  cells: number[];
+  medium: "2d" | "3d";
+  note: string;
+  /** Generated frames only: each cell's eye check, which is what its `same: true` label rests on. */
+  checked?: Record<string, string>;
 }
 export type DriftEdit = "hue-shift" | "desaturate" | "stretch-wide" | "stretch-tall";
 
@@ -165,6 +186,7 @@ export async function buildRaccoonWorldSet(
   const paths = new Set<string>([
     ...manifest.images.map((i) => i.path),
     ...manifest.drift.map((d) => d.from),
+    ...manifest.crops.map((c) => c.from),
     ...manifest.conflict.positives,
     ...manifest.conflict.negatives,
     ...Object.values(manifest.bible.identities).flatMap((lock) =>
@@ -215,6 +237,52 @@ export async function buildRaccoonWorldSet(
       bible,
       note: `${d.edit} ${d.amount} of ${d.from}: ${d.note}`,
     });
+  }
+  await mkdir(join(outDir, "crops"), { recursive: true });
+  for (const crop of manifest.crops) {
+    const source = decodeImage(await readFile(join(outDir, crop.from)));
+    const { x, y, width, height, columns } = crop.grid;
+    for (const cell of crop.cells) {
+      const left = Math.min(source.width, x + (cell % columns) * (crop.grid.columnPitch ?? width));
+      const top = Math.min(
+        source.height,
+        y + Math.floor(cell / columns) * (crop.grid.rowPitch ?? height),
+      );
+      const out = createRaster(
+        Math.max(1, Math.min(width, source.width - left)),
+        Math.max(1, Math.min(height, source.height - top)),
+      );
+      for (let row = 0; row < out.height && top + row < source.height; row++) {
+        const start = ((top + row) * source.width + left) * 4;
+        const length = Math.min(out.width, source.width - left) * 4;
+        out.data.set(source.data.subarray(start, start + length), row * out.width * 4);
+      }
+      const image = `crops/${crop.subject}-${crop.name}-${cell}.png`;
+      await writeFile(join(outDir, image), encodePng(out));
+      const check = crop.checked?.[String(cell)];
+      const where = `cell ${cell} of ${crop.from}: ${crop.note}${check ? ` (checked ${check})` : ""}`;
+      cases.push({
+        image,
+        subject: crop.subject,
+        same: true,
+        kind: "same",
+        cast,
+        medium: crop.medium,
+        bible,
+        note: where,
+      });
+      for (const other of Object.keys(manifest.bible.identities).filter((n) => n !== crop.subject))
+        cases.push({
+          image,
+          subject: other,
+          same: false,
+          kind: "lookalike",
+          cast,
+          medium: crop.medium,
+          bible,
+          note: `${crop.subject}'s ${where}`,
+        });
+    }
   }
   const conflictBible = posix.join(BIBLE_DIR, "BIBLE-conflict.md");
   for (const [paths, same] of [

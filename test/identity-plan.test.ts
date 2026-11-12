@@ -59,7 +59,7 @@ function scripted(answers: number[]) {
     image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(image) }] }),
     vision: (request) => ({
       // Enforce mode first checks the record against its references (#92); this one agrees.
-      text: request.prompt.includes("source of truth")
+      text: request.prompt.includes("For each written claim")
         ? JSON.stringify({ consistent: true, conflicts: [] })
         : JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
     }),
@@ -143,7 +143,7 @@ test("enforce mode checks the record against its references once per run", async
     profile: { identity: { mode: "enforce" } },
   });
   const checks = provider.calls.filter(
-    (c) => c.kind === "vision" && c.request.prompt.includes("source of truth"),
+    (c) => c.kind === "vision" && c.request.prompt.includes("For each written claim"),
   );
   assert.equal(checks.length, 1);
 });
@@ -169,7 +169,7 @@ test("the plan records the record check's route, so a routes file applies at app
     ) < 1e-9,
   );
   const checks = provider.calls.filter(
-    (c) => c.kind === "vision" && c.request.prompt.includes("source of truth"),
+    (c) => c.kind === "vision" && c.request.prompt.includes("For each written claim"),
   );
   assert.equal(checks.length, 1);
   assert.equal(checks[0]!.request.model, "test/record-checker");

@@ -1,0 +1,219 @@
+{
+  "repository": "clockgrove/raccoon-world",
+  "commit": "e9079d85cbdc52546b9beb3cfcfcd857ead69825",
+  "cast": "raccoon-world",
+  "subjects": ["jimothy", "stevie"],
+  "maxSide": 512,
+  "genericPrompt": "Naturalistic illustration of {what}. Very high-quality naturalistic rendering with fine, soft, believable fur strands at every silhouette edge and true-to-life raccoon anatomy; never photographic, never painterly, never cartoon-flat. Full body in frame, centred, on a plain light grey background, no shadow scenery, no text. An ordinary raccoon, not any particular named character.",
+  "editSuffix": " Keep everything else about the raccoon, the pose, the rendering style and the background exactly the same.",
+  "items": [
+    {
+      "id": "generic-walk-side",
+      "kind": "generic",
+      "route": "still",
+      "what": "an adult raccoon walking, side view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-slender-sitting",
+      "kind": "generic",
+      "route": "still",
+      "what": "a slender young raccoon sitting upright, three-quarter view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-old-heavy",
+      "kind": "generic",
+      "route": "still",
+      "what": "a heavy-set old raccoon with a greying muzzle, standing on all fours, three-quarter view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-silver-front",
+      "kind": "generic",
+      "route": "still",
+      "what": "a raccoon with a pale, silvery coat and a narrow eye mask, standing on all fours, front view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-dark-walking",
+      "kind": "generic",
+      "route": "still",
+      "what": "a raccoon with a dark, almost black coat walking, three-quarter view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-upright",
+      "kind": "generic",
+      "route": "still",
+      "what": "a raccoon standing on its hind legs, front view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-curled-asleep",
+      "kind": "generic",
+      "route": "still",
+      "what": "a raccoon curled up asleep, seen from above at three-quarter",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "generic-kit-trotting",
+      "kind": "generic",
+      "route": "still",
+      "what": "a raccoon kit (a young raccoon) trotting, side view",
+      "checked": "2026-11-11: shows an on-style raccoon matching no cast member"
+    },
+    {
+      "id": "stevie-drift-plain-tail",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "edit",
+      "seed": 9201,
+      "from": "references/stevie/turnaround-front.png",
+      "edit": "Remove all the dark rings from the raccoon's tail, so the whole tail is one plain, even grey-brown colour.",
+      "drift": "missing signature feature: tail rings",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-no-mask",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "still",
+      "from": "references/stevie/turnaround-three-quarter.png",
+      "edit": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same grey-brown as the rest of the head.",
+      "drift": "missing signature feature: eye mask",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-pointed-ears",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "still",
+      "from": "references/stevie/turnaround-three-quarter.png",
+      "edit": "Make the raccoon's ears tall, narrow and pointed, like a fox's ears, with no pale rims.",
+      "drift": "wrong feature: pointed ears instead of rounded, pale-rimmed ones",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-long-legs",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "edit",
+      "seed": 9204,
+      "from": "references/stevie/turnaround-side.png",
+      "edit": "Give the raccoon very long, thin legs, about twice as long as they are now, so the body stands high off the ground.",
+      "drift": "wrong proportions: long legs instead of short",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-orange-coat",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "edit",
+      "seed": 9205,
+      "from": "references/stevie/turnaround-three-quarter.png",
+      "edit": "Change the colour of the raccoon's body fur to a bright rusty orange-red, like a red fox.",
+      "drift": "wrong colours: orange coat",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-stub-tail",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "still",
+      "from": "references/stevie/turnaround-side.png",
+      "edit": "Make the raccoon's tail a very short stub, about a quarter of its current length.",
+      "drift": "wrong proportions: stub tail instead of a full tail",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-dark-muzzle",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "still",
+      "from": "references/stevie/turnaround-front.png",
+      "edit": "Make the raccoon's muzzle and brows dark brown instead of cream, so the face has no pale markings.",
+      "drift": "wrong markings: no cream muzzle or brows",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "stevie-drift-spotted",
+      "kind": "drift",
+      "subject": "stevie",
+      "route": "edit",
+      "seed": 9208,
+      "from": "references/stevie/turnaround-side.png",
+      "edit": "Cover the raccoon's back and sides with large, round black spots, like a leopard's.",
+      "drift": "wrong markings: spotted coat",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "jimothy-drift-plain-tail",
+      "kind": "drift",
+      "subject": "jimothy",
+      "route": "still",
+      "from": "references/jimothy/jimothy-peanut-painted.png",
+      "edit": "Remove the dark bands from the raccoon's tail, so the whole tail is one plain, even brown colour.",
+      "drift": "missing signature feature: tail bands",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "jimothy-drift-lean",
+      "kind": "drift",
+      "subject": "jimothy",
+      "route": "edit",
+      "seed": 9212,
+      "from": "references/jimothy/jimothy-peanut-painted.png",
+      "edit": "Make the raccoon lean, slim and long-bodied, with sleek, short, flat fur and long legs, instead of round, fluffy and hunched.",
+      "drift": "wrong proportions: lean and sleek instead of round, fluffy and hunched",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "jimothy-drift-silver-coat",
+      "kind": "drift",
+      "subject": "jimothy",
+      "route": "edit",
+      "seed": 9213,
+      "from": "references/jimothy/jimothy-peanut-painted.png",
+      "edit": "Change the colour of the raccoon's fur to a cool, pale silver-white, with no brown anywhere.",
+      "drift": "wrong colours: pale silver coat instead of warm brown",
+      "checked": "2026-11-11: shows the change"
+    },
+    {
+      "id": "jimothy-drift-no-mask",
+      "kind": "drift",
+      "subject": "jimothy",
+      "route": "still",
+      "from": "references/jimothy/jimothy-peanut-painted.png",
+      "edit": "Remove the raccoon's dark eye mask: the fur around the eyes becomes the same brown-grey as the rest of the head.",
+      "drift": "missing signature feature: eye mask",
+      "checked": "2026-11-11: shows the change"
+    }
+  ],
+  "dropped": [
+    {
+      "id": "stevie-drift-no-mask@edit-9202",
+      "reason": "bfl/flux-kontext-pro edit, seed 9202: the mask was only lightened, still plainly there; remade on the still route with the reference"
+    },
+    {
+      "id": "stevie-drift-pointed-ears@edit-9203",
+      "reason": "bfl/flux-kontext-pro edit, seed 9203: the ears stayed rounded and pale-rimmed; remade on the still route with the reference"
+    },
+    {
+      "id": "stevie-drift-stub-tail@edit-9206",
+      "reason": "bfl/flux-kontext-pro edit, seed 9206: the tail stayed full length; remade on the still route with the reference"
+    },
+    {
+      "id": "stevie-drift-dark-muzzle@edit-9207",
+      "reason": "bfl/flux-kontext-pro edit, seed 9207: the muzzle and brows stayed cream; remade on the still route with the reference"
+    },
+    {
+      "id": "jimothy-drift-plain-tail@edit-9211",
+      "reason": "bfl/flux-kontext-pro edit, seed 9211: the tail bands stayed; remade on the still route with the reference"
+    },
+    {
+      "id": "jimothy-drift-no-mask@edit-9214",
+      "reason": "bfl/flux-kontext-pro edit, seed 9214: the mask stayed; remade on the still route with the reference"
+    }
+  ]
+}

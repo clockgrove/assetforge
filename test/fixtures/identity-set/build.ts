@@ -1,20 +1,68 @@
 /**
  * Builds #92's identity acceptance set: the synthetic bird cast (drawn in code) and the Raccoon
- * World cast (downloaded from clockgrove/raccoon-world's public references at the pinned commit),
- * with one cases file for `assetforge identity-eval --cases <out>/cases.json`. Nothing it writes
+ * World cast (downloaded from clockgrove/raccoon-world's public references at the pinned commit,
+ * plus the generated generics and drift committed under `generated/`, see generate.ts), with one
+ * cases file for `assetforge identity-eval --cases <out>/cases.json`. Nothing it writes
  * belongs in the repository.
  *
  *   node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world]
  */
-import { mkdir, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 import { buildBirdCastSet } from "./birds.ts";
+import { GENERATED_DIR, loadGeneratedManifest } from "./generate.ts";
 import { buildRaccoonWorldSet } from "./raccoon-world.ts";
 
 interface PathCase {
   image: string;
   bible?: string;
 }
+
+/**
+ * The committed generated images as cases in the Raccoon World set: a generic is a negative
+ * against every cast member, a drift image a negative against its own subject. Images are copied
+ * to `<raccoonWorldDir>/generated/`, beside the set's bible. A checkout without its Git LFS media
+ * (CI's) holds pointer files; those items are left out with a note on stderr.
+ */
+export async function generatedCases(raccoonWorldDir: string, bible: string) {
+  const manifest = await loadGeneratedManifest();
+  await mkdir(join(raccoonWorldDir, "generated"), { recursive: true });
+  const cases: (PathCase & Record<string, unknown>)[] = [];
+  const missing: string[] = [];
+  for (const item of manifest.items) {
+    const source = new URL(`${item.id}.png`, GENERATED_DIR);
+    const head = await readFile(source).catch(() => undefined);
+    if (!head || !PNG_SIGNATURE.equals(head.subarray(0, 8))) {
+      missing.push(item.id);
+      continue;
+    }
+    const image = `generated/${item.id}.png`;
+    await copyFile(source, join(raccoonWorldDir, image));
+    const subjects = item.kind === "generic" ? manifest.subjects : [item.subject!];
+    const note =
+      item.kind === "generic"
+        ? `generated on-style generic (${item.route} route, no reference): ${item.what}`
+        : `generated drift of ${item.from} (${item.route} route): ${item.drift}`;
+    for (const subject of subjects)
+      cases.push({
+        image,
+        subject,
+        same: false,
+        kind: item.kind,
+        cast: manifest.cast,
+        medium: "2d",
+        bible,
+        note,
+      });
+  }
+  if (missing.length > 0)
+    console.error(
+      `${missing.length} generated images are not in this checkout (Git LFS media not fetched); left out`,
+    );
+  return cases;
+}
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** Both casts under `outDir`, and one cases file whose paths are relative to it. */
 export async function buildIdentitySet(
@@ -32,16 +80,15 @@ export async function buildIdentitySet(
   };
   await mkdir(outDir, { recursive: true });
   add("birds", (await buildBirdCastSet(join(outDir, "birds"))).cases);
-  if (options.raccoonWorld !== false)
-    add(
-      "raccoon-world",
-      (
-        await buildRaccoonWorldSet(
-          join(outDir, "raccoon-world"),
-          options.fetch ? { fetch: options.fetch } : undefined,
-        )
-      ).cases,
+  if (options.raccoonWorld !== false) {
+    const dir = join(outDir, "raccoon-world");
+    const set = await buildRaccoonWorldSet(
+      dir,
+      options.fetch ? { fetch: options.fetch } : undefined,
     );
+    add("raccoon-world", set.cases);
+    add("raccoon-world", await generatedCases(dir, relative(dir, set.biblePath)));
+  }
   const casesPath = join(outDir, "cases.json");
   await writeFile(casesPath, `${JSON.stringify(cases, null, 2)}\n`);
   return { casesPath, cases };

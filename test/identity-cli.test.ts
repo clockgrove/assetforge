@@ -193,7 +193,7 @@ export default {
   image: () => ({ images: [{ mediaType: "image/png", bytes: encodePng(drawSubject(96)) }] }),
   vision: (request) => {
     if (request.prompt.includes('"violations":[]')) throw new Error("no compiler offline");
-    if (request.prompt.includes("source of truth")) return { text: '{"consistent": true, "conflicts": []}' };
+    if (request.prompt.includes("For each written claim")) return { text: '{"consistent": true, "conflicts": []}' };
     return { text: JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }) };
   },
   decide: (_request, index) => ({ answer: { type: "score", score: [1, 4][index] }, confidence: 0.7 }),

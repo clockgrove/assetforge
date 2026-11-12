@@ -19,10 +19,19 @@ const manifest = JSON.parse(
 
 const fakeFetch: typeof fetch = async (input) => {
   const url = String(input);
-  assert.ok(url.includes(`/${manifest.repository}/${manifest.commit}/references/`), url);
+  const base = `/${manifest.repository}/${manifest.commit}/`;
+  assert.ok(
+    url.includes(`${base}references/`) || url.includes(`${base}docs/design/reference/`),
+    url,
+  );
   const raster = createRaster(12, 10);
   for (let y = 0; y < 10; y++)
     for (let x = 0; x < 12; x++) setPixel(raster, x, y, [40 + x * 10, 90 + y * 5, 150, 255]);
+  if (/\/(strip|jimothy-sprite-sheet)\.png$/.test(url)) {
+    const big = createRaster(1536, 1840);
+    for (let i = 0; i < big.data.length; i += 4) big.data.set([90, 80, 70, 255], i);
+    return new Response(encodePng(big));
+  }
   return new Response(encodePng(raster));
 };
 
@@ -75,10 +84,14 @@ test("drift images differ from their sources and are labelled different", async 
 });
 
 test("every manifest path is in a listed reference folder and no cast member's lock reference is a candidate", () => {
-  const folders = ["stevie", "gracie", "jimothy", "poses"].map((f) => `references/${f}/`);
+  const folders = [
+    ...["stevie", "gracie", "jimothy", "poses"].map((f) => `references/${f}/`),
+    "docs/design/reference/",
+  ];
   const paths = [
     ...manifest.images.map((i) => i.path),
     ...manifest.drift.map((d) => d.from),
+    ...manifest.crops.map((c) => c.from),
     ...manifest.conflict.positives,
     ...manifest.conflict.negatives,
   ];
@@ -95,4 +108,48 @@ test("every manifest path is in a listed reference folder and no cast member's l
   for (const i of manifest.images) assert.ok(!lockRefs.includes(i.path), i.path);
   for (const p of [...manifest.conflict.positives, ...manifest.conflict.negatives])
     assert.ok(!lockRefs.includes(p), p);
+});
+
+test("crops yield one same case and one look-alike per other identity, at grid size, never a lock cell", async () => {
+  const { dir, cases } = await build();
+  const subjects = Object.keys(manifest.bible.identities);
+  const total = manifest.crops.reduce((n, c) => n + c.cells.length, 0);
+  const cropCases = cases.filter((c) => c.image.startsWith("crops/"));
+  assert.equal(cropCases.length, total * subjects.length);
+  const sheet = manifest.crops.find((c) => c.from.endsWith("jimothy-sprite-sheet.png"))!;
+  assert.ok(!sheet.cells.includes(3));
+  for (const crop of manifest.crops)
+    for (const cell of crop.cells) {
+      const image = `crops/${crop.subject}-${crop.name}-${cell}.png`;
+      const mine = cropCases.filter((c) => c.image === image);
+      assert.equal(mine.length, subjects.length, image);
+      const same = mine.filter((c) => c.same);
+      assert.equal(same.length, 1);
+      assert.equal(same[0]!.subject, crop.subject);
+      assert.equal(same[0]!.kind, "same");
+      const others = mine.filter((c) => !c.same).map((c) => c.subject);
+      assert.deepEqual(others.sort(), subjects.filter((s) => s !== crop.subject).sort());
+      assert.ok(mine.every((c) => c.kind === (c.same ? "same" : "lookalike")));
+      const raster = decodeImage(await readFile(join(dir, image)));
+      assert.equal(raster.width, crop.grid.width);
+      assert.equal(raster.height, crop.grid.height);
+    }
+});
+
+test("every generated strip frame labelled same carries its own eye check, which reaches the case note", async () => {
+  const strips = manifest.crops.filter((c) => c.from.includes("comparison-candidates/"));
+  assert.ok(strips.length > 0);
+  for (const crop of strips)
+    for (const cell of crop.cells)
+      assert.match(
+        crop.checked?.[String(cell)] ?? "",
+        /^\d{4}-\d{2}-\d{2}, by eye/,
+        `${crop.name} ${cell}`,
+      );
+  const { cases } = await build();
+  const frame = cases.find((c) => c.same && c.image === `crops/stevie-walk-3.png`)!;
+  assert.match(
+    frame.note ?? "",
+    /\(checked 2026-11-11, by eye against the turnaround: Stevie, walk frame 3/,
+  );
 });
