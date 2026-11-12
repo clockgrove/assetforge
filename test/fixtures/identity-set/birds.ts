@@ -161,8 +161,18 @@ const POSES_RUN_7: { name: string; view: BirdView }[] = [
   },
 ];
 
+/**
+ * A held-out pose; `defect` names a drawing fault of the pose itself, which makes its on-model frame
+ * drift by construction (as a crop's `defect` does).
+ */
+interface HeldOutPose {
+  name: string;
+  view: BirdView;
+  defect?: string;
+}
+
 /** Run 8's held-out poses (#108), added after the prompt was frozen on run 7. */
-const POSES_RUN_8: { name: string; view: BirdView }[] = [
+const POSES_RUN_8: HeldOutPose[] = [
   {
     name: "scratch",
     view: {
@@ -173,6 +183,9 @@ const POSES_RUN_8: { name: string; view: BirdView }[] = [
       scale: 0.85,
       bg: "#f5e9dc",
     },
+    // Found after run 8 scored it: drawBird puts a turned head's eye where a raised wing lies.
+    defect:
+      "the eye is drawn inside the raised wing (a turned head with the wing up), so a marking is moved",
   },
   { name: "bow", view: { ...CANONICAL_VIEW, tilt: 0.9, scale: 0.78, bg: "#dfe6ea" } },
   {
@@ -208,6 +221,41 @@ const POSES_RUN_8: { name: string; view: BirdView }[] = [
       scale: 0.8,
       bg: "#efe6f0",
     },
+  },
+];
+
+/** Run 9's held-out poses (#108), added after run 8 with the prompt unchanged; none has a defect. */
+const POSES_RUN_9: HeldOutPose[] = [
+  {
+    name: "shake",
+    view: {
+      ...CANONICAL_VIEW,
+      tilt: 0.2,
+      wingUp: true,
+      crestSwept: -0.4,
+      scale: 0.85,
+      bg: "#e8f0e4",
+    },
+  },
+  { name: "lean", view: { ...CANONICAL_VIEW, tilt: -0.3, scale: 0.9, dx: 10, bg: "#f5e9dc" } },
+  {
+    name: "glance",
+    view: {
+      ...CANONICAL_VIEW,
+      facing: "left",
+      tilt: 0.15,
+      headTurned: true,
+      scale: 0.82,
+      bg: "#dfe6ea",
+    },
+  },
+  {
+    name: "puff",
+    view: { ...CANONICAL_VIEW, tilt: -0.1, scale: 0.95, crestSwept: 0.5, bg: "#efe6f0" },
+  },
+  {
+    name: "dip",
+    view: { ...CANONICAL_VIEW, tilt: 1.0, wingsSpread: true, scale: 0.8, bg: "#f4f1ea" },
   },
 ];
 
@@ -588,68 +636,73 @@ export async function buildBirdCastSet(
     }
   }
 
-  // Run 8 (#108): each pose has one on-model frame and two posed drifts, a body proportion and a
-  // feature; none of this draws from the rng before the earlier images above.
-  for (const [birdIndex, name] of names.entries()) {
-    const bird = BIRDS[name]!;
-    for (const [i, pose] of POSES_RUN_8.entries()) {
-      const describe = `a frame of one character's "${pose.name}" animation`;
-      const extra = { describe, heldOut: "#108 run 8" };
-      await add(
-        `${name}-r8-pose-${pose.name}.png`,
-        bird,
-        name,
-        "same",
-        `${name} in its "${pose.name}" animation pose (held out, #108 run 8)`,
-        extra,
-        "BIBLE.md",
-        pose.view,
-      );
-      const tall = i % 2 === 0;
-      const proportion = {
-        params: { ...bird, stretch: (tall ? [1, 1.3] : [1.3, 1]) as [number, number] },
-        what: `body stretched 1.3x ${tall ? "tall" : "wide"}`,
-      };
-      const crest = bird.crest === 3 ? 2 : bird.crest + 1;
-      const wing = pick(rng, OTHER_WINGS);
-      const lighter = lighten(bird.wing, 0.5);
-      const feature = [
-        {
-          params: { ...bird, wing },
-          what: `wing colour changed from ${bird.wing} to ${wing}`,
-        },
-        {
-          params: { ...bird, crest },
-          what: `crest feather count changed from ${bird.crest} to ${crest}`,
-        },
-        {
-          params: { ...bird, eyeRing: !bird.eyeRing },
-          what: bird.eyeRing ? "eye ring removed" : "eye ring added",
-        },
-        {
-          params: { ...bird, wing: lighter },
-          what: `wing a lighter tone of its own hue (${bird.wing} to ${lighter})`,
-        },
-      ][(i + birdIndex) % 4]!;
-      for (const [file, d] of [
-        [`${name}-r8-pose-drift-proportion-${pose.name}.png`, proportion],
-        [`${name}-r8-pose-drift-feature-${pose.name}.png`, feature],
-      ] as const) {
-        if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
-          throw new Error("a drift variant equals a cast member");
+  // Runs 8 and 9 (#108): each pose has one on-model frame and two posed drifts, a body proportion
+  // and a feature; none of this draws from the rng before the earlier images above, and run 9
+  // draws only after run 8. A pose's defect makes its on-model frame drift.
+  for (const [run, poses, tag] of [
+    ["#108 run 8", POSES_RUN_8, "r8"],
+    ["#108 run 9", POSES_RUN_9, "r9"],
+  ] as const)
+    for (const [birdIndex, name] of names.entries()) {
+      const bird = BIRDS[name]!;
+      for (const [i, pose] of poses.entries()) {
+        const describe = `a frame of one character's "${pose.name}" animation`;
+        const extra = { describe, heldOut: run };
         await add(
-          file,
-          d.params,
+          `${name}-${tag}-pose-${pose.name}.png`,
+          bird,
           name,
-          "drift",
-          `${name} in its "${pose.name}" animation pose, edited: ${d.what} (held out, #108 run 8)`,
+          pose.defect ? "drift" : "same",
+          `${name} in its "${pose.name}" animation pose (held out, ${run})${pose.defect ? `; defect: ${pose.defect}` : ""}`,
           extra,
           "BIBLE.md",
           pose.view,
         );
+        const tall = i % 2 === 0;
+        const proportion = {
+          params: { ...bird, stretch: (tall ? [1, 1.3] : [1.3, 1]) as [number, number] },
+          what: `body stretched 1.3x ${tall ? "tall" : "wide"}`,
+        };
+        const crest = bird.crest === 3 ? 2 : bird.crest + 1;
+        const wing = pick(rng, OTHER_WINGS);
+        const lighter = lighten(bird.wing, 0.5);
+        const feature = [
+          {
+            params: { ...bird, wing },
+            what: `wing colour changed from ${bird.wing} to ${wing}`,
+          },
+          {
+            params: { ...bird, crest },
+            what: `crest feather count changed from ${bird.crest} to ${crest}`,
+          },
+          {
+            params: { ...bird, eyeRing: !bird.eyeRing },
+            what: bird.eyeRing ? "eye ring removed" : "eye ring added",
+          },
+          {
+            params: { ...bird, wing: lighter },
+            what: `wing a lighter tone of its own hue (${bird.wing} to ${lighter})`,
+          },
+        ][(i + birdIndex) % 4]!;
+        for (const [file, d] of [
+          [`${name}-${tag}-pose-drift-proportion-${pose.name}.png`, proportion],
+          [`${name}-${tag}-pose-drift-feature-${pose.name}.png`, feature],
+        ] as const) {
+          if (Object.values(BIRDS).some((b) => differences(d.params, b) === 0))
+            throw new Error("a drift variant equals a cast member");
+          await add(
+            file,
+            d.params,
+            name,
+            "drift",
+            `${name} in its "${pose.name}" animation pose, edited: ${d.what} (held out, ${run})`,
+            extra,
+            "BIBLE.md",
+            pose.view,
+          );
+        }
       }
     }
-  }
 
   await writeFile(join(outDir, "cases.json"), `${JSON.stringify(cases, null, 2)}\n`);
   return { biblePath, conflictBiblePath, cases };

@@ -70,7 +70,9 @@ test("held-out animation poses: each bird has on-model frames and drifts per pos
   const counts: Record<string, [number, number]> = {
     "#104 run 6": [4, 4],
     "#104 run 7": [4, 4],
-    "#108 run 8": [5, 10],
+    // Run 8's "scratch" pose draws the eye inside the raised wing: its frame is drift by construction.
+    "#108 run 8": [4, 11],
+    "#108 run 9": [5, 10],
   };
   for (const [run, [same, drift]] of Object.entries(counts)) {
     const held = set.cases.filter((c) => c.heldOut === run);
@@ -80,11 +82,13 @@ test("held-out animation poses: each bird has on-model frames and drifts per pos
       assert.equal(mine.filter((c) => c.kind === "drift").length, drift, `${run} ${name}`);
       for (const c of mine) {
         assert.match(c.describe ?? "", /^a frame of one character's "[a-z-]+" animation$/);
-        // A posed positive keeps every feature the record names; posed drift changes one.
+        // A posed positive keeps every feature the record names; posed drift changes one, or its
+        // pose has a named defect.
         if (c.kind === "same") assert.deepEqual(paramsOf(c.note), BIRDS[name]);
-        else assert.notDeepEqual(paramsOf(c.note), BIRDS[name]);
+        else if (!/; defect: /.test(c.note ?? ""))
+          assert.notDeepEqual(paramsOf(c.note), BIRDS[name]);
       }
-      if (run === "#108 run 8") {
+      if (run.startsWith("#108")) {
         const stretched = mine.filter(
           (c) =>
             c.kind === "drift" &&
