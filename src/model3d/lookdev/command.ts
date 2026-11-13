@@ -31,6 +31,7 @@ import {
   IDENTITY_CHECK_OPERATION,
   LOOKDEV_GROOM_OPERATION,
   LOOKDEV_LOCATE_OPERATION,
+  LOOKDEV_MARKINGS_OPERATION,
   LOOKDEV_OPERATION,
 } from "../../routes.ts";
 import type { Routes } from "../../routes.ts";
@@ -48,8 +49,8 @@ import { GLB_MEDIA_TYPE, parseGlb, writeGlb } from "../glb.ts";
 import type { Glb } from "../glb.ts";
 import { CHARACTER_3D_KIND, characterSpec, model3dSettings } from "../profile.ts";
 import { budgetChecks, qaPassed, validatorCheck } from "../qa.ts";
-import { TURNTABLE_VIEWS, closeUpCamera, renderView, viewCamera } from "../render.ts";
-import type { FurMaps, ViewCamera } from "../render.ts";
+import { TURNTABLE_VIEWS, closeUpCamera, renderView, speckle, viewCamera } from "../render.ts";
+import type { FurMaps, PreviewLighting, ViewCamera } from "../render.ts";
 import { profileSha256 } from "../rig/candidate.ts";
 import { declaresRig, loadRig } from "../rig/template.ts";
 import type { LoadedRig } from "../rig/template.ts";
@@ -77,8 +78,16 @@ import type { GroomMaps, GroomRegion, GroomSkeleton, SeasonGroom, SurfaceMarker 
 import { depthMap, dilate, fillUnseen, projectViews, seamError } from "./project.ts";
 import { bakeTexels } from "./texels.ts";
 import type { TexelMap } from "./texels.ts";
+import {
+  compareMarking,
+  markingsPrompt,
+  markingsReason,
+  measureBox,
+  parseMarkingsReply,
+} from "./markings.ts";
+import type { MarkingMeasure } from "./markings.ts";
 import { lookdevSettings } from "./settings.ts";
-import type { LookdevSettings } from "./settings.ts";
+import type { LookdevSettings, PreviewLightingSettings } from "./settings.ts";
 
 export const LOOKDEV_STEP = "lookdev";
 /** The groom key used when the profile declares no seasons. */
@@ -101,6 +110,8 @@ const CLOSE_UP_PX = 512;
 const BACKGROUND: [number, number, number] = [216, 216, 216];
 /** Texels with less projection than this share keep the colour-matched source texture. */
 const MIN_COVERAGE = 0.5;
+/** The most speckle (impulse pixels, fur render minus bare render) a fur preview view may show. */
+const MAX_FUR_SPECKLE = 0.005;
 
 export interface LookdevOptions {
   /** The picked `.glb` and the provenance it was handed off with. */
@@ -150,6 +161,8 @@ export function planLookdev(profile: TargetProfile, routes: Routes, capUsd?: num
   for (let i = 0; i < LOOKDEV_VIEWS.length; i++) add(LOOKDEV_OPERATION);
   add(LOOKDEV_LOCATE_OPERATION);
   for (let i = 0; i < seasonsOf(settings).length; i++) add(LOOKDEV_GROOM_OPERATION);
+  // At most one markings call per turntable view: only views with their own turnaround view call.
+  for (let i = 0; i < TURNTABLE_VIEWS.length; i++) add(LOOKDEV_MARKINGS_OPERATION);
   const identity = identitySettings(profile);
   if (identity.mode !== "off") {
     add(identity.question === "cast" ? IDENTITY_CAST_OPERATION : "identity");
@@ -641,6 +654,50 @@ function greyMask(mask: Uint8Array, size: number): Raster {
 
 const round = (v: number, places = 6) => Math.round(v * 10 ** places) / 10 ** places;
 
+/** Mean luminance of the pixels that differ from the background in `mask` (the figure). */
+function figureLuminance(raster: Raster, mask: Raster): number {
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < raster.data.length; i += 4) {
+    if (
+      Math.abs(mask.data[i]! - BACKGROUND[0]) +
+        Math.abs(mask.data[i + 1]! - BACKGROUND[1]) +
+        Math.abs(mask.data[i + 2]! - BACKGROUND[2]) <=
+      6
+    )
+      continue;
+    sum += 0.2126 * raster.data[i]! + 0.7152 * raster.data[i + 1]! + 0.0722 * raster.data[i + 2]!;
+    n++;
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
+/**
+ * The run's preview lighting. With `exposure: "auto"`, one exposure for the whole run: the one
+ * that brings the source model's mean lit luminance over the four turntable views to its unlit
+ * (albedo) luminance. It depends on the source model alone, so before and after share it.
+ */
+function resolveLighting(
+  settings: PreviewLightingSettings,
+  render: (lighting: PreviewLighting | undefined, unlit: boolean, view: number) => Raster,
+): PreviewLighting {
+  const lighting: PreviewLighting = {
+    ambient: settings.ambient,
+    key: settings.key,
+    keyDirection: settings.keyDirection,
+    exposure: 1,
+  };
+  if (settings.exposure !== "auto") return { ...lighting, exposure: settings.exposure };
+  let lit = 0;
+  let unlit = 0;
+  for (let v = 0; v < TURNTABLE_VIEWS.length; v++) {
+    const albedo = render(undefined, true, v);
+    lit += figureLuminance(render(lighting, false, v), albedo);
+    unlit += figureLuminance(albedo, albedo);
+  }
+  return { ...lighting, exposure: lit > 0 ? unlit / lit : 1 };
+}
+
 interface Sidecar {
   name: string;
   field: string;
@@ -727,16 +784,36 @@ export async function lookDev(
       characterScreenFraction: zoom.characterScreenFraction,
     });
 
-  // Before: the turntable views and the close-up of the model as picked.
+  // One preview lighting for every before and after render, every season.
   const turntablePx = settings.turntablePx;
-  const beforeViews = TURNTABLE_VIEWS.map((v) =>
-    renderView(glb, { sizePx: turntablePx, yawDeg: facingDeg + v.yawDeg, framing }),
+  const lighting = resolveLighting(look.previewLighting, (l, unlit, v) =>
+    renderView(glb, {
+      sizePx: turntablePx,
+      yawDeg: facingDeg + TURNTABLE_VIEWS[v]!.yawDeg,
+      framing,
+      ...(l && { lighting: l }),
+      unlit,
+    }),
   );
+  const unlitView = (model: Glb, v: number) =>
+    renderView(model, {
+      sizePx: turntablePx,
+      yawDeg: facingDeg + TURNTABLE_VIEWS[v]!.yawDeg,
+      framing,
+      unlit: true,
+    });
+
+  // Before: the turntable views and the close-up of the model as picked.
+  const beforeViews = TURNTABLE_VIEWS.map((v) =>
+    renderView(glb, { sizePx: turntablePx, yawDeg: facingDeg + v.yawDeg, framing, lighting }),
+  );
+  const unlitBefore = TURNTABLE_VIEWS.map((_, i) => unlitView(glb, i));
   const beforeClose = renderView(glb, {
     sizePx: CLOSE_UP_PX,
     yawDeg: 0,
     framing,
     camera: closeUp(0),
+    lighting,
   });
 
   // 1. Albedo: restyle flat-lit renders and project them back onto the UVs.
@@ -799,6 +876,7 @@ export async function lookDev(
     yawDeg: 0,
     framing,
     camera: locateCamera,
+    lighting,
   });
   const locateText = await caller.vision(LOOKDEV_LOCATE_OPERATION, locatePrompt(), [
     { ...png(encodePng(locateRender)), role: "close-up front render" },
@@ -960,6 +1038,9 @@ export async function lookDev(
   const artifacts: Array<{ name: string; bytes: Uint8Array }> = [...viewArtifacts];
   const afterBySeason: Record<string, Raster[]> = {};
   const afterClose: Record<string, Raster> = {};
+  const unlitAfter = TURNTABLE_VIEWS.map((_, i) => unlitView(written, i));
+  const litToUnlit: Record<string, Record<string, number>> = {};
+  const furSpeckle: Record<string, Record<string, number>> = {};
   for (const season of plan.seasons) {
     const maps = seasonMaps[season]!;
     const fur: FurMaps = {
@@ -972,24 +1053,65 @@ export async function lookDev(
       strandsPerUv: Math.max(192, Math.round(groomSize / 2)),
     };
     const bare = TURNTABLE_VIEWS.map((v) =>
-      renderView(written, { sizePx: turntablePx, yawDeg: facingDeg + v.yawDeg, framing }),
+      renderView(written, {
+        sizePx: turntablePx,
+        yawDeg: facingDeg + v.yawDeg,
+        framing,
+        lighting,
+      }),
     );
     const views = TURNTABLE_VIEWS.map((v) =>
-      renderView(written, { sizePx: turntablePx, yawDeg: facingDeg + v.yawDeg, framing, fur }),
+      renderView(written, {
+        sizePx: turntablePx,
+        yawDeg: facingDeg + v.yawDeg,
+        framing,
+        fur,
+        lighting,
+      }),
     );
     afterBySeason[season] = views;
+    const bareClose = renderView(written, {
+      sizePx: CLOSE_UP_PX,
+      yawDeg: 0,
+      framing,
+      camera: closeUp(0),
+      lighting,
+    });
     afterClose[season] = renderView(written, {
       sizePx: CLOSE_UP_PX,
       yawDeg: 0,
       framing,
       camera: closeUp(0),
       fur,
+      lighting,
     });
+    litToUnlit[season] = Object.fromEntries(
+      TURNTABLE_VIEWS.map((v, i) => [
+        v.name,
+        round(
+          figureLuminance(views[i]!, unlitAfter[i]!) /
+            Math.max(1e-6, figureLuminance(unlitAfter[i]!, unlitAfter[i]!)),
+          3,
+        ),
+      ]),
+    );
+    // Speckle the fur adds over the bare surface, in every view and the close-up.
+    const speckles: Record<string, number> = {};
+    TURNTABLE_VIEWS.forEach((v, i) => {
+      speckles[v.name] = Math.max(0, speckle(views[i]!) - speckle(bare[i]!));
+    });
+    speckles["close-up"] = Math.max(0, speckle(afterClose[season]) - speckle(bareClose));
+    furSpeckle[season] = Object.fromEntries(
+      Object.entries(speckles).map(([k, v]) => [k, round(v, 5)]),
+    );
+    const worst = Object.entries(speckles).reduce((a, b) => (b[1] > a[1] ? b : a));
     const share = Math.max(...views.map((v, i) => changedShare(v, bare[i]!)));
     reasons.push({
       check: look.seasons ? `groom-${season}-render` : "groom-render",
-      passed: share > 0.01,
-      reason: `shell fur driven by the maps changes ${(share * 100).toFixed(1)}% of the pixels of a turntable view`,
+      passed: share > 0.01 && worst[1] <= MAX_FUR_SPECKLE,
+      reason:
+        `shell fur driven by the maps changes ${(share * 100).toFixed(1)}% of the pixels of a turntable view; ` +
+        `speckle it adds: at most ${(worst[1] * 100).toFixed(2)}% of the figure's pixels (${worst[0]}; limit ${(MAX_FUR_SPECKLE * 100).toFixed(1)}%)`,
       source: "deterministic",
     });
   }
@@ -1017,6 +1139,7 @@ export async function lookDev(
     yawDeg: 0,
     framing,
     camera: closeUp(0),
+    lighting,
   });
   const light = catchLight(eyesClose, closeUp(0), markers.eyes);
   reasons.push({
@@ -1032,6 +1155,73 @@ export async function lookDev(
     await validatorCheck(raw, Object.fromEntries(sidecars.map((s) => [s.name, s.bytes]))),
   );
   reasons.push(...budgetChecks(measures, settings));
+
+  // Markings: each identity marking in the lit after renders against the matching turnaround view.
+  const markingMeasures: MarkingMeasure[] = [];
+  const unmeasured: string[] = [];
+  const subjectName = subjectOf(spec);
+  for (const [v, view] of TURNTABLE_VIEWS.entries()) {
+    const ref = references.find((r) => r.view === view.name);
+    if (!ref) {
+      unmeasured.push(`${view.name} (the references have no ${view.name} view)`);
+      continue;
+    }
+    const renders = plan.seasons.map((s) => afterBySeason[s]![v]!);
+    const text = await caller.vision(
+      LOOKDEV_MARKINGS_OPERATION,
+      markingsPrompt({
+        subject: subjectName,
+        ...(bible.subjects?.[subjectName]?.description !== undefined && {
+          description: bible.subjects[subjectName]!.description!,
+        }),
+        view: view.name,
+        referenceRole: ref.role,
+        seasons: plan.seasons,
+      }),
+      [
+        ref,
+        ...renders.map((r, k) => ({
+          ...png(encodePng(r)),
+          role: `lit render after look-dev, ${view.name} view, ${plan.seasons[k]}`,
+        })),
+      ],
+    );
+    let markings;
+    try {
+      markings = parseMarkingsReply(text, renders.length + 1);
+    } catch {
+      unmeasured.push(`${view.name} (the markings reply held no JSON)`);
+      continue;
+    }
+    if (markings.length === 0) unmeasured.push(`${view.name} (no marking was named)`);
+    const refImage = decodeImage(ref.bytes);
+    for (const m of markings) {
+      const refBoxes = m.boxes[0];
+      const refMark = refBoxes && measureBox(refImage, refBoxes.mark, undefined);
+      const refGround = refBoxes && measureBox(refImage, refBoxes.ground, undefined);
+      if (!refMark || !refGround) {
+        unmeasured.push(`${m.name} in ${view.name} (not located on the reference)`);
+        continue;
+      }
+      renders.forEach((render, k) => {
+        const boxes = m.boxes[k + 1];
+        const mark = boxes && measureBox(render, boxes.mark, BACKGROUND);
+        const ground = boxes && measureBox(render, boxes.ground, BACKGROUND);
+        const image = plan.seasons[k]!;
+        if (!mark || !ground) {
+          unmeasured.push(`${m.name} in ${view.name}, ${image} (not shown in the render)`);
+          return;
+        }
+        markingMeasures.push({
+          marking: m.name,
+          view: view.name,
+          image,
+          ...compareMarking({ mark: refMark, ground: refGround }, { mark, ground }),
+        });
+      });
+    }
+  }
+  reasons.push(markingsReason(markingMeasures, { unmeasured }));
 
   // 6. Identity lock on the looked-dev turntable (front and three-quarter), as for wave 0.
   let identity: IdentityScore | undefined;
@@ -1100,6 +1290,11 @@ export async function lookDev(
     plan.seasons.forEach((s, k) =>
       artifacts.push({ name: `after-${s}-${name}.png`, bytes: encodePng(afters[k]!) }),
     );
+  });
+
+  TURNTABLE_VIEWS.forEach((v, i) => {
+    artifacts.push({ name: `unlit-before-${v.name}.png`, bytes: encodePng(unlitBefore[i]!) });
+    artifacts.push({ name: `unlit-after-${v.name}.png`, bytes: encodePng(unlitAfter[i]!) });
   });
 
   const views = references.map((r) => r.view).filter((v): v is string => v !== undefined);
@@ -1176,6 +1371,21 @@ export async function lookDev(
         pads: bareCounts["paw pads"],
       },
       closestZoom: look.closestZoom,
+      lighting: {
+        ambient: lighting.ambient,
+        key: lighting.key,
+        keyDirection: lighting.keyDirection,
+        exposure: round(lighting.exposure, 4),
+        auto: look.previewLighting.exposure === "auto",
+        litToUnlit,
+      },
+      furSpeckle,
+      markings: markingMeasures.map((m) => ({
+        ...m,
+        deltaE: round(m.deltaE, 2),
+        contrastRef: round(m.contrastRef, 2),
+        contrastRender: round(m.contrastRender, 2),
+      })),
       coverage: round(projection.coverage, 4),
       costUsd: round(budget.spentUsd),
     },
