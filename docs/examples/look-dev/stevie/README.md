@@ -98,4 +98,4 @@ The muzzle, brows and ear rims hold in every measured view, and the tail rings r
 
 `pick` was not run: the result failed a check and is not staged. Handing a result into raccoon-world is that repository's follow-up, after Kirk judges it.
 
-The 3D identity rerun on these renders (assetforge#122, Outcome 5) is not done yet: the gateway relay shut part-way through it. Its numbers go in [decisions.md](../../../decisions.md), beside #82's "3D after look-dev".
+The 3D identity rerun on these renders (assetforge#122, Outcome 5) is in [decisions.md](../../../decisions.md), "3D after look-dev, second pass", beside #82's numbers. With `score` at 0.68, 7 of the 10 looked-dev renders now pass; under #82's lighting, none did. `cast` still calls 9 of 10 off-model. Its reasons are the tan tail tip, the flecked eye mask, the faint back streaking and the faded side mask. Identity on 3D stays shadow-only.
