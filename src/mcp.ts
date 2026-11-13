@@ -1,4 +1,5 @@
-import { createInterface } from "node:readline";
+import { McpServer, fromJsonSchema } from "@modelcontextprotocol/server";
+import { StdioServerTransport, serveStdio } from "@modelcontextprotocol/server/stdio";
 import type { Readable, Writable } from "node:stream";
 import { resolve } from "node:path";
 import { describeBible, initBible, useBiblePreset } from "./bible.ts";
@@ -170,70 +171,43 @@ const tools = [
   },
 ];
 
-/** MCP stdio transport: one JSON-RPC message per line, with no logs on stdout. */
+/** One MCP server instance with the five tools, each calling generationTool with the shared context. */
+function createServer(context: ToolContext): McpServer {
+  // The tool list is fixed, so the server never sends list-changed notifications.
+  const server = new McpServer(
+    { name: "assetforge", version: "0.0.0" },
+    { capabilities: { tools: { listChanged: false } } },
+  );
+  for (const tool of tools) {
+    server.registerTool(
+      tool.name,
+      { description: tool.description, inputSchema: fromJsonSchema<Arguments>(tool.inputSchema) },
+      // The SDK turns a thrown error into the tool error result { content: [text], isError: true }.
+      async (args) => ({
+        content: [
+          { type: "text", text: JSON.stringify(await generationTool(tool.name, args, context)) },
+        ],
+        isError: false,
+      }),
+    );
+  }
+  return server;
+}
+
+/** Serves the tools over MCP stdio with the official SDK until the input closes; no logs on stdout. */
 export async function serveMcp(
   context: ToolContext = {},
   input: Readable = process.stdin,
   output: Writable = process.stdout,
 ): Promise<void> {
-  const lines = createInterface({ input, crlfDelay: Infinity });
-  const send = (value: unknown) => output.write(`${JSON.stringify(value)}\n`);
-  for await (const line of lines) {
-    if (!line.trim()) continue;
-    let request: Record<string, unknown>;
-    try {
-      const parsed: unknown = JSON.parse(line);
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error();
-      request = parsed as Record<string, unknown>;
-    } catch {
-      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
-      continue;
-    }
-    const id = request["id"];
-    const method = request["method"];
-    if (request["jsonrpc"] !== "2.0" || typeof method !== "string") {
-      send({ jsonrpc: "2.0", id: id ?? null, error: { code: -32600, message: "Invalid Request" } });
-      continue;
-    }
-    if (id === undefined) continue;
-    try {
-      let result: unknown;
-      if (method === "initialize") {
-        result = {
-          protocolVersion: "2025-11-25",
-          capabilities: { tools: {} },
-          serverInfo: { name: "assetforge", version: "0.0.0" },
-        };
-      } else if (method === "ping") result = {};
-      else if (method === "tools/list") result = { tools };
-      else if (method === "tools/call") {
-        const params = request["params"] as { name?: unknown; arguments?: unknown } | undefined;
-        try {
-          if (typeof params?.name !== "string") throw new InputError("missing tool name");
-          const args = params.arguments ?? {};
-          if (typeof args !== "object" || args === null || Array.isArray(args))
-            throw new InputError("tool arguments must be an object");
-          const value = await generationTool(params.name, args as Arguments, context);
-          result = { content: [{ type: "text", text: JSON.stringify(value) }], isError: false };
-        } catch (error) {
-          result = {
-            content: [
-              { type: "text", text: error instanceof Error ? error.message : String(error) },
-            ],
-            isError: true,
-          };
-        }
-      } else {
-        send({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found" } });
-        continue;
-      }
-      send({ jsonrpc: "2.0", id, result });
-    } catch (error) {
-      send({
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
-      });
-    }
-  }
+  const ended = new Promise<void>((done) => {
+    input.once("end", done);
+    input.once("close", done);
+  });
+  const handle = serveStdio(() => createServer(context), {
+    transport: new StdioServerTransport(input, output),
+    onerror: (error) => context.log?.(`mcp: ${error.message}`),
+  });
+  await ended;
+  await handle.close();
 }
