@@ -2,12 +2,38 @@
  * A scripted look-dev provider for tests and offline runs. Restyle calls answer with their render
  * warmed in colour (so the projected albedo visibly changes); the locate call puts both eyes and
  * the nose on the synthetic quadruped's head in the close-up (`SCRIPT_LOOKDEV_EYES` overrides the reply); groom calls
- * answer lengths per region, with a frosted tint for a season named `winter`.
+ * answer lengths per region, with a frosted tint for a season named `winter`. Markings calls name
+ * no marking, unless `SCRIPT_LOOKDEV_MARKINGS` is `figure` (one marking, "patch", boxed, on the 0..1000 scale, on the middle
+ * of each image's figure against its lower part), `vanished` (that marking on the reference only) or a literal reply.
  */
 import type { Script } from "../../src/gateway/scripted.ts";
 import { decodeImage, encodePng } from "../../src/image/raster.ts";
 
 const REGIONS = ["face", "cheek", "head", "neck", "body", "leg", "tail"];
+
+/** The box, as fractions, of the pixels that differ from the image's corner colour. */
+function figureBox(bytes: Uint8Array): [number, number, number, number] {
+  const r = decodeImage(bytes);
+  const bg = [r.data[0]!, r.data[1]!, r.data[2]!];
+  let x0 = r.width;
+  let y0 = r.height;
+  let x1 = 0;
+  let y1 = 0;
+  for (let y = 0; y < r.height; y++)
+    for (let x = 0; x < r.width; x++) {
+      const o = (y * r.width + x) * 4;
+      const d =
+        Math.abs(r.data[o]! - bg[0]!) +
+        Math.abs(r.data[o + 1]! - bg[1]!) +
+        Math.abs(r.data[o + 2]! - bg[2]!);
+      if (d <= 24) continue;
+      x0 = Math.min(x0, x);
+      y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x + 1);
+      y1 = Math.max(y1, y + 1);
+    }
+  return x1 <= x0 ? [0, 0, 1, 1] : [x0 / r.width, y0 / r.height, x1 / r.width, y1 / r.height];
+}
 
 const script: Script = {
   image(request) {
@@ -21,6 +47,30 @@ const script: Script = {
     return { images: [{ mediaType: "image/png", bytes: encodePng(render) }], costUsd: 0.04 };
   },
   vision(request) {
+    if (request.prompt.includes('"markings"')) {
+      const markings = process.env["SCRIPT_LOOKDEV_MARKINGS"];
+      if (!markings) return { text: JSON.stringify({ markings: [] }), costUsd: 0.001 };
+      if (markings !== "figure" && markings !== "vanished") {
+        return { text: markings, costUsd: 0.001 };
+      }
+      const boxes = request.images.map((ref, k) => {
+        // `vanished`: the reference shows the marking and no render does.
+        if (markings === "vanished" && k > 0) return null;
+        const [x0, y0, x1, y1] = figureBox(ref.bytes);
+        const w = x1 - x0;
+        const h = y1 - y0;
+        const scale = ([bx0, by0, bx1, by1]: number[]) =>
+          [by0!, bx0!, by1!, bx1!].map((v) => Math.round(v * 1000));
+        return {
+          mark: scale([x0 + w * 0.3, y0 + h * 0.3, x0 + w * 0.7, y0 + h * 0.6]),
+          ground: scale([x0 + w * 0.2, y0 + h * 0.6, x0 + w * 0.8, y0 + h * 0.9]),
+        };
+      });
+      return {
+        text: JSON.stringify({ markings: [{ name: "patch", against: "lower body", boxes }] }),
+        costUsd: 0.001,
+      };
+    }
     if (request.prompt.includes('"eyes"')) {
       return {
         text:

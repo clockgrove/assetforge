@@ -7,6 +7,7 @@ export const IDENTITY_CAST_OPERATION = "identity-cast";
 export const LOOKDEV_OPERATION = "lookdev";
 export const LOOKDEV_LOCATE_OPERATION = "lookdev-locate";
 export const LOOKDEV_GROOM_OPERATION = "lookdev-groom";
+export const LOOKDEV_MARKINGS_OPERATION = "lookdev-markings";
 export const IDENTITY_CHECK_OPERATION = "identity-check";
 
 /** A model route: which gateway model serves an operation, its per-call estimate and its terms. */
@@ -274,6 +275,23 @@ export const defaultRoutes: Routes = {
     },
     providerTerms:
       "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-07)",
+  },
+  // Look-dev (#122): where each identity marking and the coat beside it are, in a turnaround view
+  // and the lit renders of the same view, for the deterministic markings check.
+  // Low thinking (assetforge#122): boxing markings needs no long reasoning, and at the default
+  // level the call ran long enough to time out at the gateway relay in two real runs.
+  [LOOKDEV_MARKINGS_OPERATION]: {
+    model: "google/gemini-3-flash",
+    estimatedCostUsd: 0.02,
+    providerOptions: { google: { thinkingConfig: { thinkingLevel: "low" } } },
+    outputGrant: {
+      license: "LicenseRef-google-api",
+      plan: "api",
+      commercial: true,
+      relabel: true,
+    },
+    providerTerms:
+      "Google Gemini API Additional Terms of Service, via Vercel AI Gateway (as of 2026-11-12)",
   },
   // Holes: one enlarged frame with its enclosed see-through areas marked. $0.003 to $0.008 a call
   // (#51's proof); the estimate is an upper bound.

@@ -213,6 +213,7 @@ test("look-dev forecasts its calls, refuses over the cap and needs a model3d pro
   assert.equal(count("lookdev"), 7);
   assert.equal(count("lookdev-locate"), 1);
   assert.equal(count("lookdev-groom"), 2);
+  assert.equal(count("lookdev-markings"), 4);
   assert.equal(count("identity"), 1);
   assert.deepEqual(plan.seasons, ["summer", "winter"]);
   assert.equal(plan.capUsd, 3);
@@ -245,6 +246,7 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
     "lookdev-seams",
     "eyes-catch-light",
     "gltf-validator",
+    "lookdev-markings",
   ]) {
     assert.equal(checks[check]?.passed, true, `${check}: ${checks[check]?.reason}`);
   }
@@ -263,7 +265,8 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
 
   const ops = (calls: Array<{ operation: string }>) => calls.map((x) => x.operation);
   const added = ops(c.provenance.calls).slice(input.source.calls.length);
-  assert.equal(c.provenance.calls.length, input.source.calls.length + 11);
+  // One markings call per turntable view with its own reference: front, side and back.
+  assert.equal(c.provenance.calls.length, input.source.calls.length + 14);
   assert.deepEqual(
     added.toSorted(),
     [
@@ -271,8 +274,38 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
       "lookdev-locate",
       "lookdev-groom",
       "lookdev-groom",
+      ...Array(3).fill("lookdev-markings"),
       "identity",
     ].toSorted(),
+  );
+  // Views are restyled in turn: every view after the first starts from what earlier views painted.
+  const restyles = c.provenance.calls
+    .slice(input.source.calls.length)
+    .filter((x: { operation: string }) => x.operation === "lookdev");
+  assert.doesNotMatch(restyles[0].prompt, /already carries colour painted from other views/);
+  for (const r of restyles.slice(1)) {
+    assert.match(r.prompt, /already carries colour painted from other views/);
+  }
+  // The markings call records the route's provider options it was sent with.
+  const markingsCall = c.provenance.calls.find(
+    (x: { operation: string }) => x.operation === "lookdev-markings",
+  );
+  assert.deepEqual(markingsCall.parameters.providerOptions, {
+    google: { thinkingConfig: { thinkingLevel: "low" } },
+  });
+  // One preview lighting, auto-exposed, for before and after; lit renders read near the albedo.
+  const lighting = c.provenance.parameters.lookdev.lighting;
+  assert.equal(lighting.auto, true);
+  assert.ok(lighting.exposure > 1, String(lighting.exposure));
+  for (const season of ["summer", "winter"]) {
+    for (const ratio of Object.values(lighting.litToUnlit[season]) as number[]) {
+      assert.ok(ratio > 0.8 && ratio < 1.2, `${season} lit/unlit ${ratio}`);
+    }
+  }
+  assert.match(checks["groom-summer-render"]!.reason, /speckle it adds: at most 0\.\d\d%/);
+  assert.match(
+    checks["lookdev-markings"]!.reason,
+    /no marking was measured.*three-quarter \(the references have no three-quarter view\)/,
   );
   assert.equal(c.provenance.parameters.lookdev.sourceModelSha256, sha256(inputBytes));
   assert.ok(c.provenance.outputGrant);
@@ -316,6 +349,10 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
     ]) {
       assert.ok(renders.includes(name), name);
     }
+  }
+  for (const view of ["front", "three-quarter", "side", "back"]) {
+    assert.ok(renders.includes(`unlit-before-${view}.png`), view);
+    assert.ok(renders.includes(`unlit-after-${view}.png`), view);
   }
   assert.equal(run["spentUsd"] > 0, true);
 
@@ -396,4 +433,56 @@ test("an empty bare mask fails the groom check and is named", async () => {
     assert.match(check.reason, /nose 0/);
     assert.match(check.reason, /the nose mask is empty \(the locate call found no nose\)/);
   }
+});
+
+test("a marking that drifts from the turnaround fails the markings check and is named", async () => {
+  const w = await world({ groom: { sizePx: 256 } });
+  const input = await riggedModel(w);
+  // The scripted reply boxes the middle of each figure: the synthetic references and the
+  // restyled model differ there by more than the colour tolerance.
+  const r = await cli(lookDevArgs(w, input), { SCRIPT_LOOKDEV_MARKINGS: "figure" });
+  assert.equal(r.code, 5, r.stdout + r.stderr);
+  const run = doc(r);
+  assert.equal(run["candidates"].length, 0);
+  const reasons: Array<{ check: string; passed: boolean; reason: string }> =
+    run["rejections"][0].reasons;
+  const check = reasons.find((x) => x.check === "lookdev-markings")!;
+  assert.equal(check.passed, false);
+  assert.match(check.reason, /front: patch \(default ΔE/);
+  assert.match(check.reason, /drifting: patch \(front, default: colour ΔE/);
+  assert.match(check.reason, /not measured: three-quarter/);
+});
+
+test("a marking the turnaround shows and the renders lost fails the markings check", async () => {
+  const w = await world({ groom: { sizePx: 256 } });
+  const input = await riggedModel(w);
+  const r = await cli(lookDevArgs(w, input), { SCRIPT_LOOKDEV_MARKINGS: "vanished" });
+  assert.equal(r.code, 5, r.stdout + r.stderr);
+  const reasons: Array<{ check: string; passed: boolean; reason: string }> =
+    doc(r)["rejections"][0].reasons;
+  const check = reasons.find((x) => x.check === "lookdev-markings")!;
+  assert.equal(check.passed, false);
+  assert.match(check.reason, /drifting: patch \(front, default: not shown in the render\)/);
+});
+
+test("a profile's preview lighting is used as declared, and bad lighting is refused", async () => {
+  const w = await world({ groom: { sizePx: 256 } });
+  const profile = JSON.parse(await readFile(w.files.profile, "utf8"));
+  profile.model3d.lookdev = {
+    previewLighting: { ambient: 0.3, key: 0.7, keyDirection: [0, 1, 0.2], exposure: 1.25 },
+  };
+  await writeFile(w.files.profile, JSON.stringify(profile));
+  const input = await riggedModel(w);
+  const r = await cli(lookDevArgs(w, input));
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const lighting = doc(r)["candidates"][0].provenance.parameters.lookdev.lighting;
+  assert.deepEqual(
+    [lighting.ambient, lighting.key, lighting.keyDirection, lighting.exposure, lighting.auto],
+    [0.3, 0.7, [0, 1, 0.2], 1.25, false],
+  );
+  profile.model3d.lookdev = { previewLighting: { keyDirection: [0, 0, 0] } };
+  await writeFile(w.files.profile, JSON.stringify(profile));
+  const bad = await cli([...lookDevArgs(w, { model: "x.glb", provenance: "x.json" }), "--dry-run"]);
+  assert.equal(bad.code, 2, bad.stdout + bad.stderr);
+  assert.match(doc(bad)["error"].message, /previewLighting.keyDirection/);
 });

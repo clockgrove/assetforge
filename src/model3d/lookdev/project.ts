@@ -14,6 +14,11 @@ export interface ProjectedView {
   camera: ViewCamera;
   /** Same size as `camera.sizePx`. */
   image: Raster;
+  /**
+   * Pixels the image left as background (1), per pixel; never projected, so a restyle whose figure
+   * is thinner than the model's (a leg drawn narrower) cannot paint background onto the texels.
+   */
+  background?: Uint8Array;
 }
 
 export interface Projection {
@@ -26,6 +31,17 @@ export interface Projection {
 }
 
 const FACING_POWER = 4;
+/**
+ * Where the views agree on a texel (the weighted spread of their colours under AGREE_SPREAD,
+ * 0..255, smoothed over BLEND_RADIUS of the texture's edge), the colour is their facing^4 mean.
+ * Where they disagree (over DISAGREE_SPREAD), the facing power rises smoothly to DISAGREE_POWER,
+ * so the view that sees the texel most squarely takes it over: a marking two views paint in
+ * slightly different places stays crisp in each instead of averaging to grey (assetforge#122).
+ */
+const AGREE_SPREAD = 12;
+const DISAGREE_SPREAD = 36;
+const BLEND_RADIUS = 0.008;
+const DISAGREE_POWER = 48;
 const MIN_FACING = 0.15;
 
 /** The depth of the nearest surface per pixel for a camera (Infinity where empty); as `renderView`. */
@@ -124,7 +140,7 @@ function silhouetteMask(depth: Float32Array, size: number): Uint8Array {
  * Back-projects each view onto the texels. A texel takes a view's pixel only where it is visible
  * (its depth within a tolerance of the depth map), faces the camera and is away from silhouettes;
  * its weight is max(0, n·toCamera)^4 so square-on views dominate, and the colour is the weighted
- * average over views. `depths[i]` is `depthMap` of `views[i].camera`.
+ * average over views, sharpened toward the most square-on view where the views disagree. `depths[i]` is `depthMap` of `views[i].camera`.
  */
 export function projectViews(
   glb: Glb,
@@ -136,6 +152,7 @@ export function projectViews(
   const { size, covered, position, normal } = texels;
   const total = size * size;
   const sum = new Float32Array(total * 3);
+  const sumSq = new Float32Array(total);
   const weight = new Float32Array(total);
 
   let minP = [Infinity, Infinity, Infinity];
@@ -154,39 +171,78 @@ export function projectViews(
   }
   const diagonal = Math.hypot(maxP[0]! - minP[0]!, maxP[1]! - minP[1]!, maxP[2]! - minP[2]!);
 
-  views.forEach((view, v) => {
-    const depth = depths[v];
-    if (!depth) return;
-    const { camera, image } = view;
-    const px = camera.sizePx;
-    const edge = silhouetteMask(depth, px);
-    const { eye } = camera;
-    for (let i = 0; i < total; i++) {
-      if (!covered[i]) continue;
-      const x = position[i * 3]!;
-      const y = position[i * 3 + 1]!;
-      const z = position[i * 3 + 2]!;
-      const tx = eye[0] - x;
-      const ty = eye[1] - y;
-      const tz = eye[2] - z;
-      const distance = Math.hypot(tx, ty, tz) || 1;
-      const facing =
-        (normal[i * 3]! * tx + normal[i * 3 + 1]! * ty + normal[i * 3 + 2]! * tz) / distance;
-      if (facing < MIN_FACING) continue;
-      const [sx, sy, d] = camera.project(x, y, z);
-      const ix = Math.floor(sx);
-      const iy = Math.floor(sy);
-      if (!(d > 0) || ix < 0 || iy < 0 || ix >= px || iy >= px) continue;
-      const pixel = iy * px + ix;
-      if (edge[pixel]) continue;
-      const tolerance = 0.005 * distance + 0.003 * diagonal + (1.5 * d) / camera.focal / facing;
-      if (Math.abs(depth[pixel]! - d) > tolerance) continue;
-      const w = facing ** FACING_POWER;
-      sum[i * 3]! += image.data[pixel * 4]! * w;
-      sum[i * 3 + 1]! += image.data[pixel * 4 + 1]! * w;
-      sum[i * 3 + 2]! += image.data[pixel * 4 + 2]! * w;
-      weight[i]! += w;
-    }
+  /** Calls `visit` for each texel each view sees, with the view's pixel and facing. */
+  const eachSeen = (visit: (i: number, image: Raster, pixel: number, facing: number) => void) =>
+    views.forEach((view, v) => {
+      const depth = depths[v];
+      if (!depth) return;
+      const { camera, image } = view;
+      const px = camera.sizePx;
+      const edge = silhouetteMask(depth, px);
+      const { background } = view;
+      const { eye } = camera;
+      for (let i = 0; i < total; i++) {
+        if (!covered[i]) continue;
+        const x = position[i * 3]!;
+        const y = position[i * 3 + 1]!;
+        const z = position[i * 3 + 2]!;
+        const tx = eye[0] - x;
+        const ty = eye[1] - y;
+        const tz = eye[2] - z;
+        const distance = Math.hypot(tx, ty, tz) || 1;
+        const facing =
+          (normal[i * 3]! * tx + normal[i * 3 + 1]! * ty + normal[i * 3 + 2]! * tz) / distance;
+        if (facing < MIN_FACING) continue;
+        const [sx, sy, d] = camera.project(x, y, z);
+        const ix = Math.floor(sx);
+        const iy = Math.floor(sy);
+        if (!(d > 0) || ix < 0 || iy < 0 || ix >= px || iy >= px) continue;
+        const pixel = iy * px + ix;
+        if (edge[pixel] || background?.[pixel]) continue;
+        const tolerance = 0.005 * distance + 0.003 * diagonal + (1.5 * d) / camera.focal / facing;
+        if (Math.abs(depth[pixel]! - d) > tolerance) continue;
+        visit(i, image, pixel, facing);
+      }
+    });
+
+  // Pass 1: how much the views disagree on each texel (the weighted spread of their colours).
+  eachSeen((i, image, pixel, facing) => {
+    const w = facing ** FACING_POWER;
+    const r = image.data[pixel * 4]!;
+    const g = image.data[pixel * 4 + 1]!;
+    const b = image.data[pixel * 4 + 2]!;
+    sum[i * 3]! += r * w;
+    sum[i * 3 + 1]! += g * w;
+    sum[i * 3 + 2]! += b * w;
+    sumSq[i]! += (r * r + g * g + b * b) * w;
+    weight[i]! += w;
+  });
+  const spread = new Float32Array(total);
+  for (let i = 0; i < total; i++) {
+    const w = weight[i]!;
+    if (!covered[i] || w <= 0) continue;
+    const m0 = sum[i * 3]! / w;
+    const m1 = sum[i * 3 + 1]! / w;
+    const m2 = sum[i * 3 + 2]! / w;
+    spread[i] = Math.sqrt(Math.max(0, sumSq[i]! / w - m0 * m0 - m1 * m1 - m2 * m2));
+  }
+  const radius = Math.max(1, Math.round(size * BLEND_RADIUS));
+  const smooth = boxBlurSeen(spread, weight, covered, size, radius);
+  const power = new Float32Array(total);
+  for (let i = 0; i < total; i++) {
+    const t = smoothstep(AGREE_SPREAD, DISAGREE_SPREAD, smooth[i]!);
+    power[i] = FACING_POWER + (DISAGREE_POWER - FACING_POWER) * t;
+  }
+
+  // Pass 2: the colour, with the facing sharpened where the views disagree.
+  sum.fill(0);
+  const sharpWeight = new Float32Array(total);
+  eachSeen((i, image, pixel, facing) => {
+    const w = facing ** power[i]!;
+    sum[i * 3]! += image.data[pixel * 4]! * w;
+    sum[i * 3 + 1]! += image.data[pixel * 4 + 1]! * w;
+    sum[i * 3 + 2]! += image.data[pixel * 4 + 2]! * w;
+    sharpWeight[i]! += w;
   });
 
   const color = createRaster(size, size);
@@ -195,8 +251,8 @@ export function projectViews(
   for (let i = 0; i < total; i++) {
     if (!covered[i]) continue;
     count++;
-    const w = weight[i]!;
-    if (w <= 0) continue;
+    const w = sharpWeight[i]!;
+    if (weight[i]! <= 0 || w <= 0) continue;
     seen++;
     color.data[i * 4] = Math.round(sum[i * 3]! / w);
     color.data[i * 4 + 1] = Math.round(sum[i * 3 + 1]! / w);
@@ -204,6 +260,57 @@ export function projectViews(
     color.data[i * 4 + 3] = 255;
   }
   return { color, weight, coverage: count === 0 ? 0 : seen / count };
+}
+
+/** A separable box blur of `values` over seen, covered texels only (the mean of those in reach). */
+function boxBlurSeen(
+  values: Float32Array,
+  weight: Float32Array,
+  covered: Uint8Array,
+  size: number,
+  radius: number,
+): Float32Array {
+  const ok = (i: number) => covered[i]! > 0 && weight[i]! > 0;
+  const pass = (src: Float32Array, cnt: Float32Array, horizontal: boolean) => {
+    const out = new Float32Array(src.length);
+    const outCnt = new Float32Array(src.length);
+    for (let line = 0; line < size; line++) {
+      let acc = 0;
+      let n = 0;
+      const at = (k: number) => (horizontal ? line * size + k : k * size + line);
+      for (let k = 0; k < Math.min(radius, size); k++) {
+        acc += src[at(k)]!;
+        n += cnt[at(k)]!;
+      }
+      for (let k = 0; k < size; k++) {
+        const add = k + radius;
+        if (add < size) {
+          acc += src[at(add)]!;
+          n += cnt[at(add)]!;
+        }
+        const drop = k - radius - 1;
+        if (drop >= 0) {
+          acc -= src[at(drop)]!;
+          n -= cnt[at(drop)]!;
+        }
+        out[at(k)] = acc;
+        outCnt[at(k)] = n;
+      }
+    }
+    return [out, outCnt] as const;
+  };
+  const v0 = new Float32Array(values.length);
+  const c0 = new Float32Array(values.length);
+  for (let i = 0; i < values.length; i++) {
+    if (!ok(i)) continue;
+    v0[i] = values[i]!;
+    c0[i] = 1;
+  }
+  const [v1, c1] = pass(v0, c0, true);
+  const [v2, c2] = pass(v1, c1, false);
+  const out = new Float32Array(values.length);
+  for (let i = 0; i < values.length; i++) out[i] = c2[i]! > 0 ? v2[i]! / c2[i]! : 0;
+  return out;
 }
 
 function smoothstep(a: number, b: number, x: number): number {

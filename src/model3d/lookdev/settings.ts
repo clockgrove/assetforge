@@ -27,7 +27,34 @@ export interface LookdevProfile {
   capUsd?: number;
   /** The target's closest zoom on desktop, for the close-up check render. */
   closestZoom?: { screenHeightPx?: number; characterScreenFraction?: number };
+  /** The lighting of the before-and-after renders (assetforge#122); neutral and well exposed by default. */
+  previewLighting?: {
+    ambient?: number;
+    key?: number;
+    keyDirection?: [number, number, number];
+    exposure?: number | "auto";
+  };
 }
+
+export interface PreviewLightingSettings {
+  ambient: number;
+  key: number;
+  /** Camera space: x right, y up, z toward the camera. */
+  keyDirection: [number, number, number];
+  /** A fixed exposure, or "auto": the mean shading of the source model's figure brought to 1. */
+  exposure: number | "auto";
+}
+
+/**
+ * Assetforge's default preview lighting: mostly even light with a soft key from above and to the
+ * left of the camera, exposed so the figure reads at its albedo's brightness on average.
+ */
+export const DEFAULT_PREVIEW_LIGHTING: PreviewLightingSettings = {
+  ambient: 0.6,
+  key: 0.4,
+  keyDirection: [-0.4, 0.5, 0.75],
+  exposure: "auto",
+};
 
 export interface LookdevSettings {
   maps: GroomMapName[];
@@ -37,6 +64,7 @@ export interface LookdevSettings {
   traits: Record<string, string>;
   capUsd: number;
   closestZoom: { screenHeightPx: number; characterScreenFraction: number };
+  previewLighting: PreviewLightingSettings;
 }
 
 export const DEFAULT_LOOKDEV_CAP_USD = 3;
@@ -103,6 +131,27 @@ export function lookdevSettings(profile: TargetProfile): LookdevSettings {
       "the target profile's model3d.lookdev.closestZoom needs positive screenHeightPx and characterScreenFraction",
     );
   }
+  const lighting = { ...DEFAULT_PREVIEW_LIGHTING, ...(lookdev.previewLighting ?? {}) };
+  const lightingWhere = "the target profile's model3d.lookdev.previewLighting";
+  const nonNegative = (v: unknown): v is number =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0;
+  if (!nonNegative(lighting.ambient) || !nonNegative(lighting.key)) {
+    throw new InputError(`${lightingWhere} needs ambient and key of 0 or more`);
+  }
+  const dir = lighting.keyDirection as unknown;
+  if (
+    !Array.isArray(dir) ||
+    dir.length !== 3 ||
+    !dir.every((v) => typeof v === "number" && Number.isFinite(v)) ||
+    Math.hypot(...(dir as number[])) === 0
+  ) {
+    throw new InputError(
+      `${lightingWhere}.keyDirection must be a non-zero [x, y, z] in camera space`,
+    );
+  }
+  if (lighting.exposure !== "auto" && !positive(lighting.exposure)) {
+    throw new InputError(`${lightingWhere}.exposure must be a positive number or "auto"`);
+  }
   return {
     maps: maps as GroomMapName[],
     ...(groom.sizePx !== undefined && { sizePx: groom.sizePx }),
@@ -110,5 +159,11 @@ export function lookdevSettings(profile: TargetProfile): LookdevSettings {
     traits,
     capUsd,
     closestZoom: zoom,
+    previewLighting: {
+      ambient: lighting.ambient,
+      key: lighting.key,
+      keyDirection: [...(dir as [number, number, number])],
+      exposure: lighting.exposure,
+    },
   };
 }

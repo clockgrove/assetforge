@@ -39,6 +39,8 @@ export interface VisionRequest {
   model: string;
   prompt: string;
   images: ImageInput[];
+  /** The route's provider options, passed to the provider as given. */
+  providerOptions?: Record<string, Record<string, unknown>>;
 }
 
 export interface VisionResult extends ProviderResult {

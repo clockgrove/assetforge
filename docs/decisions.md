@@ -220,6 +220,32 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 
 - **What this means for a 3D threshold.** No question separates the lit looked-dev positives from drift and generics at the shipped thresholds: every looked-dev lit render falls below both. 3D stays provisional, and identity on 3D stays shadow-only.
 
+**3D after look-dev, second pass (2026-11-12; assetforge#122, Outcome 5; provisional, no threshold set).** This is the same 41-case 3D set, rebuilt with `node test/fixtures/identity-set/build.ts <out> --medium 3d`. It has the same cases as #82's run above. The looked-dev cases are now the renders of #122's proof run (`docs/examples/look-dev/stevie/`, run 8, after review). They are under the new preview lighting, with the views restyled in turn and blended toward the squarest view where they disagree. The generic 3D renders were remade under the same lighting earlier in this pass, before the restyle and blend changes, and are not remade. Wave 0 is unchanged. The profile is raccoon-world `main`'s `art/target-profile.json`, with its `identity` set to the shipped defaults, fixed before the run. Stevie's lock is v3, and its record check passed. #82's numbers are in brackets.
+
+| Question, threshold  | Cases           | AUC           | Same FR       | Drift FA  | Generic FA  | Mean same score | Spend  |
+| -------------------- | --------------- | ------------- | ------------- | --------- | ----------- | --------------- | ------ |
+| `score` (pplx), 0.68 | all 3D (41)     | 0.869 (0.790) | 15/26 (22/26) | 1/5 (0/5) | 0/10 (0/10) | 0.63 (0.56)     | $0.008 |
+|                      | wave 0 (18)     | 0.656 (0.656) | 12/16 (12/16) | 0/2 (0/2) |             | 0.57 (0.57)     |        |
+|                      | looked-dev (13) | 0.900 (0.667) | 3/10 (10/10)  | 1/3 (0/3) |             | 0.71 (0.54)     |        |
+| `cast` (Terra), 0.5  | all 3D (41)     | 0.854 (0.796) | 22/26 (26/26) | 0/5 (0/5) | 0/10 (0/10) | 0.15 (0.03)     | $0.42  |
+|                      | wave 0 (18)     | 0.391 (0.547) | 15/16 (16/16) | 0/2 (0/2) |             | 0.06 (0.04)     |        |
+|                      | looked-dev (13) | 0.933 (0.817) | 7/10 (10/10)  | 0/3 (0/3) |             | 0.29 (0.02)     |        |
+
+- **Per kind.** Over all 3D cases, the drift AUC is 0.677 for `score` (#82: 0.677) and 0.588 for `cast` (#82: 0.662). The generic AUC is 0.965 for `score` (generic mean 0.39; #82: 0.846, mean 0.45) and 0.987 for `cast` (generic mean 0.00; #82: 0.863, mean 0.01). 3D look-alikes are still missing, as in #82's run.
+- **Per cast.** Raccoon World only.
+- **`score`.** 7 of the 10 looked-dev renders clear 0.68: summer front 0.80, three-quarter 0.75, side 0.73, back 0.73 and close-up 0.75; winter front 0.72 and three-quarter 0.73. The 3 false rejects are the winter side (0.64), back (0.64) and close-up (0.66). Under #82's lighting, every lit render was rejected. One drift is accepted: the summer side view stretched tall, at 0.70. The hue-shifted and desaturated drift score 0.48 and 0.59. Wave 0 scores as in #82's run.
+- **`cast`.** It names Stevie every time (confidence 0.86–0.98). It calls 3 looked-dev renders on-model: summer front (0.86), summer back (0.81) and winter back (0.65). It calls the other 7 off-model, for:
+  - pale flecks or patches breaking up the eye mask (7, the side views included);
+  - a tan tail tip (4);
+  - mottled tail bands (2, both winter);
+  - the close-up's large head (2);
+  - a darker chest with less tan underside (winter front).
+
+  The tail is what `lookdev-markings` names on the same run (`docs/examples/look-dev/stevie/README.md`). The flecked mask is not: the check measures the mask's colour and contrast, not its texture. Head size is the mesh, which look-dev does not change.
+
+- **Run to run.** Wave 0's images are the same as in the first rerun of this pass, yet `cast` scored them lower (AUC 0.391, against 0.734 then). The same images can score differently from one run to the next.
+- **What this means for a 3D threshold.** `score` separates the looked-dev positives from their drift (AUC 0.90), but a stretched drift still scores above 3 positives. `cast` now accepts 3 of 10 looked-dev renders and no drift, but rejects most of them. 3D stays provisional, identity on 3D stays shadow-only, and no 3D threshold is set.
+
 ## Identity cast question: animation posture is not drift (2026-11-12; assetforge#104)
 
 **The bar is met on the whole set, but not on the frames held out for the run, so shadow mode stays the default** and `question: "cast"` stays opt-in at 0.5. On run 7's held-out frames, Raccoon World is clean, but 2 of 12 posed bird drift cases are accepted.

@@ -7,9 +7,11 @@ import {
   closeUpCamera,
   renderView,
   renderViewWithDepth,
+  speckle,
+  strandCoverage,
   viewCamera,
 } from "../src/model3d/render.ts";
-import type { FurMaps, RenderOptions } from "../src/model3d/render.ts";
+import type { FurMaps, PreviewLighting, RenderOptions } from "../src/model3d/render.ts";
 import { boundsOf, posedPrimitives } from "../src/model3d/scene.ts";
 import { syntheticCharacter } from "./fixtures/glb.ts";
 
@@ -73,7 +75,91 @@ test("fur grows the silhouette and a tint changes its colour", () => {
     fur: furMaps(255, { tint: solid([255, 0, 0, 255]) }),
   });
   assert.ok(differs(furry, tinted));
-  assert.equal(covered(tinted), covered(furry));
+  // The tint changes colour where the fur is, never where it reaches.
+  assert.ok(Math.abs(covered(tinted) - covered(furry)) <= covered(furry) * 0.01);
+});
+
+test("the fur preview is soft: no speckle on the body or at the silhouette", () => {
+  const glb = parseGlb(syntheticCharacter({ triangles: 12 * 256 }));
+  const framing = boundsOf(posedPrimitives(glb))!;
+  for (const yawDeg of [0, 30, 90]) {
+    const base: RenderOptions = { sizePx: 256, yawDeg, framing };
+    const fur = furMaps(255, {
+      density: solid([160, 0, 0, 255]),
+      maxLengthM: 0.08,
+      shells: 16,
+      strandsPerUv: 512,
+    });
+    const bare = renderView(glb, base);
+    const furry = renderView(glb, { ...base, fur });
+    assert.ok(differs(bare, furry));
+    assert.ok(speckle(furry) - speckle(bare) < 0.001, `yaw ${yawDeg}: ${speckle(furry)}`);
+  }
+});
+
+test("speckle counts isolated pixels and ignores smooth shading", () => {
+  const smooth = createRaster(32, 32);
+  for (let y = 0; y < 32; y++)
+    for (let x = 0; x < 32; x++) smooth.data.set([60 + x * 2, 60 + y, 50, 255], (y * 32 + x) * 4);
+  assert.equal(speckle(smooth), 0);
+  const noisy = createRaster(32, 32);
+  noisy.data.set(smooth.data);
+  for (let i = 0; i < 32 * 32; i += 7) noisy.data.set([250, 250, 250, 255], i * 4);
+  assert.ok(speckle(noisy) > 0.05);
+});
+
+test("strand coverage thins toward the tips and scales with density", () => {
+  assert.ok(strandCoverage(0.1, 1, 1) > strandCoverage(0.9, 1, 1));
+  assert.equal(strandCoverage(1, 1, 1), 0);
+  assert.ok(Math.abs(strandCoverage(0.2, 0.5, 1) * 2 - strandCoverage(0.2, 1, 1)) < 1e-12);
+});
+
+test("preview lighting is the same for every view and scales with exposure", () => {
+  const { glb, base } = setup();
+  const lighting: PreviewLighting = {
+    ambient: 0.6,
+    key: 0.4,
+    keyDirection: [-0.4, 0.5, 0.75],
+    exposure: 1,
+  };
+  const mean = (r: Raster) => {
+    let sum = 0;
+    let n = 0;
+    for (let i = 0; i < r.data.length; i += 4) {
+      if (r.data[i] === 0xd8 && r.data[i + 1] === 0xd8) continue;
+      sum += r.data[i]!;
+      n++;
+    }
+    return sum / n;
+  };
+  const flat = solid([128, 128, 128, 255]);
+  const a = renderView(glb, { ...base, baseColor: flat, lighting });
+  const brighter = renderView(glb, {
+    ...base,
+    baseColor: flat,
+    lighting: { ...lighting, exposure: 1.2 },
+  });
+  assert.ok(mean(brighter) > mean(a) * 1.15);
+  // The legacy turntable light is darker than neutral preview lighting.
+  assert.ok(mean(renderView(glb, { ...base, baseColor: flat })) < mean(a));
+});
+
+test("preview lighting rolls pale highlights off instead of clipping them to white", () => {
+  const { glb, base } = setup();
+  const pale = solid([235, 225, 205, 255]);
+  const lighting: PreviewLighting = {
+    ambient: 0.6,
+    key: 0.4,
+    keyDirection: [-0.4, 0.5, 0.75],
+    exposure: 1.3,
+  };
+  const clipped = (r: Raster) => {
+    let n = 0;
+    for (let i = 0; i < r.data.length; i += 4) if (r.data[i]! >= 254) n++;
+    return n;
+  };
+  const lit = renderView(glb, { ...base, baseColor: pale, lighting });
+  assert.equal(clipped(lit), 0, "no pale pixel reaches full white");
 });
 
 test("fur is deterministic and writes depth", () => {
@@ -146,12 +232,12 @@ test("unlit renders pure albedo without specular or fur shadowing", () => {
     if (unlit.data[i] !== 0xd8) colours.add(`${unlit.data[i]},${unlit.data[i + 1]}`);
   }
   assert.ok(colours.size > 0 && colours.size <= 3);
+  // Unlit fur over the surface keeps the albedo: no root shading (its fringe blends into the background).
   const furry = renderView(glb, { ...base, baseColor: flat, unlit: true, fur: furMaps(255) });
-  const furColours = new Set<string>();
   for (let i = 0; i < furry.data.length; i += 4) {
-    if (furry.data[i] !== 0xd8) furColours.add(`${furry.data[i]},${furry.data[i + 1]}`);
+    if (unlit.data[i] === 0xd8) continue;
+    assert.ok(Math.abs(furry.data[i]! - unlit.data[i]!) <= 1, `pixel ${i / 4}`);
   }
-  assert.equal(furColours.size, colours.size);
 });
 
 test("background replaces the grey", () => {

@@ -27,6 +27,21 @@ export interface RenderOptions {
   unlit?: boolean;
   /** Background colour, 0–255 per channel; default the turntable grey. */
   background?: [number, number, number];
+  /**
+   * Preview lighting (look-dev's before and after renders): view-relative ambient plus key light,
+   * scaled by an exposure. Without it, the turntable's fixed light (ambient 0.35 and one key).
+   */
+  lighting?: PreviewLighting;
+}
+
+/** Lighting relative to the camera, so every view is lit alike, as a turnaround is drawn. */
+export interface PreviewLighting {
+  ambient: number;
+  key: number;
+  /** The key light's direction from the surface, in camera space: x right, y up, z toward the camera. */
+  keyDirection: [number, number, number];
+  /** Multiplies the shading; 1 leaves it as ambient plus key. */
+  exposure: number;
 }
 
 /** Groom maps for shell fur. Direction is an RGB vector (channel/255*2-1, model space). */
@@ -270,6 +285,48 @@ function texelAt(map: Raster, u: number, v: number, channel: number): number {
   return map.data[(y * map.width + x) * 4 + channel]! / 255;
 }
 
+/** The light reaching a surface with (unnormalised) normal n, facing ±1, under the render's lighting. */
+type Shade = (nx: number, ny: number, nz: number, facing: number) => number;
+
+/** Where the preview lighting's highlight shoulder starts, as a share of full scale. */
+const SHOULDER = 0.8;
+
+/**
+ * Preview lighting's tone curve: linear up to the shoulder, then rolling smoothly toward 1, so a
+ * pale marking in the key light keeps its tone instead of clipping to white. The legacy turntable
+ * lighting clips.
+ */
+function toneFor(options: RenderOptions): (v: number) => number {
+  if (!options.lighting) return (v) => Math.min(1, v);
+  return (v) =>
+    v <= SHOULDER
+      ? v
+      : SHOULDER + (1 - SHOULDER) * (1 - Math.exp(-(v - SHOULDER) / (1 - SHOULDER)));
+}
+
+function shaderFor(options: RenderOptions, camera: ViewCamera): Shade {
+  const lighting = options.lighting;
+  if (!lighting) {
+    return (nx, ny, nz, facing) => {
+      const l = Math.hypot(nx, ny, nz) || 1;
+      const d = (facing * (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])) / l;
+      return AMBIENT + (1 - AMBIENT) * Math.max(0, d);
+    };
+  }
+  const [kx, ky, kz] = lighting.keyDirection;
+  const { right, up, forward } = camera;
+  const key = normalise([
+    right[0] * kx + up[0] * ky - forward[0] * kz,
+    right[1] * kx + up[1] * ky - forward[1] * kz,
+    right[2] * kx + up[2] * ky - forward[2] * kz,
+  ]);
+  return (nx, ny, nz, facing) => {
+    const l = Math.hypot(nx, ny, nz) || 1;
+    const d = (facing * (nx * key[0] + ny * key[1] + nz * key[2])) / l;
+    return lighting.exposure * (lighting.ambient + lighting.key * Math.max(0, d));
+  };
+}
+
 /** Renders one view of the model into an opaque RGBA raster. */
 export function renderView(glb: Glb, options: RenderOptions): Raster {
   return renderViewWithDepth(glb, options).raster;
@@ -294,6 +351,8 @@ export function renderViewWithDepth(
   const camera = options.camera ?? viewCamera(options);
   const unlit = options.unlit === true;
   const { eye, forward, right, up, focal, near } = camera;
+  const shade = shaderFor(options, camera);
+  const tone = toneFor(options);
 
   const depthBuffer = new Float64Array(size * size).fill(Infinity);
   const texel: Vec = [0, 0, 0];
@@ -374,12 +433,7 @@ export function renderViewWithDepth(
       const invArea = 1 / area;
       const flat = !normals;
       let flatLight = 0;
-      if (flat) {
-        flatLight =
-          AMBIENT +
-          (1 - AMBIENT) *
-            Math.max(0, facing * (face[0] * LIGHT[0] + face[1] * LIGHT[1] + face[2] * LIGHT[2]));
-      }
+      if (flat) flatLight = shade(face[0], face[1], face[2], facing);
 
       for (let y = minY; y <= maxY; y++) {
         const py = y + 0.5;
@@ -405,9 +459,7 @@ export function renderViewWithDepth(
               b0 * normals[i0 * 3 + 1]! + b1 * normals[i1 * 3 + 1]! + b2 * normals[i2 * 3 + 1]!;
             const nz =
               b0 * normals[i0 * 3 + 2]! + b1 * normals[i1 * 3 + 2]! + b2 * normals[i2 * 3 + 2]!;
-            const l = Math.hypot(nx, ny, nz) || 1;
-            const d = (facing * (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])) / l;
-            light = AMBIENT + (1 - AMBIENT) * Math.max(0, d);
+            light = shade(nx, ny, nz, facing);
           }
 
           let r = factor[0] ?? 1;
@@ -469,9 +521,9 @@ export function renderViewWithDepth(
             b += texel[2] * (emissiveFactor[2] ?? 0);
           }
           const o = at * 4;
-          raster.data[o] = Math.round(Math.min(1, r) * 255);
-          raster.data[o + 1] = Math.round(Math.min(1, g) * 255);
-          raster.data[o + 2] = Math.round(Math.min(1, b) * 255);
+          raster.data[o] = Math.round(tone(r) * 255);
+          raster.data[o + 1] = Math.round(tone(g) * 255);
+          raster.data[o + 2] = Math.round(tone(b) * 255);
         }
       }
     }
@@ -483,6 +535,44 @@ export function renderViewWithDepth(
   return { raster, depth: depthBuffer };
 }
 
+/** Smooth value noise on a grid of `cells` per unit of UV: bilinear between hashed corners, eased. */
+function smoothNoise(u: number, v: number, cells: number, salt: number): number {
+  const x = u * cells;
+  const y = v * cells;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = x - x0;
+  const fy = y - y0;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(x0, y0, salt);
+  const b = hash2(x0 + 1, y0, salt);
+  const c = hash2(x0, y0 + 1, salt);
+  const d = hash2(x0 + 1, y0 + 1, salt);
+  return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+}
+
+/** Strands reach between this fraction and all of the local fur length. */
+const SHORTEST_STRAND = 0.6;
+/** How many fully covered shells' worth of opacity the coat holds at its root. */
+const FUR_LAYERS = 6;
+
+/**
+ * The share of a shell at height `t` (0 root, 1 tip) that strands cover, pre-filtered: the strands'
+ * expected cross-section over a pixel, not a hit-or-miss choice per strand, so the coat reads soft
+ * and free of speckle at any zoom. `clump` scales the local strand length.
+ */
+export function strandCoverage(t: number, density: number, clump: number): number {
+  const reach = Math.min(1, Math.max(0, (1 - t / clump) / (1 - SHORTEST_STRAND)));
+  const diameter = 0.9 * (1 - 0.7 * t);
+  return density * reach * ((Math.PI / 4) * diameter * diameter);
+}
+
+/**
+ * Map-driven shell fur: `shells` offset copies of the surface, each alpha-blended over what is
+ * drawn with the strands' expected coverage at its height. A preview of what the groom maps drive,
+ * not the target's fur material.
+ */
 function drawFur(
   glb: Glb,
   primitives: PosedPrimitive[],
@@ -496,8 +586,17 @@ function drawFur(
   const { eye, forward, right, up, focal, near } = camera;
   const shells = Math.max(1, Math.round(fur.shells ?? 16));
   const strandsPerUv = fur.strandsPerUv ?? 192;
+  // Clumps span about six strands: soft, low-frequency variation in length, never per pixel.
+  const clumpCells = Math.max(1, strandsPerUv / 6);
   const BEND = 0.35;
+  const shade = shaderFor(options, camera);
+  const tone = toneFor(options);
   const texel: Vec = [0, 0, 0];
+  // Fur behind the surface is hidden; fur behind other fur within this reach still blends, so
+  // semi-transparent shells do not cut each other off at the silhouette.
+  const reach = fur.maxLengthM * 2;
+  const furDepth = new Float64Array(size * size).fill(Infinity);
+  const exponent = FUR_LAYERS / shells;
 
   for (const prim of primitives) {
     const { uvs, normals } = prim;
@@ -583,7 +682,7 @@ function drawFur(
         const maxY = Math.min(size - 1, Math.ceil(Math.max(y0, y1, y2)));
         if (minX > maxX || minY > maxY) continue;
 
-        // Facing from the screen-space winding against the surface normals, so no face normal is needed.
+        // Facing from the surface normals against the viewer, so no face normal is needed.
         const gx = normals[i0 * 3]! + normals[i1 * 3]! + normals[i2 * 3]!;
         const gy = normals[i0 * 3 + 1]! + normals[i1 * 3 + 1]! + normals[i2 * 3 + 1]!;
         const gz = normals[i0 * 3 + 2]! + normals[i1 * 3 + 2]! + normals[i2 * 3 + 2]!;
@@ -609,38 +708,27 @@ function drawFur(
             const invZ = w0 * iz0 + w1 * iz1 + w2 * iz2;
             const depth = 1 / invZ;
             const at = y * size + x;
-            if (depth >= depthBuffer[at]!) continue;
+            if (depth >= depthBuffer[at]! || depth > furDepth[at]! + reach) continue;
             const b0 = (w0 * iz0) / invZ;
             const b1 = (w1 * iz1) / invZ;
             const b2 = 1 - b0 - b1;
             const u = b0 * uvs[i0 * 2]! + b1 * uvs[i1 * 2]! + b2 * uvs[i2 * 2]!;
             const w = b0 * uvs[i0 * 2 + 1]! + b1 * uvs[i1 * 2 + 1]! + b2 * uvs[i2 * 2 + 1]!;
 
-            const length = texelAt(fur.length, u, w, 0);
-            if (length <= 0) continue;
-            const su = u * strandsPerUv;
-            const sv = w * strandsPerUv;
-            const cu = Math.floor(su);
-            const cv = Math.floor(sv);
-            const cellU = (cu + 0.5) / strandsPerUv;
-            const cellV = (cv + 0.5) / strandsPerUv;
-            if (hash2(cu, cv, 1) >= texelAt(fur.density, cellU, cellV, 0)) continue;
-            const variety = 0.6 + 0.4 * hash2(cu, cv, 2);
-            if (t > length * variety) continue;
-            const radius = 0.9 * (1 - 0.7 * t);
-            if (Math.hypot(su - cu - 0.5, sv - cv - 0.5) * 2 > radius) continue;
+            if (texelAt(fur.length, u, w, 0) <= 0) continue;
+            const clump = 0.8 + 0.4 * smoothNoise(u, w, clumpCells, 2);
+            const coverage = strandCoverage(t, texelAt(fur.density, u, w, 0), clump);
+            if (coverage <= 0) continue;
+            const alpha = 1 - Math.pow(1 - Math.min(coverage, 0.999), exponent);
+            if (depth < furDepth[at]!) furDepth[at] = depth;
 
-            depthBuffer[at] = depth;
             const nx = b0 * normals[i0 * 3]! + b1 * normals[i1 * 3]! + b2 * normals[i2 * 3]!;
             const ny =
               b0 * normals[i0 * 3 + 1]! + b1 * normals[i1 * 3 + 1]! + b2 * normals[i2 * 3 + 1]!;
             const nz =
               b0 * normals[i0 * 3 + 2]! + b1 * normals[i1 * 3 + 2]! + b2 * normals[i2 * 3 + 2]!;
-            const nl = Math.hypot(nx, ny, nz) || 1;
-            const d = (facing * (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])) / nl;
-            const light = options.unlit
-              ? 1
-              : (AMBIENT + (1 - AMBIENT) * Math.max(0, d)) * (0.6 + 0.4 * t);
+            // A little darker toward the root, where strands shade each other.
+            const light = options.unlit ? 1 : shade(nx, ny, nz, facing) * (0.85 + 0.15 * t);
 
             let r = factor[0] ?? 1;
             let g = factor[1] ?? 1;
@@ -652,20 +740,72 @@ function drawFur(
               b *= texel[2];
             }
             if (fur.tint) {
-              const mix = texelAt(fur.tint, cellU, cellV, 3) * t;
-              r += (r * texelAt(fur.tint, cellU, cellV, 0) - r) * mix;
-              g += (g * texelAt(fur.tint, cellU, cellV, 1) - g) * mix;
-              b += (b * texelAt(fur.tint, cellU, cellV, 2) - b) * mix;
+              const mix = texelAt(fur.tint, u, w, 3) * t;
+              r += (r * texelAt(fur.tint, u, w, 0) - r) * mix;
+              g += (g * texelAt(fur.tint, u, w, 1) - g) * mix;
+              b += (b * texelAt(fur.tint, u, w, 2) - b) * mix;
             }
             const o = at * 4;
-            raster.data[o] = Math.round(Math.min(1, r * light) * 255);
-            raster.data[o + 1] = Math.round(Math.min(1, g * light) * 255);
-            raster.data[o + 2] = Math.round(Math.min(1, b * light) * 255);
+            raster.data[o] = Math.round(
+              raster.data[o]! * (1 - alpha) + tone(r * light) * 255 * alpha,
+            );
+            raster.data[o + 1] = Math.round(
+              raster.data[o + 1]! * (1 - alpha) + tone(g * light) * 255 * alpha,
+            );
+            raster.data[o + 2] = Math.round(
+              raster.data[o + 2]! * (1 - alpha) + tone(b * light) * 255 * alpha,
+            );
           }
         }
       }
     }
   }
+  for (let i = 0; i < furDepth.length; i++) {
+    if (furDepth[i]! < depthBuffer[i]!) depthBuffer[i] = furDepth[i]!;
+  }
+}
+
+/**
+ * Speckle: the share of the figure's pixels (those differing from `background`) whose luminance
+ * differs from the median of their 3×3 neighbourhood by more than `threshold` (0–255). Isolated
+ * bright or dark pixels, the noise a hit-or-miss strand pattern makes, score; smooth shading and
+ * clean edges do not.
+ */
+export function speckle(
+  raster: Raster,
+  background: [number, number, number] = [BACKGROUND, BACKGROUND, BACKGROUND],
+  threshold = 24,
+): number {
+  const { width, height, data } = raster;
+  const lum = new Float32Array(width * height);
+  const figure = new Uint8Array(width * height);
+  for (let i = 0; i < lum.length; i++) {
+    const o = i * 4;
+    lum[i] = 0.2126 * data[o]! + 0.7152 * data[o + 1]! + 0.0722 * data[o + 2]!;
+    figure[i] =
+      Math.abs(data[o]! - background[0]) +
+        Math.abs(data[o + 1]! - background[1]) +
+        Math.abs(data[o + 2]! - background[2]) >
+      6
+        ? 1
+        : 0;
+  }
+  let pixels = 0;
+  let speckled = 0;
+  const window: number[] = [];
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = y * width + x;
+      if (!figure[i]) continue;
+      pixels++;
+      window.length = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) window.push(lum[i + dy * width + dx]!);
+      window.sort((a, b) => a - b);
+      if (Math.abs(lum[i]! - window[4]!) > threshold) speckled++;
+    }
+  }
+  return pixels === 0 ? 0 : speckled / pixels;
 }
 
 export interface TurntableFrame {
