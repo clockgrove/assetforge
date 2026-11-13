@@ -93,13 +93,19 @@ export const LOOKDEV_STEP = "lookdev";
 /** The groom key used when the profile declares no seasons. */
 export const SINGLE_GROOM = "default";
 
-/** The views look-dev restyles and projects back: the four turntable views, the other side, and a high view of the back. */
+/**
+ * The views look-dev restyles and projects back, in the order it restyles them: the four turntable
+ * views, the other side, and a high view of the back. The square-on views come first, so each
+ * diagonal view continues markings that a square-on view already placed along the body
+ * (assetforge#129: restyled before the side, a diagonal view placed markings the side view then
+ * redrew elsewhere, and the blend mixed the two).
+ */
 export const LOOKDEV_VIEWS = [
   { name: "front", yawDeg: 0, elevationDeg: 15 },
-  { name: "three-quarter", yawDeg: 45, elevationDeg: 15 },
   { name: "side", yawDeg: 90, elevationDeg: 15 },
-  { name: "back", yawDeg: 180, elevationDeg: 15 },
   { name: "other-side", yawDeg: 270, elevationDeg: 15 },
+  { name: "back", yawDeg: 180, elevationDeg: 15 },
+  { name: "three-quarter", yawDeg: 45, elevationDeg: 15 },
   { name: "other-three-quarter", yawDeg: 315, elevationDeg: 15 },
   { name: "top", yawDeg: 135, elevationDeg: 65 },
 ] as const;
@@ -443,8 +449,9 @@ function restylePrompt(
     ...styleNotes(spec, bible).map((n) => `- ${n}`),
     "Keep the exact silhouette, pose, framing, camera and size of the render: change only the colour and texture painted on the surface, so it can be projected back onto the model.",
     "The character's features (its eyes, nose and mouth, and any ears, limbs or tail it has) are where the render has them: keep each one exactly there, even where the model's proportions differ from the references, and do not draw a feature (such as an eye) anywhere the render does not show it.",
-    "Identity markings include broad colour regions (a paler or darker underside, limbs, back or face) as well as small marks, bands and rims. Keep every identity marking where the references have it relative to those features: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. A marking that surrounds or runs from a feature in the references (around an eye or running back from it) does so around or from that feature as the render places it. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
+    "Identity markings include broad colour regions (a paler or darker underside, limbs, back or face) as well as small marks, bands and rims. Keep every identity marking where the references have it relative to those features: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. Where a part alternates bands of two colours, give each band the width the references give it against its neighbours (where the darker bands are broader than the paler ones in the references, keep them broader), and end the part in the colour the references end it in. A marking that surrounds or runs from a feature in the references (around an eye or running back from it) does so around or from that feature as the render places it. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
     "Paint the colour as evenly lit albedo: no cast shadows, no highlights, no rim light, no background objects. Keep the plain background colour.",
+    "Paint nothing that stands off the surface, such as whiskers or stray hairs: it is not surface colour, and projected back it would break up the marking under it.",
   ].join("\n");
 }
 

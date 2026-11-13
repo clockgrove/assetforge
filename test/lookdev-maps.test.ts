@@ -179,6 +179,38 @@ test("fillUnseen fills every covered texel and dilate adds a ring", () => {
   assert.equal(dilate(edge, covered, 3).data[0], 200);
 });
 
+test("fillUnseen gives unseen texels the colour their seen neighbours were painted, not the source's marking", () => {
+  const { glb, texels } = character();
+  const { list, depths } = views(glb, [0, 0, 0]);
+  // The source marks one side of the body pale; the only view paints the whole front one dark colour.
+  const dark: [number, number, number] = [60, 50, 40];
+  const projection = projectViews(
+    glb,
+    texels,
+    [{ ...list[0]!, image: uniform(96, 96, dark) }],
+    [depths[0]!],
+  );
+  const source = createRaster(SIZE, SIZE);
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const pale = texels.covered[i] && texels.position[i * 3]! > 0;
+    source.data.set(pale ? [230, 220, 200, 255] : [120, 110, 100, 255], i * 4);
+  }
+  const filled = fillUnseen(projection, texels, source);
+  const unseen = { pale: [] as number[], other: [] as number[] };
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    if (!texels.covered[i] || projection.weight[i]! > 0) continue;
+    (texels.position[i * 3]! > 0 ? unseen.pale : unseen.other).push(filled.data[i * 4]!);
+  }
+  assert.ok(
+    unseen.pale.length > 10 && unseen.other.length > 10,
+    JSON.stringify(unseen).length + "",
+  );
+  const mean = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
+  // Both sides take the painted colour; the source's pale side does not show through.
+  assert.ok(Math.abs(mean(unseen.pale) - dark[0]) < 15, `pale side ${mean(unseen.pale)}`);
+  assert.ok(Math.abs(mean(unseen.other) - dark[0]) < 15, `other side ${mean(unseen.other)}`);
+});
+
 test("seamError is ~0 for a projected uniform texture and >0 across a colour change", () => {
   const { glb, texels } = character();
   const { list, depths } = views(glb, [100, 150, 200]);
