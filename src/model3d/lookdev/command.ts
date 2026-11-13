@@ -267,6 +267,32 @@ function foregroundBox(raster: Raster, background: [number, number, number], tol
   return x1 < x0 ? undefined : { x0, y0, x1: x1 + 1, y1: y1 + 1 };
 }
 
+/**
+ * The figure cut out with a margin of `margin` of its larger side, so a vision model boxes markings
+ * on the figure at its full resolution rather than on a small figure in a wide frame.
+ */
+export function figureCrop(
+  raster: Raster,
+  background: [number, number, number],
+  margin = 0.08,
+): Raster {
+  const box = foregroundBox(raster, background);
+  if (!box) return raster;
+  const pad = Math.round(Math.max(box.x1 - box.x0, box.y1 - box.y0) * margin);
+  const x0 = Math.max(0, box.x0 - pad);
+  const y0 = Math.max(0, box.y0 - pad);
+  const x1 = Math.min(raster.width, box.x1 + pad);
+  const y1 = Math.min(raster.height, box.y1 + pad);
+  const out = createRaster(x1 - x0, y1 - y0);
+  for (let y = y0; y < y1; y++) {
+    out.data.set(
+      raster.data.subarray((y * raster.width + x0) * 4, (y * raster.width + x1) * 4),
+      (y - y0) * out.width * 4,
+    );
+  }
+  return out;
+}
+
 /** The median colour of the image's border: the background an edited image ended up with. */
 function borderColour(raster: Raster): [number, number, number] {
   const samples: number[][] = [[], [], []];
@@ -1241,7 +1267,8 @@ export async function lookDev(
       unmeasured.push(`${view.name} (the references have no ${view.name} view)`);
       continue;
     }
-    const renders = plan.seasons.map((s) => afterBySeason[s]![v]!);
+    // Each render cut to its figure, so the boxes land on the figure at full resolution.
+    const renders = plan.seasons.map((s) => figureCrop(afterBySeason[s]![v]!, BACKGROUND));
     const text = await caller.vision(
       LOOKDEV_MARKINGS_OPERATION,
       markingsPrompt({

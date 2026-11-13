@@ -40,7 +40,7 @@ export function markingsPrompt(options: {
   const lines = [
     "You compare identity markings between an approved reference and renders of a 3D model.",
     description ? `Subject: ${subject}, ${description}.` : `Subject: ${subject}.`,
-    `Image 1 is the approved reference (${referenceRole}). Images 2 onward are lit renders of the character's 3D model in the ${view} view, ${coats}.`,
+    `Image 1 is the approved reference (${referenceRole}). Images 2 onward are lit renders of the character's 3D model in the ${view} view, ${coats}, each cut to the figure.`,
     "List every identity marking that the subject description names or the reference shows: distinct coloured patches, masks, rims, bands, rings, stripes, spots.",
     'For each marking, give in every image the tight box of the marking and a box of the neighbouring region it contrasts with ("against" names that region). Boxes are [ymin, xmin, ymax, xmax], integers from 0 to 1000 down the image height (y) and across its width (x), origin top left. Use null for an image that does not show the marking.',
     'Reply with JSON only: {"markings":[{"name": string, "against": string, "boxes": [{"mark":[ymin,xmin,ymax,xmax],"ground":[ymin,xmin,ymax,xmax]} | null, ...]}]}',
