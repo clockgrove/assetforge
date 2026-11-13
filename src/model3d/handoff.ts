@@ -6,13 +6,16 @@
 import { InputError } from "../errors.ts";
 import type { TargetWrite } from "../handoff.ts";
 import type { TargetProfile } from "../types.ts";
-import { parseGlb, writeGlb } from "./glb.ts";
+import { GLB_MEDIA_TYPE, parseGlb, writeGlb } from "./glb.ts";
 import type { Glb } from "./glb.ts";
 import { appendBufferView } from "./lookdev/edit.ts";
 import { boundsOf, clips, posedPrimitives } from "./scene.ts";
 
 export const SIDE_IMAGE_MODES = ["beside", "embedded"] as const;
 export type SideImageMode = (typeof SIDE_IMAGE_MODES)[number];
+
+export const LOD_PACKAGINGS = ["embedded", "files"] as const;
+export type LodPackaging = (typeof LOD_PACKAGINGS)[number];
 
 /** The profile's `model3d.handoff` section. */
 export interface Model3dHandoffProfile {
@@ -23,11 +26,14 @@ export interface Model3dHandoffProfile {
   clipFields?: Record<string, string>;
   /** `beside` (default): side images are files next to the `.glb`. `embedded`: inside it. */
   sideImages?: SideImageMode;
+  /** `embedded` (default): the detail levels are in the `.glb`. `files`: one `.glb` per level (assetforge#136). */
+  lods?: LodPackaging;
 }
 
 export interface ResolvedHandoff {
   clipFields?: Record<string, string>;
   sideImages: SideImageMode;
+  lods?: LodPackaging;
 }
 
 const FIELD = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -39,7 +45,7 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
   if (section === null || typeof section !== "object" || Array.isArray(section)) {
     throw new InputError("model3d.handoff must be an object");
   }
-  const { clipFields, sideImages = "beside", ...rest } = section as Record<string, unknown>;
+  const { clipFields, sideImages = "beside", lods, ...rest } = section as Record<string, unknown>;
   const unknown = Object.keys(rest);
   if (unknown.length > 0) {
     throw new InputError(`model3d.handoff has unknown field(s): ${unknown.join(", ")}`);
@@ -47,7 +53,14 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
   if (!SIDE_IMAGE_MODES.includes(sideImages as SideImageMode)) {
     throw new InputError(`model3d.handoff.sideImages must be ${SIDE_IMAGE_MODES.join(" or ")}`);
   }
-  if (clipFields === undefined) return { sideImages: sideImages as SideImageMode };
+  if (lods !== undefined && !LOD_PACKAGINGS.includes(lods as LodPackaging)) {
+    throw new InputError(`model3d.handoff.lods must be ${LOD_PACKAGINGS.join(" or ")}`);
+  }
+  const base = {
+    sideImages: sideImages as SideImageMode,
+    ...(lods !== undefined && { lods: lods as LodPackaging }),
+  };
+  if (clipFields === undefined) return base;
   if (clipFields === null || typeof clipFields !== "object" || Array.isArray(clipFields)) {
     throw new InputError("model3d.handoff.clipFields must map manifest field names to clip fields");
   }
@@ -62,7 +75,7 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
   }
   return {
     clipFields: Object.fromEntries(entries) as Record<string, string>,
-    sideImages: sideImages as SideImageMode,
+    ...base,
   };
 }
 
@@ -85,14 +98,9 @@ function shapeClips(clipList: unknown, fields: Record<string, string>): unknown 
   );
 }
 
-/**
- * Embeds every side image the `.glb` references by `uri` into its binary chunk, and drops every
- * side file: the ones it references are now inside it, and the others (the base colour) already
- * were. `asset.extras.lookdev.images` keeps each field's image index, without the `uri`.
- */
-function embedSideImages(output: ModelHandoff): ModelHandoff {
-  const glb = parseGlb(output.bytes);
-  const byName = new Map(output.sidecars.map((s) => [s.name, s]));
+/** Embeds every side image `bytes` references by `uri`, from `byName`; returns the new bytes. */
+function embedInto(bytes: Uint8Array, byName: Map<string, ModelHandoff["sidecars"][number]>) {
+  const glb = parseGlb(bytes);
   for (const image of glb.json.images ?? []) {
     if (image.uri === undefined || image.uri.startsWith("data:")) continue;
     const sidecar = byName.get(decodeURIComponent(image.uri));
@@ -106,7 +114,22 @@ function embedSideImages(output: ModelHandoff): ModelHandoff {
   const extras = glb.json.asset.extras as
     { lookdev?: { images?: Record<string, Record<string, unknown>> } } | undefined;
   for (const entry of Object.values(extras?.lookdev?.images ?? {})) delete entry["uri"];
-  return { bytes: writeGlb(glb), fields: output.fields, sidecars: [] };
+  return writeGlb(glb);
+}
+
+/**
+ * Embeds every side image the `.glb` references by `uri` into its binary chunk, and drops every
+ * side file: the ones it references are now inside it, and the others (the base colour) already
+ * were. `asset.extras.lookdev.images` keeps each field's image index, without the `uri`. The
+ * chain's other `.glb` files (detail levels and tiers, assetforge#136) are kept beside it, each
+ * with its own side images embedded the same way.
+ */
+function embedSideImages(output: ModelHandoff): ModelHandoff {
+  const byName = new Map(output.sidecars.map((s) => [s.name, s]));
+  const models = output.sidecars
+    .filter((s) => s.mediaType === GLB_MEDIA_TYPE)
+    .map((s) => ({ ...s, bytes: embedInto(s.bytes, byName) }));
+  return { bytes: embedInto(output.bytes, byName), fields: output.fields, sidecars: models };
 }
 
 /**
@@ -132,7 +155,8 @@ function measuredDurations(glb: Glb, clipList: unknown): unknown {
 export function shapeModelHandoff(profile: TargetProfile, output: ModelHandoff): ModelHandoff {
   const settings = handoffSettings(profile);
   const shaped =
-    settings.sideImages === "embedded" && output.sidecars.length > 0
+    settings.sideImages === "embedded" &&
+    output.sidecars.some((s) => s.mediaType !== GLB_MEDIA_TYPE)
       ? embedSideImages(output)
       : output;
   const glb = parseGlb(shaped.bytes);
