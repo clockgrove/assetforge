@@ -50,20 +50,29 @@ The groom prompt reads the season's `traits` from the profile, as given.
    - the model before look-dev;
    - one column per season after look-dev.
 
+   `unlit-before-<view>.png` and `unlit-after-<view>.png` show the base colour alone for the four turntable views, with no lighting or fur.
+
+6. **Markings.** One `lookdev-markings` call (`google/gemini-3-flash`) per turntable view that has its own turnaround view. It reads that view, then the lit after render of each season. It names each identity marking that the bible's subject description names or the reference shows. For each marking, it gives in every image a box on the marking and a box on the neighbouring coat it contrasts with. The measurement is deterministic: the CIELAB median of the figure's pixels in each box (see the `lookdev-markings` check).
+
+**Preview lighting** (assetforge#122). Every before and after render, in every season, and the close-up share one lighting. It is relative to the camera, so each view is lit alike, as a turnaround is drawn. Assetforge's default is neutral: ambient 0.6, plus a key of 0.4 from above and to the left of the camera, with automatic exposure. The exposure is one number for the whole run. It brings the source model's mean lit brightness over the four turntable views to its unlit (albedo) brightness. It depends on the source model alone, so before and after share it. A target may declare its own `previewLighting` (see Contract). `parameters.lookdev.lighting` records the lighting, the exposure, and each season's lit-to-unlit figure brightness per view.
+
+**The fur preview** draws `shells` offset copies of the surface (16 by default). Each copy is alpha-blended over what is beneath it, at the strands' expected coverage at that height. Strands thin toward the tips, and smooth clumps vary their length. No pixel makes a hit-or-miss choice per strand, so the coat stays soft and free of speckle at any zoom. It is a preview of what the maps drive, not the target's fur material.
+
 ## Checks
 
 All of these are recorded as reasons before the person sees the result. A failing check filters the candidate.
 
-| Check                                    | Passes when                                                                                                                                                                                           |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lookdev-albedo-coverage`                | At least 50% of the texels take colour from the restyled views.                                                                                                                                       |
-| `lookdev-seams`                          | The mean colour difference across UV seam edges (mesh edges welded by position whose UVs differ) is at most 8 (0–255), or at most 1.25 times the source texture's.                                    |
-| `groom-<season>-masks` (`groom-masks`)   | Length is zero on every eye, nose and paw-pad texel and on no other texel, and each of the three masks holds texels. The reason gives each mask's count and names an empty mask and why it is empty.  |
-| `groom-<season>-render` (`groom-render`) | Shell fur driven by the season's maps changes more than 1% of a turntable view's pixels.                                                                                                              |
-| `eyes-catch-light`                       | Eyes were located, their triangles are in the `eyes` material, and the close-up at the closest zoom shows a highlight in every located eye (peak luminance at least 200, and 60 over the eye's mean). |
-| `lookdev-compare`                        | Every compare image has a turnaround column. A view whose own reference is missing, and so shows the front view, is named in the reason.                                                              |
-| `gltf-validator`, `budget-*`             | As for every 3D candidate. The groom maps are resolved as external files. Their size counts toward `textureMaxPx`.                                                                                    |
-| `identity-lock`                          | The identity lock scores the front and three-quarter renders after look-dev (first season) against the approved references, in the profile's identity mode, as for wave 0.                            |
+| Check                                    | Passes when                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lookdev-albedo-coverage`                | At least 50% of the texels take colour from the restyled views.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `lookdev-seams`                          | The mean colour difference across UV seam edges (mesh edges welded by position whose UVs differ) is at most 8 (0–255), or at most 1.25 times the source texture's.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `groom-<season>-masks` (`groom-masks`)   | Length is zero on every eye, nose and paw-pad texel and on no other texel, and each of the three masks holds texels. The reason gives each mask's count and names an empty mask and why it is empty.                                                                                                                                                                                                                                                                                                                                                         |
+| `groom-<season>-render` (`groom-render`) | Shell fur driven by the season's maps changes more than 1% of a turntable view's pixels. The fur adds at most 0.5% speckle in each turntable view and the close-up. Speckle is the share of the figure's pixels whose luminance is more than 24 from their 3×3 median, fur render minus bare render.                                                                                                                                                                                                                                                         |
+| `lookdev-markings`                       | No identity marking drifts from the matching turnaround view, in any season's lit after render. A marking drifts when its colour differs by ΔE76 > 20, or when its lightness contrast against the neighbouring coat flips, or keeps under half of the turnaround's (for turnaround contrasts of 8 L\* or more). The reason gives each marking per view and season (ΔE, and contrast reference → render). It names every drifting marking, and every view, marking or season not measured, and why: a view the references do not name, a marking not located. |
+| `eyes-catch-light`                       | Eyes were located, their triangles are in the `eyes` material, and the close-up at the closest zoom shows a highlight in every located eye (peak luminance at least 200, and 60 over the eye's mean).                                                                                                                                                                                                                                                                                                                                                        |
+| `lookdev-compare`                        | Every compare image has a turnaround column. A view whose own reference is missing, and so shows the front view, is named in the reason.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `gltf-validator`, `budget-*`             | As for every 3D candidate. The groom maps are resolved as external files. Their size counts toward `textureMaxPx`.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `identity-lock`                          | The identity lock scores the front and three-quarter renders after look-dev (first season) against the approved references, in the profile's identity mode, as for wave 0.                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Contract
 
@@ -74,7 +83,11 @@ The field names below are shared with clockgrove/raccoon-world#39 and Clockgrove
 ```json
 "model3d": {
   "groom": { "maps": ["length", "direction", "density"], "sizePx": 2048, "seasons": ["summer", "winter"] },
-  "lookdev": { "capUsd": 3, "closestZoom": { "screenHeightPx": 1440, "characterScreenFraction": 0.3333 } }
+  "lookdev": {
+    "capUsd": 3,
+    "closestZoom": { "screenHeightPx": 1440, "characterScreenFraction": 0.3333 },
+    "previewLighting": { "ambient": 0.6, "key": 0.4, "keyDirection": [-0.4, 0.5, 0.75], "exposure": "auto" }
+  }
 }
 ```
 
@@ -87,6 +100,7 @@ The field names below are shared with clockgrove/raccoon-world#39 and Clockgrove
 - `lookdev` (added) fields:
   - `capUsd` is the look-dev cap for one character, default $3. `--cap` overrides it.
   - `closestZoom` is the target's closest zoom, used for the close-up check render. The default is the character at a third of a 1440 px screen height, desktop (Kirk, 2026-11-10).
+  - `previewLighting` (added by assetforge#122) is the lighting of the before and after renders, with each field optional. The shown values are the defaults. `keyDirection` is in camera space: x right, y up, z toward the camera. `exposure` is a number, or `"auto"`.
 
 **Template outputs**
 
@@ -122,6 +136,6 @@ The run keeps the source model's provenance and adds the following:
 - a `lookdev` step, whose input is the source model's hash and whose output is the new model's hash;
 - the combined `outputGrant` over every call, the source's included.
 
-Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item; assetforge#74). Each call is reserved before it is made. The default routes forecast $1.81: 7 × $0.25 + $0.02 + 2 × $0.02 + $0.001. `--dry-run` prints the forecast and what is left under each limit.
+Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item; assetforge#74). Each call is reserved before it is made. The default routes forecast $1.89: 7 × $0.25 + $0.02 + 2 × $0.02 + 4 × $0.02 + $0.001. The four markings calls are an upper bound: only views with their own turnaround view make one. `--dry-run` prints the forecast and what is left under each limit.
 
 Tests use the scripted provider in `test/fixtures/lookdev-script.ts`.
