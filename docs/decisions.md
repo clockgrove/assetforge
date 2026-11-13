@@ -357,6 +357,20 @@ Generic and look-alike AUC is 0.992–1.000 in every row. 3D is provisional (18 
 
 **What is open:** a body stretched about 1.3× in a strongly posed frame. Enforce mode and the `question: "cast"` recommendation for a look-alike cast wait for a run whose held-out frames meet the bar.
 
+## `lookdev-markings` is advisory (owner, 2026-11-13)
+
+**`lookdev-markings` still runs and records every measurement, but it no longer filters a look-dev candidate, and a drift no longer makes the run exit 5.** Its reason is marked `shadow`, as the identity lock's is in shadow mode. It starts by saying the check is advisory and why, and the run summary shows its verdict as "not filtered". Approval stays human: a person judges the compare images, and `pick` is theirs.
+
+**Why.** The check measures each marking in boxes a vision model draws, on the turnaround and on the renders. On unchanged code it names a different set of drifting markings on each run, so it cannot make a pass/fail call:
+
+- #122's five proof runs named 4 to 12 drifting measurements;
+- #129's runs named 11 to 13, and a replay with fur off still named 8, on the same renders;
+- #131's runs named 3 and 8.
+
+Most of the variation comes from where a box lands, not from the result. A box "beside" a marking often covers a different region in the render than in the turnaround. In #129's run 3, the front tail's body box covered most of the figure. In #131's run 2, the side mask's neighbouring box overlapped the mask itself. The check also could not hand off a result a person had approved: Kirk approved #131's renders ("looks pretty good"), and the drifts filtered them.
+
+**When it filters again.** When the same result gives the same drift set across repeated measurements: the markings calls rerun on one run's saved renders name the same drifting markings each time. That means a measurement whose boxes are stable, not a looser threshold.
+
 ## Decision models for QA (owner, 2026-11-08; assetforge#27)
 
 #27 measured gateway decision models on image questions and closes with these outcomes:

@@ -302,16 +302,30 @@ function detail(m: MarkingMeasure): string {
 }
 
 /**
+ * Why the check is advisory, said in every reason: its boxes come from a vision model, and on
+ * unchanged code they name a different set of drifting markings on each run (docs/decisions.md).
+ */
+export const MARKINGS_ADVISORY =
+  "advisory, never filters: the boxes come from a vision model, and on the same code they name a different set of drifting markings on each run, so a person judges the compare images";
+
+/**
  * The check's verdict. A marking drifts when its colour or contrast drifts, or when the
  * turnaround shows it and a render does not (`missing`); a view whose reply could not be read
  * (`unreadable`) fails too, because a marking there could have vanished unseen. Only what the
- * references give nothing to measure (`unmeasured`) passes, named.
+ * references give nothing to measure (`unmeasured`) passes, named. The verdict is recorded with
+ * every measurement but is `shadow`: it never filters the candidate (MARKINGS_ADVISORY).
  */
 export function markingsReason(
   measures: MarkingMeasure[],
   notes: { unmeasured: string[]; unreadable?: string[] },
-): { check: "lookdev-markings"; passed: boolean; reason: string; source: "deterministic" } {
-  const parts: string[] = [];
+): {
+  check: "lookdev-markings";
+  passed: boolean;
+  reason: string;
+  source: "deterministic";
+  shadow: true;
+} {
+  const parts: string[] = [MARKINGS_ADVISORY];
   if (measures.length === 0) {
     parts.push("no marking was measured");
   } else {
@@ -344,5 +358,6 @@ export function markingsReason(
     passed: !measures.some((m) => m.drifts) && unreadable.length === 0,
     reason: parts.join(". "),
     source: "deterministic",
+    shadow: true,
   };
 }
