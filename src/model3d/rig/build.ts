@@ -101,7 +101,12 @@ export function buildRiggedGlb(
 ): Glb {
   const out = new BinWriter();
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge shared rig", extras: { rig } },
+    // The source's own asset extras (look-dev's groom record, say) carry over; the rig's replaces any.
+    asset: {
+      version: "2.0",
+      generator: "assetforge shared rig",
+      extras: { ...(source.json.asset.extras as Record<string, unknown> | undefined), rig },
+    },
     scene: 0,
     scenes: [{ nodes: [0] }],
   };

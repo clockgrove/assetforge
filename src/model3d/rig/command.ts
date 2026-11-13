@@ -5,7 +5,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { InputError } from "../../errors.ts";
 import {
   DIGITAL_SOURCE_TYPES,
@@ -19,6 +19,7 @@ import type { RunRecord, StagedCandidate } from "../../loop.ts";
 import { sha256 } from "../../request.ts";
 import type { AssetSpec, Provenance, TargetProfile } from "../../types.ts";
 import { GLB_MEDIA_TYPE, parseGlb } from "../glb.ts";
+import type { Glb } from "../glb.ts";
 import { CHARACTER_3D_KIND, characterSpec, model3dSettings } from "../profile.ts";
 import { qaPassed } from "../qa.ts";
 import { profileSha256, riggedCandidate } from "./candidate.ts";
@@ -59,9 +60,11 @@ export async function rerig(
   const rig = await loadRig(profile, options.profileDir);
   const sourceSha256 = sha256(options.model.bytes);
   const source = parseGlb(options.model.bytes);
+  const resources = await externalImages(source, dirname(resolve(options.model.path)));
   const candidate = await riggedCandidate({
     source,
     sourceSha256,
+    ...(Object.keys(resources).length > 0 && { resources }),
     // A handed-off model already faces the target's forward.
     sourceForward: settings.forward,
     settings,
@@ -106,6 +109,7 @@ export async function rerig(
       template: rig.templatePath,
       templateSha256: rig.templateSha256,
       gaitSha256: rig.gaitSha256,
+      ...(Object.keys(rig.motionSha256).length > 0 && { motionSha256: rig.motionSha256 }),
       targetProfileSha256: profileSha256(profile),
     },
     engine: { name: "assetforge-rig", version: "1" },
@@ -165,6 +169,27 @@ export async function rerig(
   }
   await writeRun(runDir, run);
   return { run, runDir, passed };
+}
+
+/**
+ * The source's external images (a look-dev'd model's groom maps, tint and eye mask) read from
+ * beside the model, by `uri`. Only plain relative paths inside the model's directory are read; an
+ * image that cannot be read is left out, and the validator then names it.
+ */
+async function externalImages(source: Glb, dir: string): Promise<Record<string, Uint8Array>> {
+  const out: Record<string, Uint8Array> = {};
+  for (const image of source.json.images ?? []) {
+    const uri = image.uri;
+    if (uri === undefined || /^[a-z][a-z0-9+.-]*:/i.test(uri)) continue;
+    const path = decodeURIComponent(uri);
+    if (isAbsolute(path) || path.split(/[\\/]/).includes("..")) continue;
+    try {
+      out[path] = new Uint8Array(await readFile(join(dir, path)));
+    } catch {
+      // Left out: the validator reports the image it cannot load.
+    }
+  }
+  return out;
 }
 
 /** Reads a provenance record from a file. */

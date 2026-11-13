@@ -49,6 +49,11 @@ export interface GeneratedClip {
   touchdown?: number[];
   /** Gaits: the fraction of the cycle each foot is on the ground. */
   dutyFactor?: number;
+  /**
+   * One-shot motions: the pose the clip must start and end on (its idle's first pose, or the
+   * neutral stance), as every joint's local rotation and the root joint's translation.
+   */
+  ends?: { from: string; rotations: Quat[]; rootTranslation: V3 };
 }
 
 /** Part of a clip a foot is down: from phase `start` (0..1) for `length` of the clip (at most 1). */

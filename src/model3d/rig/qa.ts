@@ -5,7 +5,13 @@
  */
 import type { Reason } from "../../types.ts";
 import type { Glb } from "../glb.ts";
-import { clips as clipsOf, posedPrimitives, samplePose, worldMatrices } from "../scene.ts";
+import {
+  clips as clipsOf,
+  posedPrimitives,
+  quatAngleDeg,
+  samplePose,
+  worldMatrices,
+} from "../scene.ts";
 import type { BakedMesh, Skeleton, SkinWeights } from "./fit.ts";
 import { dominantJoint } from "./fit.ts";
 import { inSpan } from "./gait.ts";
@@ -435,5 +441,46 @@ export function skinningCheck(
     failing.length === 0
       ? `girth at bent leg joints kept at ${(Math.min(...results.map((r) => r.ratio)) * 100).toFixed(0)}% of rest or more (minimum ${(tolerances.minGirthRatio * 100).toFixed(0)}%)`
       : `volume collapses at ${failing.map(describe).join(", ")} (minimum ${(tolerances.minGirthRatio * 100).toFixed(0)}% of rest girth)`,
+  );
+}
+
+/**
+ * A one-shot starts and ends on its idle's first pose: the clip as written, at its first and last
+ * key, against that pose, within the loop tolerance (the largest joint rotation, and the root's
+ * translation).
+ */
+export function endsCheck(
+  glb: Glb,
+  clipIndex: number,
+  clip: GeneratedClip,
+  skeleton: Skeleton,
+  tolerance: { rotationDeg: number; translationM: number },
+): Reason | undefined {
+  const ends = clip.ends;
+  if (!ends) return undefined;
+  const root = skeleton.parent.indexOf(-1);
+  const measure = (timeS: number) => {
+    const pose = samplePose(glb, clipIndex, timeS);
+    let rotationDeg = 0;
+    skeleton.names.forEach((_, j) => {
+      const q = (pose.get(jointNode(j))?.r as Quat | undefined) ?? QUAT_IDENTITY;
+      rotationDeg = Math.max(rotationDeg, quatAngleDeg(q, ends.rotations[j]!));
+    });
+    const t = (pose.get(jointNode(root))?.t as V3 | undefined) ?? skeleton.rest[root]!;
+    return { rotationDeg, translationM: length(sub(t, ends.rootTranslation)) };
+  };
+  const first = measure(0);
+  const last = measure(clip.durationS);
+  const ok = (m: { rotationDeg: number; translationM: number }) =>
+    m.rotationDeg <= tolerance.rotationDeg && m.translationM <= tolerance.translationM;
+  const passed = ok(first) && ok(last);
+  const describe = (m: { rotationDeg: number; translationM: number }) =>
+    `${m.rotationDeg.toFixed(2)}°, ${m.translationM.toFixed(4)} m`;
+  return deterministic(
+    `ends-${clip.family}`,
+    passed,
+    `the one-shot ${passed ? "starts and ends" : "does not start and end"} on the pose of ${ends.from}: ` +
+      `first ${describe(first)}, last ${describe(last)} ` +
+      `(tolerance ${tolerance.rotationDeg}°, ${tolerance.translationM.toFixed(4)} m)`,
   );
 }
