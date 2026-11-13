@@ -276,7 +276,9 @@ function clockgrove(model3d: Doc = {}): TargetProfile {
   } as TargetProfile;
 }
 
-test("files packaging: a file per level, tier files per level, each valid and as Clockgrove reads it", async () => {
+// Clockgrove's validator allows no `levels` or `tiers` field in its manifest (its `output` has exact
+// keys), so the level files are written beside `model.glb` and named only in Assetforge's run record.
+test("files packaging: a file per level, tier files per level, each valid; Clockgrove accepts the pick", async () => {
   const p = clockgrove({ tiers: { phone: { triangles: PHONE_TRIANGLES, textureMaxPx: 64 } } });
   const { run, runDir, passed, bytes } = await chain({}, p);
   assert.equal(passed, true, JSON.stringify(run.rejections));
@@ -325,6 +327,8 @@ test("files packaging: a file per level, tier files per level, each valid and as
   assert.equal(picked.validator?.accepted, true, picked.validator?.output);
   const manifest = JSON.parse(await readFile(picked.manifestPath, "utf8"));
   assert.equal(manifest.output.lods, 1);
+  assert.equal(manifest.output.levels, undefined, "Clockgrove's manifest names no level file");
+  assert.equal(manifest.output.tiers, undefined);
   const folder = join(target, "assets/source/kit");
   assert.deepEqual((await readdir(folder)).sort(), [
     "kit.lod1.glb",
@@ -426,6 +430,29 @@ test("a rigged model's levels keep every clip, and its side image is fitted per 
 
   // The source's own file still has its image beside it, as the validator needs.
   assert.equal(reason(run, "gltf-validator-kit.lod1.glb")?.passed, true);
+});
+
+test("a tier the main file serves is still measured against its materials and bones", async () => {
+  const p = profile({ tiers: { phone: { bones: 1, materials: 0 } } });
+  const { run } = await chain({ rigged: true }, p);
+  const tier = reason(run, "tier-phone")!;
+  assert.equal(tier.passed, false, tier.reason);
+  assert.match(tier.reason, /the main file: materials 1 over 0; bones 2 over 1/);
+});
+
+test("a side image a tier cannot resize fails the tier, naming the image and its type", async () => {
+  // A WebP header 256 px wide: measurable, but not decodable here.
+  const webp = new Uint8Array(30);
+  webp.set(Buffer.from("RIFF"), 0);
+  webp.set(Buffer.from("WEBPVP8X"), 8);
+  webp.set([255, 0, 0, 255, 0, 0], 24);
+  const p = profile({ tiers: { phone: { textureMaxPx: 64 } } });
+  const { run } = await chain({ rigged: true, external: { uri: "kit.groom.length.webp" } }, p, {
+    side: webp,
+  });
+  const tier = reason(run, "tier-phone")!;
+  assert.equal(tier.passed, false, tier.reason);
+  assert.match(tier.reason, /image kit\.groom\.length\.webp \(WebP\) cannot be resized/);
 });
 
 test("a level that fails is filtered with its reason, and the candidate is still staged", async () => {

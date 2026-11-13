@@ -418,9 +418,9 @@ assetforge lod --model stevie.glb --provenance stevie.glb.provenance.json --spec
    A level that fails is filtered from the chain, not the candidate. Its checks are recorded beside QA (`shadow`), with a `lod-<n>` reason saying it was left out, and none of its files is written.
 
 3. **Tiers.** Each tier uses the passing levels within its `triangles`, at most its `lods` of them. Raccoon World's phone tier starts at level 1.
-   - Every image over the tier's `textureMaxPx` is area-averaged down to fit, aspect kept, and written as PNG. That covers the embedded textures and look-dev's side maps. A tier without `fur` drops its side maps instead.
+   - Every image over the tier's `textureMaxPx` is area-averaged down to fit, aspect kept, and written as PNG. That covers the embedded textures and look-dev's side maps. A tier without `fur` drops its side maps instead. An image over the size that cannot be decoded here (WebP, or bytes of no known type) fails the tier, its reason naming the image and its type.
    - `tier-<name>` checks the tier's triangles, texture size, materials and bones. It fails, and filters the candidate, when no level fits. That gives exit 5.
-   - A tier that the main file already serves unchanged gets no files of its own: the same levels, textures already within its size, and fur drawn.
+   - A tier that the main file already serves unchanged gets no files of its own: the same levels, textures already within its size, and fur drawn. The main file is still measured against the tier's `materials` and `bones`.
 4. **Checks of the files.** The main file gets every check a 3D candidate gets: the validator, the hierarchy and `budget-*`. Every other `.glb` passes the Khronos validator (`gltf-validator-<file>`).
 5. **Renders.** They go in `<run>/c1-lod/`:
    - `lod<n>-<view>.png` for each level;

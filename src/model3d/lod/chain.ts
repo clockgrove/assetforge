@@ -19,7 +19,7 @@ import { silhouetteViews, trianglesCheck, viewPose } from "./qa.ts";
 import type { LodLevel, ResolvedLods, TierBudget } from "./settings.ts";
 import { appendSimplifiedMesh, levelGlb, pruneAccessors, simplifyPrimitives } from "./simplify.ts";
 import type { SimplifiedPrimitive } from "./simplify.ts";
-import { fitEmbeddedImages, tierSideImages } from "./textures.ts";
+import { TextureFitError, fitEmbeddedImages, tierSideImages } from "./textures.ts";
 import type { SideFile } from "./textures.ts";
 
 export interface LevelRecord extends LodLevel {
@@ -391,6 +391,24 @@ function tierRendition(
     tier.fur &&
     (tier.textureMaxPx === undefined || context.budgets.textureMaxPx <= tier.textureMaxPx);
   const levelText = `level(s) ${levels.map((l) => `${l.level} (${l.triangles} triangles)`).join(", ")}`;
+  // The main file serves the tier as it is only when it is within the tier's other budgets too.
+  const sourceMeasures = measure(context.source);
+  const overMain = (["materials", "bones"] as const).flatMap((key) => {
+    const limit = tier[key];
+    return limit !== undefined && sourceMeasures[key] > limit
+      ? [`${key} ${sourceMeasures[key]} over ${limit}`]
+      : [];
+  });
+  if (sameAsDefault && overMain.length > 0) {
+    return {
+      reason: {
+        check,
+        passed: false,
+        reason: `tier ${tier.name}: the main file: ${overMain.join("; ")}`,
+        source: "deterministic",
+      },
+    };
+  }
   if (sameAsDefault) {
     return {
       reason: {
@@ -438,12 +456,25 @@ function tierRendition(
   let textureMaxPx = 0;
   const problems: string[] = [];
   for (const entry of glbs) {
-    if (tier.textureMaxPx !== undefined) fitEmbeddedImages(entry.glb, tier.textureMaxPx);
-    const own = tierSideImages(entry.glb, context.sides, {
-      ...(tier.textureMaxPx !== undefined && { maxPx: tier.textureMaxPx }),
-      fur: tier.fur,
-      rename: (name) => tierName(context.asset, tier.name, name),
-    });
+    let own: SideFile[];
+    try {
+      if (tier.textureMaxPx !== undefined) fitEmbeddedImages(entry.glb, tier.textureMaxPx);
+      own = tierSideImages(entry.glb, context.sides, {
+        ...(tier.textureMaxPx !== undefined && { maxPx: tier.textureMaxPx }),
+        fur: tier.fur,
+        rename: (name) => tierName(context.asset, tier.name, name),
+      });
+    } catch (error) {
+      if (!(error instanceof TextureFitError)) throw error;
+      return {
+        reason: {
+          check,
+          passed: false,
+          reason: `tier ${tier.name}: ${entry.name}: ${error.message}`,
+          source: "deterministic",
+        },
+      };
+    }
     for (const side of own) sides.set(side.name, side);
     const measures = measure(entry.glb);
     textureMaxPx = Math.max(textureMaxPx, measures.textureMaxPx);

@@ -57,11 +57,44 @@ export function downsample(src: Raster, width: number, height: number): Raster {
   return out;
 }
 
-/** PNG or JPEG bytes within `maxPx`: the same bytes when they fit, else a downsampled PNG. */
-export function fitImage(bytes: Uint8Array, maxPx: number): Uint8Array {
+/** An image a tier would have to resize but cannot decode (WebP, or bytes of no known type). */
+export class TextureFitError extends Error {
+  readonly image: string;
+  readonly type: string;
+  constructor(image: string, type: string, cause: unknown) {
+    super(
+      `image ${image} (${type}) cannot be resized: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+    this.name = "TextureFitError";
+    this.image = image;
+    this.type = type;
+  }
+}
+
+/** The image type its leading bytes name, for a reason a person reads. */
+export function imageType(bytes: Uint8Array): string {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
+    return "PNG";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "JPEG";
+  if (bytes.length >= 12 && Buffer.from(bytes.subarray(8, 12)).toString("latin1") === "WEBP") {
+    return "WebP";
+  }
+  return "unrecognised type";
+}
+
+/**
+ * PNG or JPEG bytes within `maxPx`: the same bytes when they fit, else a downsampled PNG. Bytes
+ * over `maxPx` (or unmeasurable) that cannot be decoded throw a `TextureFitError` naming `label`.
+ */
+export function fitImage(bytes: Uint8Array, maxPx: number, label = "image"): Uint8Array {
   const size = imageSize(bytes);
   if (size && Math.max(size.width, size.height) <= maxPx) return bytes;
-  const raster = decodeImage(bytes);
+  let raster: Raster;
+  try {
+    raster = decodeImage(bytes);
+  } catch (error) {
+    throw new TextureFitError(label, imageType(bytes), error);
+  }
   const fitted = fittedSize(raster.width, raster.height, maxPx);
   if (fitted.width === raster.width && fitted.height === raster.height) return bytes;
   return encodePng(downsample(raster, fitted.width, fitted.height));
@@ -70,10 +103,10 @@ export function fitImage(bytes: Uint8Array, maxPx: number): Uint8Array {
 /** Fits every image embedded in the `.glb` within `maxPx`; returns how many were resized. */
 export function fitEmbeddedImages(glb: Glb, maxPx: number): number {
   let resized = 0;
-  for (const image of glb.json.images ?? []) {
+  for (const [index, image] of (glb.json.images ?? []).entries()) {
     if (image.bufferView === undefined) continue;
     const bytes = bufferViewBytes(glb, image.bufferView);
-    const fitted = fitImage(bytes, maxPx);
+    const fitted = fitImage(bytes, maxPx, `embedded images[${index}]`);
     if (fitted === bytes) continue;
     image.bufferView = appendBufferView(glb, fitted);
     image.mimeType = "image/png";
@@ -117,7 +150,8 @@ export function tierSideImages(
   const lookdev = lookdevImages(glb);
   const out: SideFile[] = [];
   const fit = (side: SideFile): SideFile => {
-    const bytes = options.maxPx === undefined ? side.bytes : fitImage(side.bytes, options.maxPx);
+    const bytes =
+      options.maxPx === undefined ? side.bytes : fitImage(side.bytes, options.maxPx, side.name);
     return {
       ...side,
       name: options.rename(side.name),
