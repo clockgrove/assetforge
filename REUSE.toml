@@ -12,3 +12,11 @@ precedence = "override"
 path = "**"
 SPDX-FileCopyrightText = "2026 Clockgrove"
 SPDX-License-Identifier = "MIT"
+
+# Clockgrove's model validator, vendored as a test fixture from clockgrove/clockgrove at commit
+# 2bade8b60d931dfc1324613c3eb422a3314277d0 (MIT; see test/fixtures/clockgrove/README.md).
+[[annotations]]
+precedence = "override"
+path = "test/fixtures/clockgrove/**"
+SPDX-FileCopyrightText = "2026 Clockgrove"
+SPDX-License-Identifier = "MIT"
