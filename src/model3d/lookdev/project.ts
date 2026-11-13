@@ -154,6 +154,7 @@ export function projectViews(
   const sum = new Float32Array(total * 3);
   const sumSq = new Float32Array(total);
   const weight = new Float32Array(total);
+  const squarest = new Float32Array(total);
 
   let minP = [Infinity, Infinity, Infinity];
   let maxP = [-Infinity, -Infinity, -Infinity];
@@ -216,6 +217,7 @@ export function projectViews(
     sum[i * 3 + 2]! += b * w;
     sumSq[i]! += (r * r + g * g + b * b) * w;
     weight[i]! += w;
+    if (facing > squarest[i]!) squarest[i] = facing;
   });
   const spread = new Float32Array(total);
   for (let i = 0; i < total; i++) {
@@ -238,7 +240,8 @@ export function projectViews(
   sum.fill(0);
   const sharpWeight = new Float32Array(total);
   eachSeen((i, image, pixel, facing) => {
-    const w = facing ** power[i]!;
+    // Relative to the squarest view's facing, so a high power cannot underflow to no weight.
+    const w = (facing / squarest[i]!) ** power[i]!;
     sum[i * 3]! += image.data[pixel * 4]! * w;
     sum[i * 3 + 1]! += image.data[pixel * 4 + 1]! * w;
     sum[i * 3 + 2]! += image.data[pixel * 4 + 2]! * w;
@@ -395,17 +398,186 @@ export function fillUnseen(projection: Projection, texels: TexelMap, source: Ras
     }
   }
 
+  const matched = new Float32Array(total * 3);
+  const alpha = new Float32Array(total);
+  for (let i = 0; i < total; i++) {
+    if (!covered[i]) continue;
+    alpha[i] = smoothstep(0.02, SEEN, weight[i]!);
+    for (let c = 0; c < 3; c++) {
+      matched[i * 3 + c] = Math.min(
+        255,
+        Math.max(0, base.data[i * 4 + c]! * scale[c]! + shift[c]!),
+      );
+    }
+  }
+  const offset = localResidual(
+    texels,
+    alpha,
+    (i, c) => color.data[i * 4 + c]! - matched[i * 3 + c]!,
+  );
+
   const out = createRaster(size, size);
   out.data.set(base.data);
   for (let i = 0; i < total; i++) {
     if (!covered[i]) continue;
-    const alpha = smoothstep(0.02, SEEN, weight[i]!);
+    const a = alpha[i]!;
     for (let c = 0; c < 3; c++) {
-      const matched = Math.min(255, Math.max(0, base.data[i * 4 + c]! * scale[c]! + shift[c]!));
+      const fill = Math.min(255, Math.max(0, matched[i * 3 + c]! + offset[i * 3 + c]!));
       const projected = color.data[i * 4 + c]!;
-      out.data[i * 4 + c] = Math.round(matched + (projected - matched) * alpha);
+      out.data[i * 4 + c] = Math.round(fill + (projected - fill) * a);
     }
     out.data[i * 4 + 3] = 255;
+  }
+  return out;
+}
+
+/**
+ * A voxel grid over the covered surface's bounds: texels splat weighted values into it and gather
+ * the local weighted mean back, trilinearly, so a neighbourhood is measured in space and stays
+ * continuous across UV seams.
+ */
+class SurfaceGrid {
+  private readonly mass: Float32Array;
+  private readonly sum: Float32Array;
+  private readonly nx: number;
+  private readonly ny: number;
+  private readonly texels: TexelMap;
+  private readonly bounds: { min: number[]; max: number[] };
+  private readonly cell: number;
+  private readonly channels: number;
+  constructor(
+    texels: TexelMap,
+    bounds: { min: number[]; max: number[] },
+    cell: number,
+    channels: number,
+  ) {
+    this.texels = texels;
+    this.bounds = bounds;
+    this.cell = cell;
+    this.channels = channels;
+    const { min, max } = bounds;
+    this.nx = Math.max(1, Math.ceil((max[0]! - min[0]!) / cell) + 2);
+    this.ny = Math.max(1, Math.ceil((max[1]! - min[1]!) / cell) + 2);
+    const nz = Math.max(1, Math.ceil((max[2]! - min[2]!) / cell) + 2);
+    this.mass = new Float32Array(this.nx * this.ny * nz);
+    this.sum = new Float32Array(this.mass.length * channels);
+  }
+
+  private corners(i: number, visit: (at: number, w: number) => void): void {
+    const { position } = this.texels;
+    const { min } = this.bounds;
+    const gx = (position[i * 3]! - min[0]!) / this.cell + 0.5;
+    const gy = (position[i * 3 + 1]! - min[1]!) / this.cell + 0.5;
+    const gz = (position[i * 3 + 2]! - min[2]!) / this.cell + 0.5;
+    const x0 = Math.floor(gx);
+    const y0 = Math.floor(gy);
+    const z0 = Math.floor(gz);
+    const fx = gx - x0;
+    const fy = gy - y0;
+    const fz = gz - z0;
+    for (let dz = 0; dz < 2; dz++) {
+      const wz = dz ? fz : 1 - fz;
+      for (let dy = 0; dy < 2; dy++) {
+        const wy = dy ? fy : 1 - fy;
+        for (let dx = 0; dx < 2; dx++) {
+          const w = (dx ? fx : 1 - fx) * wy * wz;
+          if (w > 0) visit(((z0 + dz) * this.ny + (y0 + dy)) * this.nx + (x0 + dx), w);
+        }
+      }
+    }
+  }
+
+  splat(i: number, weight: number, values: ArrayLike<number>): void {
+    const k = this.channels;
+    this.corners(i, (at, w) => {
+      const m = w * weight;
+      this.mass[at]! += m;
+      for (let c = 0; c < k; c++) this.sum[at * k + c]! += values[c]! * m;
+    });
+  }
+
+  /** The weighted mean around texel `i` into `out`; returns the mass it rests on. */
+  gather(i: number, out: number[]): number {
+    const k = this.channels;
+    let m = 0;
+    out.fill(0);
+    this.corners(i, (at, w) => {
+      m += this.mass[at]! * w;
+      for (let c = 0; c < k; c++) out[c]! += this.sum[at * k + c]! * w;
+    });
+    if (m > 0) for (let c = 0; c < k; c++) out[c]! /= m;
+    return m;
+  }
+
+  /** The median mass of the occupied cells: what a cell of surface typically holds. */
+  typicalMass(): number {
+    const occupied: number[] = [];
+    for (const m of this.mass) if (m > 0) occupied.push(m);
+    if (occupied.length === 0) return 0;
+    occupied.sort((a, b) => a - b);
+    return occupied[occupied.length >> 1]!;
+  }
+}
+
+function coveredBounds(texels: TexelMap): { min: number[]; max: number[]; diagonal: number } {
+  const { size, covered, position } = texels;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < size * size; i++) {
+    if (!covered[i]) continue;
+    for (let k = 0; k < 3; k++) {
+      const v = position[i * 3 + k]!;
+      if (v < min[k]!) min[k] = v;
+      if (v > max[k]!) max[k] = v;
+    }
+  }
+  if (!Number.isFinite(min[0])) return { min: [0, 0, 0], max: [0, 0, 0], diagonal: 0 };
+  return {
+    min,
+    max,
+    diagonal: Math.hypot(max[0]! - min[0]!, max[1]! - min[1]!, max[2]! - min[2]!),
+  };
+}
+
+/** The finest cell of `localResidual`, as a share of the covered surface's bounding diagonal. */
+const RESIDUAL_CELL = 0.012;
+const RESIDUAL_LEVELS = 6;
+
+/**
+ * Per covered texel, the local mean of `residual` (projected minus colour-matched source) over the
+ * seen texels around it in 3D, weighted by how well each was seen: finest where enough seen texels
+ * are near, falling back smoothly to coarser cells (each level doubles the cell). A texel no view
+ * sees squarely then takes the colour its seen neighbours were painted, not the source's own
+ * marking there (assetforge#129).
+ */
+function localResidual(
+  texels: TexelMap,
+  alpha: Float32Array,
+  residual: (i: number, c: number) => number,
+): Float32Array {
+  const { size, covered } = texels;
+  const total = size * size;
+  const out = new Float32Array(total * 3);
+  const bounds = coveredBounds(texels);
+  if (!(bounds.diagonal > 0)) return out;
+  const r = [0, 0, 0];
+  for (let level = RESIDUAL_LEVELS - 1; level >= 0; level--) {
+    const grid = new SurfaceGrid(texels, bounds, bounds.diagonal * RESIDUAL_CELL * 2 ** level, 3);
+    for (let i = 0; i < total; i++) {
+      if (!covered[i] || alpha[i]! <= 0) continue;
+      for (let c = 0; c < 3; c++) r[c] = residual(i, c);
+      grid.splat(i, alpha[i]!, r);
+    }
+    // A local mean stands once it rests on a quarter of what a cell of surface typically holds.
+    const enough = 0.25 * grid.typicalMass();
+    if (!(enough > 0)) continue;
+    for (let i = 0; i < total; i++) {
+      if (!covered[i] || alpha[i]! >= 1) continue;
+      const m = grid.gather(i, r);
+      if (m <= 0) continue;
+      const t = Math.min(1, m / enough);
+      for (let c = 0; c < 3; c++) out[i * 3 + c]! += (r[c]! - out[i * 3 + c]!) * t;
+    }
   }
   return out;
 }

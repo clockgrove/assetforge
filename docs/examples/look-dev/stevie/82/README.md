@@ -1,6 +1,6 @@
 # Look-dev on Stevie: before and after (assetforge#82)
 
-These are #82's renders, kept for comparison with the second pass (assetforge#122) one directory up. They were rendered under the turntable lighting of the time (ambient 0.35 and one key light), which brings each render to 0.4–0.7 of its base colour's brightness ([README](../README.md) measures it).
+These are #82's renders, kept for comparison with the second pass (assetforge#122, in [`122/`](../122/)) and the third (assetforge#129, one directory up). They were rendered under the turntable lighting of the time (ambient 0.35 and one key light), which brings each render to 0.4–0.7 of its base colour's brightness ([#122's README](../122/README.md) measures it).
 
 This is one real `assetforge look-dev` run, made on 2026-11-12 (the second, after review: the catch-light moved into the eye material and the restyle prompt asks for markings kept in place, shape and contrast), on Stevie's picked model. The model is clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`; wave 0 candidate c3, re-rigged on the #39 rig). The run used that repository's `art/target-profile-3d.json`, `art/style-bible.json` and `art/stevie/character-3d/spec.json`.
 
