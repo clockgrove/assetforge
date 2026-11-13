@@ -8,3 +8,8 @@ node_modules/
 .mcp.json
 docs/PRD.md
 docs/PLAN.md
+# Vendored from Clockgrove as they are (test/fixtures/clockgrove/README.md).
+test/fixtures/clockgrove/model-asset.ts
+test/fixtures/clockgrove/validation.ts
+test/fixtures/clockgrove/model.ts
+test/fixtures/clockgrove/inspect-model.mjs

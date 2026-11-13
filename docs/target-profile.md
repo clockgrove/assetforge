@@ -16,7 +16,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 }
 ```
 
-- `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose), `still` (one image) or `character-3d` (a rigged, animated `.glb`; its fields `gait`, `clips` and `heightM` and the profile's `model3d` section are in [characters-3d.md](characters-3d.md)). A new kind is a new generator.
+- `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose), `still` (one image) or `character-3d` (a rigged, animated `.glb`; its fields `gait`, `clips` and `heightM` and the profile's `model3d` section are in [characters-3d.md](characters-3d.md), including `model3d.handoff`, the clip fields and side images a target's validator takes). A new kind is a new generator.
 - `subject` names the bible subject; it defaults to `assetId`.
 - `look` (optional) names one of the bible's `looks`, such as `character` or `environment`. The asset gets that look's notes and references on top of the shared ones. An unknown look is refused before any spend.
 - `frames.width` and `frames.height` default to the profile's frame size; `frames.count` defaults to 1.

@@ -201,7 +201,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 **Template outputs**, added to those above:
 
 - `output.rig`: `{ template, sha256 }`, the template path as declared and the hash of its bytes;
-- `output.clips[]`: each clip also has `generated: true` and `speedMps`, the ground speed at which its in-place cycle keeps the stance feet planted. A runtime moves the character at this speed.
+- `output.clips[]`: each clip also has `generated: true` and `speedMps`, the ground speed at which its in-place cycle keeps the stance feet planted. A runtime moves the character at this speed. A target whose manifest has no place for it leaves it out with `model3d.handoff.clipFields` (see Hand-off shape).
 
 ### What the rig does
 
@@ -262,6 +262,27 @@ The provenance records:
 - the `outputGrant` combined over every call.
 
 A grant the target cannot accept is refused with exit 7 before anything is written (see [target-profile.md](target-profile.md)). Tripo on paid credits is relabelled to the target's licence. A free-plan grant such as Meshy's CC BY 4.0 ships only when the profile lists it in `acceptedLicenses`, and its credit line is then `{{provenance.outputGrant.attribution}}`.
+
+### Hand-off shape
+
+A target's validator may take fewer clip fields than Assetforge produces, or only a self-contained `.glb` (assetforge#137). The profile declares the shape it takes:
+
+```json
+"model3d": {
+  "handoff": {
+    "clipFields": { "name": "name", "durationMs": "durationMs", "loop": "loop", "generated": "generated" },
+    "sideImages": "embedded"
+  }
+}
+```
+
+- `clipFields` maps each field a manifest clip carries to the Assetforge clip field it takes, so a field can also be renamed (`"speed": "speedMps"`). Fields it does not name are left out, and a named field a clip lacks (`generated` on a library clip) is left out of that clip. Without it, every clip field goes as produced.
+- `sideImages` is `beside` (the default) or `embedded`. `embedded` moves look-dev's groom maps, tints and eye mask into the `.glb`'s binary chunk and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set. `asset.extras.lookdev.images` still maps each field to its image index.
+- A malformed `handoff` is refused before any spend (exit 2).
+
+Whatever the shape, `pick` measures each clip's `durationMs` on the `.glb` it hands off (the last key time, unrounded), so it matches what a validator reads from the file.
+
+Clockgrove's model validator (`packages/contracts/src/model-asset.ts`) takes the declaration above. `test/clockgrove-model-validator.test.ts` hands a `rig` and a `look-dev` result to it, vendored in `test/fixtures/clockgrove/`.
 
 ## Providers
 

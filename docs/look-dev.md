@@ -135,9 +135,11 @@ The usual 3D outputs (`output.triangles`, `output.clips`, `output.bounds`, `outp
 - `direction`: the rest-pose, model-space comb direction, tangent to the surface, stored as `rgb = d × 0.5 + 0.5`. The fur combs along the body's flow: from the snout back over the head and body, and down the legs and tail.
 - `density`: grey, as a fraction (0 to 1) of the fur material's strand density.
 
-**In the glTF**, the groom maps, tints and the eye mask are external images (`images[].uri`) next to the `.glb`, never embedded. A target can then load them only on tiers that draw fur. `asset.extras.lookdev.images` maps each output field to its image index and `uri`.
+**In the glTF**, the groom maps, tints and the eye mask are external images (`images[].uri`) next to the `.glb`. A target can then load them only on tiers that draw fur. `asset.extras.lookdev.images` maps each output field to its image index and `uri`.
 
 **Hand-off.** `pick` writes the `.glb`, then each side file next to it as `<assetId>.<field>.png` (for example `stevie.groom.winter.length.png`), through the profile's `layout`. The side files' `{ path, sha256 }` are set in `output.*` before the manifest renders, and then the target's validator runs. Reading the maps in the target's fur material is the target's work. Clockgrove's shell fur is clockgrove/clockgrove#242.
+
+A target whose validator takes only a self-contained `.glb` declares `model3d.handoff.sideImages: "embedded"` ([characters-3d.md](characters-3d.md#hand-off-shape)). `pick` then embeds those images in the `.glb`, drops `uri` from `asset.extras.lookdev.images`, and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set.
 
 ## Provenance and spend
 

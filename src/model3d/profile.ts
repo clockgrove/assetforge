@@ -4,6 +4,7 @@
  */
 import { InputError } from "../errors.ts";
 import type { AssetSpec, TargetProfile } from "../types.ts";
+import { handoffSettings } from "./handoff.ts";
 import { AXES } from "./scene.ts";
 import type { Axis } from "./scene.ts";
 
@@ -43,6 +44,8 @@ export interface Model3dProfile {
   groom?: import("./lookdev/settings.ts").GroomProfile;
   /** Look-dev settings (assetforge#82; docs/look-dev.md). */
   lookdev?: import("./lookdev/settings.ts").LookdevProfile;
+  /** How the hand-off carries clips and side images (assetforge#137; docs/characters-3d.md). */
+  handoff?: import("./handoff.ts").Model3dHandoffProfile;
 }
 
 export interface ResolvedModel3d {
@@ -73,6 +76,7 @@ export function model3dSettings(profile: TargetProfile): ResolvedModel3d {
       throw new InputError(`model3d.budgets.${key} must be a whole number of at least 0`);
     }
   }
+  handoffSettings(profile);
   const forward = section.forward ?? "+z";
   if (!AXES.includes(forward)) {
     throw new InputError(`model3d.forward must be one of ${AXES.join(", ")}: ${String(forward)}`);

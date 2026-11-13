@@ -13,6 +13,8 @@ import { decodeImage } from "./image/raster.ts";
 import { pixelHash } from "./transform/run.ts";
 import { InputError } from "./errors.ts";
 import { requireLicensable } from "./license.ts";
+import { GLB_MEDIA_TYPE } from "./model3d/glb.ts";
+import { shapeModelHandoff } from "./model3d/handoff.ts";
 import { readRun, writeRun } from "./loop.ts";
 import type { StagedCandidate } from "./loop.ts";
 import { sha256 } from "./request.ts";
@@ -244,6 +246,11 @@ export async function pick(options: PickOptions): Promise<PickResult> {
       ...(staged.extra !== undefined && { extra: staged.extra }),
     });
   }
+  // A 3D output takes the shape its target declares: clip fields, side images (assetforge#137).
+  const shaped =
+    candidate.mediaType === GLB_MEDIA_TYPE && record.profile.model3d !== undefined
+      ? shapeModelHandoff(record.profile, { bytes, fields: candidate.fields, sidecars })
+      : { bytes, fields: candidate.fields, sidecars };
   const now = options.now ?? (() => new Date());
   const targetDir = resolve(options.targetDir);
   const written = await writeToTarget({
@@ -251,11 +258,11 @@ export async function pick(options: PickOptions): Promise<PickResult> {
     spec: record.spec,
     bibleVersion: record.bibleVersion,
     output: {
-      bytes,
+      bytes: shaped.bytes,
       mediaType: candidate.mediaType,
       extension: candidate.extension,
-      fields: candidate.fields,
-      ...(sidecars.length > 0 && { sidecars }),
+      fields: shaped.fields,
+      ...(shaped.sidecars.length > 0 && { sidecars: shaped.sidecars }),
     },
     provenance: candidate.provenance,
     run: { runId: record.runId, candidateId: candidate.id, pickedAt: now().toISOString() },
