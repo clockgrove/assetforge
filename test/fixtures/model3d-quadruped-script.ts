@@ -24,7 +24,13 @@ const script: Script = {
   model(request, index) {
     return {
       handle: `model-${index}`,
-      glb: syntheticQuadruped({ raisedHeels: index % 2 === 1, providerRig: true, facing: "+x" }),
+      glb: syntheticQuadruped({
+        raisedHeels: index % 2 === 1,
+        providerRig: true,
+        facing: "+x",
+        // Look-dev tests need a real unwrap, so masks on the head hold their own texels.
+        atlasUvs: process.env["SCRIPT_QUADRUPED_ATLAS"] === "1",
+      }),
       costUsd: 0.3,
       ...(request.seed !== undefined && { seed: request.seed }),
     };

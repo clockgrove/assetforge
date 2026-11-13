@@ -6,13 +6,17 @@
  * belongs in the repository.
  *
  *   node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>]
+ *     [--medium <2d|3d>]
  *
  * With `--held-out "#104 run 7"`, cases.json holds only that run's held-out cut (see heldOutCut).
+ * With `--medium 3d`, it holds only the 3D cases (the wave-0 renders and the looked-dev renders of
+ * lookdev.ts, with their drift).
  */
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { buildBirdCastSet } from "./birds.ts";
 import { GENERATED_DIR, loadGeneratedManifest } from "./generate.ts";
+import { lookdevCases } from "./lookdev.ts";
 import { buildRaccoonWorldSet } from "./raccoon-world.ts";
 
 interface PathCase {
@@ -91,7 +95,12 @@ export function heldOutCut<T extends { kind?: unknown; heldOut?: unknown }>(
 /** Both casts under `outDir`, and one cases file whose paths are relative to it. */
 export async function buildIdentitySet(
   outDir: string,
-  options: { raccoonWorld?: boolean; fetch?: typeof fetch; heldOut?: string } = {},
+  options: {
+    raccoonWorld?: boolean;
+    fetch?: typeof fetch;
+    heldOut?: string;
+    medium?: "2d" | "3d";
+  } = {},
 ): Promise<{ casesPath: string; cases: unknown[] }> {
   let cases: Array<Record<string, unknown>> = [];
   const add = (dir: string, list: PathCase[]) => {
@@ -112,11 +121,16 @@ export async function buildIdentitySet(
     );
     add("raccoon-world", set.cases);
     add("raccoon-world", await generatedCases(dir, relative(dir, set.biblePath)));
+    add("raccoon-world", await lookdevCases(dir, relative(dir, set.biblePath)));
   }
   if (options.heldOut !== undefined) {
     const run = options.heldOut;
     if (!cases.some((c) => c.heldOut === run)) throw new Error(`no case is held out for "${run}"`);
     cases = heldOutCut(cases, run);
+  }
+  if (options.medium !== undefined) {
+    const medium = options.medium;
+    cases = cases.filter((c) => (c.medium ?? "2d") === medium);
   }
   const casesPath = join(outDir, "cases.json");
   await writeFile(casesPath, `${JSON.stringify(cases, null, 2)}\n`);
@@ -127,15 +141,22 @@ if (import.meta.main) {
   const [out, ...flags] = process.argv.slice(2);
   const at = flags.indexOf("--held-out");
   const heldOut = at === -1 ? undefined : flags[at + 1];
-  if (!out || (at !== -1 && heldOut === undefined)) {
+  const atMedium = flags.indexOf("--medium");
+  const medium = atMedium === -1 ? undefined : flags[atMedium + 1];
+  if (
+    !out ||
+    (at !== -1 && heldOut === undefined) ||
+    (atMedium !== -1 && medium !== "2d" && medium !== "3d")
+  ) {
     console.error(
-      "usage: node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>]",
+      "usage: node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>] [--medium <2d|3d>]",
     );
     process.exit(2);
   }
   const { casesPath, cases } = await buildIdentitySet(resolve(out), {
     raccoonWorld: !flags.includes("--no-raccoon-world"),
     ...(heldOut !== undefined && { heldOut }),
+    ...(medium !== undefined && { medium: medium as "2d" | "3d" }),
   });
   console.log(`${cases.length} cases: ${casesPath}`);
 }

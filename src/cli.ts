@@ -11,6 +11,8 @@ import { loadBible } from "./bible.ts";
 import { checkIdentityRecord, identitySettings, loadCast, loadIdentity } from "./identity.ts";
 import type { IdentityRecordCheck } from "./identity.ts";
 import { evaluateIdentity } from "./identity-eval.ts";
+import { lookDev, planLookdev } from "./model3d/lookdev/command.ts";
+import { DEFAULT_LOOKDEV_CAP_USD } from "./model3d/lookdev/settings.ts";
 import type { Breakdown, MediumReport } from "./identity-eval.ts";
 import { parseDigitalSourceType } from "./metadata.ts";
 import type { DigitalSourceType } from "./metadata.ts";
@@ -1732,6 +1734,96 @@ and nothing is spent (docs/characters-3d.md).`,
   },
 };
 
+const lookDevCommand: Command = {
+  name: "look-dev",
+  summary: "give a picked 3D character its look: base colour, fur groom maps and eyes",
+  usage: `Usage: assetforge look-dev --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+                          --bible <bible.json> --profile <profile.json> [--cap <usd>] [--routes <routes.json>]
+                          [--runs .assetforge/runs] [--work-item <label>] [--provider-script <module>]
+                          [--dry-run] [--json]
+
+Repaints a picked character's base colour on its own UVs in the look the bible's approved
+references define (restyled renders projected back onto the model), writes fur groom maps
+(length, direction, density) and tint textures per season the profile declares
+(model3d.groom), gives the eyes their own glossy material and mask, and checks them: the
+maps' zero-length masks, map-driven shell-fur renders, UV seams, the eyes' catch-light at the
+closest zoom and the identity lock. Before-and-after renders beside the approved turnaround
+are written for the person who approves; pick hands the result off. The cap defaults to
+model3d.lookdev.capUsd or $3 and is reserved before any call (docs/look-dev.md).`,
+  options: {
+    model: { type: "string" },
+    provenance: { type: "string" },
+    spec: { type: "string" },
+    bible: { type: "string" },
+    profile: { type: "string" },
+    cap: { type: "string" },
+    routes: { type: "string" },
+    runs: { type: "string" },
+    ...workItemOption,
+    "provider-script": { type: "string" },
+    "dry-run": { type: "boolean" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const files = required(values, ["model", "provenance", "spec", "bible", "profile"]);
+    const ledger = spendLedger(values);
+    const spec = await readJson<AssetSpec>(files["spec"] as string);
+    const bible = await readJson<StyleBible>(files["bible"] as string);
+    const profile = await readJson<TargetProfile>(files["profile"] as string);
+    const routes = await loadRoutes(values["routes"] as string | undefined);
+    const capUsd =
+      values["cap"] === undefined
+        ? undefined
+        : numberOption(values, "cap", DEFAULT_LOOKDEV_CAP_USD);
+    const plan = planLookdev(profile.value, routes, capUsd);
+    const scriptPath = values["provider-script"] as string | undefined;
+    const scripted = scriptPath ? scriptedProvider(await loadScript(scriptPath)) : undefined;
+    if (values["dry-run"]) {
+      const human = [
+        `look-dev: ${plan.calls.length} call(s), forecast ${usd(plan.estimateUsd)} against the $${plan.capUsd.toFixed(2)} cap`,
+        ...plan.calls.map((c) => `  ${c.operation}  ${c.model}  ${usd(c.estimatedCostUsd)}`),
+        `  seasons: ${plan.seasons.join(", ")}`,
+      ].join("\n");
+      return dryRunOutcome(plan, human, ledger.forProfile(profile.value), scripted?.name);
+    }
+    const modelPath = files["model"] as string;
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await readFile(modelPath));
+    } catch {
+      throw new InputError(`cannot read the model ${modelPath}`);
+    }
+    const { run, runDir, passed } = await lookDev({
+      model: { bytes, path: modelPath },
+      provenance: await readProvenance(files["provenance"] as string),
+      spec: spec.value,
+      specDir: spec.dir,
+      bible: bible.value,
+      bibleDir: bible.dir,
+      profile: profile.value,
+      profileDir: profile.dir,
+      routes,
+      ...(scripted
+        ? { provider: scripted.provider, providerName: scripted.name }
+        : { provider: gatewayProvider(), providerName: "vercel-ai-gateway" }),
+      ledger,
+      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
+      ...(capUsd !== undefined && { capUsd }),
+      log: (m) => console.error(m),
+    });
+    const fields = { runDir, ...run };
+    const human = formatRun(run, runDir);
+    if (passed) return { exitCode: 0, fields, human };
+    return refusal(
+      "qa_found_nothing",
+      "the looked-dev model did not pass its checks",
+      fields,
+      human,
+    );
+  },
+};
+
 const commands: Command[] = [
   bibleCommand,
   planCommand,
@@ -1741,6 +1833,7 @@ const commands: Command[] = [
   stageCommand,
   pickCommand,
   rigCommand,
+  lookDevCommand,
   importCommand,
   generateSheetCommand,
   writeFamiliesCommand,

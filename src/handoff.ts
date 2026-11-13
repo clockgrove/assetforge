@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   combineDigitalSourceTypes,
@@ -66,6 +66,14 @@ export interface TargetWrite {
     mediaType: string;
     extension: string;
     fields: Record<string, unknown>;
+    /** Files written beside the media; each is exposed to the templates as `output.<field>`. */
+    sidecars?: Array<{
+      name: string;
+      bytes: Uint8Array;
+      mediaType: string;
+      field: string;
+      extra?: Record<string, unknown>;
+    }>;
   };
   provenance: Provenance;
   /** Values the templates read as `{{run.*}}`. */
@@ -145,6 +153,18 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
         ? undefined
         : `${mediaRel}.provenance.json`;
   (context["output"] as Record<string, unknown>)["path"] = mediaRel;
+  const sidecarRels = (write.output.sidecars ?? []).map((sidecar) => {
+    if (sidecar.name === "" || /[\\/]/.test(sidecar.name) || sidecar.name.includes("..")) {
+      throw new InputError(`sidecar name "${sidecar.name}" must be a bare file name`);
+    }
+    const rel = posix.join(posix.dirname(mediaRel.replaceAll("\\", "/")), sidecar.name);
+    setPath(context["output"] as Record<string, unknown>, sidecar.field, {
+      ...sidecar.extra,
+      path: rel,
+      sha256: sha256(sidecar.bytes),
+    });
+    return rel;
+  });
   if (provenanceRel !== undefined) context["provenancePath"] = provenanceRel;
 
   const manifest = render(profile.manifest, context);
@@ -160,6 +180,9 @@ export async function writeToTarget(write: TargetWrite): Promise<TargetWriteResu
     [mediaPath, output.bytes],
     [manifestPath, `${JSON.stringify(manifest, null, 2)}\n`],
   ];
+  (write.output.sidecars ?? []).forEach((sidecar, i) => {
+    writes.push([inside(targetDir, sidecarRels[i] as string), sidecar.bytes]);
+  });
   if (provenancePath) {
     writes.push([provenancePath, `${JSON.stringify(provenance, null, 2)}\n`]);
   }
@@ -207,6 +230,20 @@ export async function pick(options: PickOptions): Promise<PickResult> {
   if (sha256(bytes) !== candidate.sha256) {
     throw new InputError(`staged file ${candidate.file} changed since it was staged`);
   }
+  const sidecars = [];
+  for (const staged of candidate.sidecars ?? []) {
+    const sidecarBytes = new Uint8Array(await readFile(join(options.runDir, staged.file)));
+    if (sha256(sidecarBytes) !== staged.sha256) {
+      throw new InputError(`staged file ${staged.file} changed since it was staged`);
+    }
+    sidecars.push({
+      name: staged.name,
+      bytes: sidecarBytes,
+      mediaType: staged.mediaType,
+      field: staged.field,
+      ...(staged.extra !== undefined && { extra: staged.extra }),
+    });
+  }
   const now = options.now ?? (() => new Date());
   const targetDir = resolve(options.targetDir);
   const written = await writeToTarget({
@@ -218,6 +255,7 @@ export async function pick(options: PickOptions): Promise<PickResult> {
       mediaType: candidate.mediaType,
       extension: candidate.extension,
       fields: candidate.fields,
+      ...(sidecars.length > 0 && { sidecars }),
     },
     provenance: candidate.provenance,
     run: { runId: record.runId, candidateId: candidate.id, pickedAt: now().toISOString() },

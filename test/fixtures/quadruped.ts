@@ -28,6 +28,11 @@ export interface QuadrupedOptions {
   segments?: number;
   /** The way the model faces: +z (default), or +x as Tripo's models do (a root node turns it). */
   facing?: "+z" | "+x";
+  /**
+   * Gives each part (tube or box) its own cell of a UV atlas, as a real model's unwrap does,
+   * instead of every part covering the whole 0-1 square.
+   */
+  atlasUvs?: boolean;
 }
 
 const PLANTIGRADE_JOINTS: Record<string, Vec> = {
@@ -161,6 +166,8 @@ interface Mesh {
   normals: number[];
   uvs: number[];
   indices: number[];
+  /** The first vertex of each part, in order. */
+  parts?: number[];
 }
 
 /**
@@ -175,6 +182,7 @@ function addTube(
   flatEnds = false,
 ): void {
   const base = mesh.positions.length / 3;
+  (mesh.parts ??= []).push(base);
   const last = points.length - 1;
   const tangents = points.map((p, k): Vec => {
     if (k === 0 || k === last) {
@@ -233,6 +241,7 @@ function addBox(mesh: Mesh, c: Vec[]): void {
     [2, 3, 7, 6],
     [3, 0, 4, 7],
   ];
+  (mesh.parts ??= []).push(mesh.positions.length / 3);
   const centre = mul(
     c.reduce((s, p) => add(s, p), [0, 0, 0] as Vec),
     1 / c.length,
@@ -252,6 +261,24 @@ function addBox(mesh: Mesh, c: Vec[]): void {
     const tri = outward ? order : [0, 2, 1, 0, 3, 2];
     for (const i of tri) mesh.indices.push(base + i);
   }
+}
+
+/** Moves each part's 0-1 UVs into its own cell of a square grid, with a margin. */
+function atlas(mesh: Mesh): void {
+  const parts = mesh.parts ?? [0];
+  const grid = Math.ceil(Math.sqrt(parts.length));
+  const cell = 1 / grid;
+  const margin = cell * 0.08;
+  const count = mesh.positions.length / 3;
+  parts.forEach((start, p) => {
+    const end = parts[p + 1] ?? count;
+    const cx = (p % grid) * cell;
+    const cy = Math.floor(p / grid) * cell;
+    for (let v = start; v < end; v++) {
+      mesh.uvs[v * 2] = cx + margin + mesh.uvs[v * 2]! * (cell - 2 * margin);
+      mesh.uvs[v * 2 + 1] = cy + margin + mesh.uvs[v * 2 + 1]! * (cell - 2 * margin);
+    }
+  });
 }
 
 /** The joints themselves plus two interpolated points inside each segment. */
@@ -359,6 +386,7 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
     }
   }
 
+  if (options.atlasUvs) atlas(mesh);
   const positions = mesh.positions.map((v, i) => v * scale + offset[i % 3]!);
   const count = positions.length / 3;
   const buffer = new Buffer3d();
@@ -415,10 +443,14 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
     target: 34963,
   });
 
-  const texture = createRaster(8, 8);
-  for (let y = 0; y < 8; y++) {
-    for (let x = 0; x < 8; x++) {
-      setPixel(texture, x, y, (x + y) % 2 === 0 ? [150, 150, 150, 255] : [70, 70, 80, 255]);
+  // An atlas gets a finer texture with the same 8 x 8 checker, so each part's cell holds texels.
+  const texturePx = options.atlasUvs ? 128 : 8;
+  const square = texturePx / 8;
+  const texture = createRaster(texturePx, texturePx);
+  for (let y = 0; y < texturePx; y++) {
+    for (let x = 0; x < texturePx; x++) {
+      const odd = (Math.floor(x / square) + Math.floor(y / square)) % 2;
+      setPixel(texture, x, y, odd === 0 ? [150, 150, 150, 255] : [70, 70, 80, 255]);
     }
   }
   const image = buffer.view(encodePng(texture));

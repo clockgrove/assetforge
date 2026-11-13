@@ -118,6 +118,19 @@ export interface StagedCandidate {
   provenance: Provenance;
   /** Files written for the person beside the candidate (turntable renders), relative to the run. */
   artifacts?: string[];
+  /** Files that go into the target beside the media (textures, groom maps), each a template field. */
+  sidecars?: Array<{
+    /** Path relative to the run directory. */
+    file: string;
+    /** File name written beside the media, no directory parts. */
+    name: string;
+    mediaType: string;
+    sha256: string;
+    /** Dotted path under `output` where `{ path, sha256 }` is exposed to the templates. */
+    field: string;
+    /** Merged into the `{ path, sha256 }` object. */
+    extra?: Record<string, unknown>;
+  }>;
 }
 
 export interface RunRecord {
