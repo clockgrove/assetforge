@@ -45,11 +45,10 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
   if (section === null || typeof section !== "object" || Array.isArray(section)) {
     throw new InputError("model3d.handoff must be an object");
   }
-  const { clipFields, sideImages = "beside", lods, ...rest } = section as Record<string, unknown>;
-  const unknown = Object.keys(rest);
-  if (unknown.length > 0) {
-    throw new InputError(`model3d.handoff has unknown field(s): ${unknown.join(", ")}`);
-  }
+  // Only Assetforge's own fields are read and checked. Any other field is the target's own note
+  // (raccoon-world, for example, describes its container and compression here) and is left alone,
+  // as the rest of the profile's model3d section is.
+  const { clipFields, sideImages = "beside", lods } = section as Record<string, unknown>;
   if (!SIDE_IMAGE_MODES.includes(sideImages as SideImageMode)) {
     throw new InputError(`model3d.handoff.sideImages must be ${SIDE_IMAGE_MODES.join(" or ")}`);
   }

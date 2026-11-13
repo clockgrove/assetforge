@@ -356,7 +356,7 @@ A target's validator may take fewer clip fields than Assetforge produces, or onl
 
 - `clipFields` maps each field a manifest clip carries to the Assetforge clip field it takes, so a field can also be renamed (`"speed": "speedMps"`). Fields it does not name are left out, and a named field a clip lacks (`generated` on a library clip) is left out of that clip. Without it, every clip field goes as produced.
 - `sideImages` is `beside` (the default) or `embedded`. `embedded` moves look-dev's groom maps, tints and eye mask into the `.glb`'s binary chunk and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set. `asset.extras.lookdev.images` still maps each field to its image index.
-- A malformed `handoff` is refused before any spend (exit 2).
+- A malformed `handoff` field is refused before any spend (exit 2). Fields Assetforge doesn't read are the target's own notes and are left alone, like the rest of `model3d`.
 
 Whatever the shape, `pick` measures each clip's `durationMs` (the last key time) and `output.bounds` (the rest-pose bounds) on the `.glb` it hands off, unrounded, so they match what a validator reads from the file. Staging rounds bounds to the micrometre, which alone could put them 0.5 µm off the file, half of Clockgrove's 1 µm tolerance.
 
