@@ -436,11 +436,12 @@ export function fillUnseen(projection: Projection, texels: TexelMap, source: Ras
  * the local weighted mean back, trilinearly, so a neighbourhood is measured in space and stays
  * continuous across UV seams.
  */
-class SurfaceGrid {
+export class SurfaceGrid {
   private readonly mass: Float32Array;
   private readonly sum: Float32Array;
   private readonly nx: number;
   private readonly ny: number;
+  private readonly nz: number;
   private readonly texels: TexelMap;
   private readonly bounds: { min: number[]; max: number[] };
   private readonly cell: number;
@@ -458,20 +459,27 @@ class SurfaceGrid {
     const { min, max } = bounds;
     this.nx = Math.max(1, Math.ceil((max[0]! - min[0]!) / cell) + 2);
     this.ny = Math.max(1, Math.ceil((max[1]! - min[1]!) / cell) + 2);
-    const nz = Math.max(1, Math.ceil((max[2]! - min[2]!) / cell) + 2);
-    this.mass = new Float32Array(this.nx * this.ny * nz);
+    this.nz = Math.max(1, Math.ceil((max[2]! - min[2]!) / cell) + 2);
+    this.mass = new Float32Array(this.nx * this.ny * this.nz);
     this.sum = new Float32Array(this.mass.length * channels);
   }
 
   private corners(i: number, visit: (at: number, w: number) => void): void {
     const { position } = this.texels;
+    this.cornersAt(position[i * 3]!, position[i * 3 + 1]!, position[i * 3 + 2]!, visit);
+  }
+
+  private cornersAt(x: number, y: number, z: number, visit: (at: number, w: number) => void): void {
     const { min } = this.bounds;
-    const gx = (position[i * 3]! - min[0]!) / this.cell + 0.5;
-    const gy = (position[i * 3 + 1]! - min[1]!) / this.cell + 0.5;
-    const gz = (position[i * 3 + 2]! - min[2]!) / this.cell + 0.5;
+    const gx = (x - min[0]!) / this.cell + 0.5;
+    const gy = (y - min[1]!) / this.cell + 0.5;
+    const gz = (z - min[2]!) / this.cell + 0.5;
     const x0 = Math.floor(gx);
     const y0 = Math.floor(gy);
     const z0 = Math.floor(gz);
+    if (x0 < 0 || y0 < 0 || z0 < 0 || x0 + 1 >= this.nx || y0 + 1 >= this.ny || z0 + 1 >= this.nz) {
+      return;
+    }
     const fx = gx - x0;
     const fy = gy - y0;
     const fz = gz - z0;
@@ -485,6 +493,19 @@ class SurfaceGrid {
         }
       }
     }
+  }
+
+  /** The weighted mean at a point in space into `out`; returns the mass it rests on. */
+  sampleAt(x: number, y: number, z: number, out: number[]): number {
+    const k = this.channels;
+    let m = 0;
+    out.fill(0);
+    this.cornersAt(x, y, z, (at, w) => {
+      m += this.mass[at]! * w;
+      for (let c = 0; c < k; c++) out[c]! += this.sum[at * k + c]! * w;
+    });
+    if (m > 0) for (let c = 0; c < k; c++) out[c]! /= m;
+    return m;
   }
 
   splat(i: number, weight: number, values: ArrayLike<number>): void {
@@ -519,7 +540,11 @@ class SurfaceGrid {
   }
 }
 
-function coveredBounds(texels: TexelMap): { min: number[]; max: number[]; diagonal: number } {
+export function coveredBounds(texels: TexelMap): {
+  min: number[];
+  max: number[];
+  diagonal: number;
+} {
   const { size, covered, position } = texels;
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];

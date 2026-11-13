@@ -54,6 +54,13 @@ The groom prompt reads the season's `traits` from the profile, as given.
 2. **Eyes and nose.** One `lookdev-locate` call (`google/gemini-3-flash`) reads a close-up front render and returns the pixel centre and radius of each eye and of the nose. Each point is cast onto the surface through the depth map, which gives a 3D sphere. The eye triangles are moved into their own material, `eyes`: the same base colour, roughness 0.05, no metal. Their mask is written too. Each eye gets a soft catch-light, offset toward the key light, painted into the `eyes` material's own emissive texture (emissive factor 1), never into the base colour. The target can keep it, or drop it and shade the eyes itself.
 3. **Paw pads.** From the target's rig template: the downward-facing surface under each foot's ankle-to-toe span.
 4. **Groom.** One `lookdev-groom` call per season reads the season's `traits` with the approved references. It returns fur length in millimetres and density (0 to 1) per region, and a tip tint where the coat's colour differs from the references. The regions are `face`, `cheek`, `head`, `neck`, `body`, `leg` and `tail`. They come from the rig template's joint roles and feet: the front of the head is face, and its lower sides are cheek. The maps are then written on the same UVs.
+
+   Fur no longer than the marking it grows in. A strand carries its root's colour wherever it lies, in any renderer that reads the maps. So a strand lying across a marking's edge smears the edge. On Stevie (assetforge#131), 80 mm winter tail fur over its bands smeared them into a blurred brush. Each texel's length is therefore cut where a strand lying flat along its comb would reach a marking of another lightness, or run off the end of its part.
+   - The walk follows the surface in 3D, on the base colour's L\* smoothed at 0.6% of the model's diagonal, so the coat's fine texture is not an edge.
+   - Another marking is 18 L\* away.
+   - The cut is smoothed over about a centimetre of surface, and a strand keeps at least 30% of its length.
+   - Markings broader than the fur keep the full length, so a winter coat still reads longer and fuller than a summer one.
+
 5. **Before and after.** The turntable views (front, three-quarter, side, back) and a close-up at the target's closest zoom are rendered before and after, once per season. After look-dev, the renders draw Assetforge's own shell fur, driven by that season's maps. `compare-<view>.png` puts, left to right:
    - the approved reference of that view (the front view for the close-up). A view the references do not name borrows the front view, and `lookdev-compare` says so;
    - the model before look-dev;

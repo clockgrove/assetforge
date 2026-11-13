@@ -1071,7 +1071,7 @@ export async function lookDev(
     );
     const groom = parseSeasonGroom(text);
     seasonGrooms[season] = groom;
-    const maps = groomMaps(groomTexels, groomRegions, bare, groom, skeleton);
+    const maps = groomMaps(groomTexels, groomRegions, bare, groom, skeleton, albedo);
     seasonMaps[season] = maps;
     const check = groomMaskCheck(maps.length, groomTexels, bare);
     const label = look.seasons ? `groom-${season}-masks` : "groom-masks";

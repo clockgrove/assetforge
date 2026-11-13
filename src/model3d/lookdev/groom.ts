@@ -5,7 +5,8 @@
 import { createRaster } from "../../image/raster.ts";
 import type { Raster } from "../../image/raster.ts";
 import type { Vec3 } from "../scene.ts";
-import { dilate } from "./project.ts";
+import { toLab } from "./markings.ts";
+import { SurfaceGrid, coveredBounds, dilate } from "./project.ts";
 import type { TexelMap } from "./texels.ts";
 
 export const GROOM_MAPS = ["length", "direction", "density"] as const;
@@ -280,6 +281,8 @@ function boneDirections(skeleton: GroomSkeleton): { toward: Vec3[]; along: Vec3[
 /**
  * The groom maps. Length is grey, 0 on every `bare` texel and at least 1 on any other covered
  * texel, 255 = `maxLengthM`; region values are blurred across borders before the bare mask applies.
+ * With the `baseColor`, fur that would lie across a marking's edge is shortened
+ * (`keepMarkingEdges`), so a long coat keeps its markings' bands and edges.
  * Direction is the model-space comb direction (rgb = d*0.5+0.5): the bone direction of the texel's
  * joint (joint to child for tail and leg, toward the parent otherwise, so fur combs snout to tail),
  * tangent to the surface and blended 30% toward gravity. Density is grey per region, blurred, 0 on
@@ -292,6 +295,7 @@ export function groomMaps(
   bare: Uint8Array,
   season: SeasonGroom,
   skeleton: GroomSkeleton,
+  baseColor?: Raster,
 ): GroomMaps {
   const { size, covered, normal, joint } = texels;
   const total = size * size;
@@ -324,18 +328,9 @@ export function groomMaps(
     ? Math.round(Math.min(1, Math.max(0, season.tint.tipWeight)) * 255)
     : 0;
 
+  const combs = new Float32Array(total * 3);
   for (let i = 0; i < total; i++) {
-    const o = i * 4;
-    length.data[o + 3] = 255;
-    density.data[o + 3] = 255;
-    direction.data[o + 3] = 255;
     if (!covered[i]) continue;
-    const isBare = bare[i] !== 0;
-    const l = isBare ? 0 : Math.max(1, Math.round((lengthBlur[i]! / maxMm) * 255));
-    const d = isBare ? 0 : Math.round(Math.min(1, Math.max(0, densityBlur[i]!)) * 255);
-    length.data[o] = length.data[o + 1] = length.data[o + 2] = Math.min(255, l);
-    density.data[o] = density.data[o + 1] = density.data[o + 2] = d;
-
     const r = regions[i]!;
     const j = joint[i]!;
     let dir: Vec3 = back;
@@ -357,7 +352,28 @@ export function groomMaps(
     ]);
     if (comb[0] === 0 && comb[1] === 0 && comb[2] === 0) comb = tangent(back);
     if (comb[0] === 0 && comb[1] === 0 && comb[2] === 0) comb = unit([ny, -nx, 0]);
-    for (let k = 0; k < 3; k++) direction.data[o + k] = Math.round((comb[k]! * 0.5 + 0.5) * 255);
+    combs.set(comb, i * 3);
+  }
+
+  // Fur no longer than the marking it grows in.
+  const lengthMm = baseColor
+    ? keepMarkingEdges(texels, baseColor, combs, lengthBlur, bare)
+    : lengthBlur;
+
+  for (let i = 0; i < total; i++) {
+    const o = i * 4;
+    length.data[o + 3] = 255;
+    density.data[o + 3] = 255;
+    direction.data[o + 3] = 255;
+    if (!covered[i]) continue;
+    const isBare = bare[i] !== 0;
+    const l = isBare ? 0 : Math.max(1, Math.round((lengthMm[i]! / maxMm) * 255));
+    const d = isBare ? 0 : Math.round(Math.min(1, Math.max(0, densityBlur[i]!)) * 255);
+    length.data[o] = length.data[o + 1] = length.data[o + 2] = Math.min(255, l);
+    density.data[o] = density.data[o + 1] = density.data[o + 2] = d;
+    for (let k = 0; k < 3; k++) {
+      direction.data[o + k] = Math.round((combs[i * 3 + k]! * 0.5 + 0.5) * 255);
+    }
 
     if (tint && tintRgb) {
       tint.data[o] = tintRgb[0]!;
@@ -374,6 +390,130 @@ export function groomMaps(
     ...(tint && { tint: dilate(tint, covered, DILATE_PX) }),
     maxLengthM: maxMm / 1000,
   };
+}
+
+/** The scale markings are read at, as a share of the covered surface's bounding diagonal. */
+const MARKING_CELL = 0.006;
+/** The L* step along a strand that counts as crossing into another marking. */
+const MARKING_EDGE_LSTAR = 18;
+/** The shortest share of its length a strand keeps beside an edge. */
+const MARKING_FLOOR = 0.3;
+/** A surface walk that advances less than this share of a step has reached the part's end. */
+const END_ADVANCE = 0.3;
+
+/**
+ * Per texel, the fur length in mm, shortened where a strand lying flat along its comb would reach
+ * a marking of another lightness, or run off the end of its part: to the distance at which it
+ * would, smoothed over about a centimetre of surface and never under MARKING_FLOOR of its length.
+ * A strand that lies across an edge carries its root's colour over it, in any fur renderer that
+ * reads these maps, so long fur over narrow bands smears them (assetforge#131). Measured in 3D on
+ * the base colour's L*, smoothed at MARKING_CELL, so the coat's fine texture is not an edge;
+ * markings broader than the fur keep its full length.
+ */
+export function keepMarkingEdges(
+  texels: TexelMap,
+  baseColor: Raster,
+  combs: Float32Array,
+  lengthMm: Float32Array,
+  bare: Uint8Array,
+): Float32Array {
+  const { size, covered, position } = texels;
+  const total = size * size;
+  const out = Float32Array.from(lengthMm);
+  const bounds = coveredBounds(texels);
+  if (!(bounds.diagonal > 0)) return out;
+  // At least a few texels across, so every cell of the surface holds some.
+  const cell = Math.max(bounds.diagonal * MARKING_CELL, 3 * texelSpacing(texels));
+  const field = new SurfaceGrid(texels, bounds, cell, 8);
+  const v = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < total; i++) {
+    if (!covered[i] || bare[i]) continue;
+    const x = i % size;
+    const y = (i - x) / size;
+    const bx = Math.min(baseColor.width - 1, Math.floor(((x + 0.5) / size) * baseColor.width));
+    const by = Math.min(baseColor.height - 1, Math.floor(((y + 0.5) / size) * baseColor.height));
+    const o = (by * baseColor.width + bx) * 4;
+    v[0] = toLab(baseColor.data[o]!, baseColor.data[o + 1]!, baseColor.data[o + 2]!)[0];
+    v[1] = combs[i * 3]!;
+    v[2] = combs[i * 3 + 1]!;
+    v[3] = combs[i * 3 + 2]!;
+    v[4] = lengthMm[i]!;
+    v[5] = position[i * 3]!;
+    v[6] = position[i * 3 + 1]!;
+    v[7] = position[i * 3 + 2]!;
+    field.splat(i, 1, v);
+  }
+  // Each texel's reach, from its smoothed neighbourhood: march along the comb until the L* there
+  // differs by MARKING_EDGE_LSTAR or the strand's length runs out.
+  const reach = new SurfaceGrid(texels, bounds, cell * 2, 1);
+  const here = [0, 0, 0, 0, 0, 0, 0, 0];
+  const there = [0, 0, 0, 0, 0, 0, 0, 0];
+  const step = cell / 2;
+  // Less than this, and a point is off the surface: past a part's end.
+  const surfaceMass = 0.25 * field.typicalMass();
+  for (let i = 0; i < total; i++) {
+    if (!covered[i] || bare[i]) continue;
+    if (i % 3 !== 0) continue; // a third of the texels is plenty at this scale
+    if (field.gather(i, here) <= 0) continue;
+    const c = [here[1]!, here[2]!, here[3]!];
+    const cl = Math.hypot(c[0]!, c[1]!, c[2]!);
+    const lengthM = here[4]! / 1000;
+    let reached = lengthM;
+    if (cl > 1e-6) {
+      // Walk the surface: step along the comb, then settle onto the surface nearby. A walk that
+      // can no longer advance has run off the end of the part, which is an edge too.
+      let qx = here[5]!;
+      let qy = here[6]!;
+      let qz = here[7]!;
+      for (let s = step; s < lengthM; s += step) {
+        const m = field.sampleAt(
+          qx + (c[0]! / cl) * step,
+          qy + (c[1]! / cl) * step,
+          qz + (c[2]! / cl) * step,
+          there,
+        );
+        const moved = m > 0 ? Math.hypot(there[5]! - qx, there[6]! - qy, there[7]! - qz) : 0;
+        if (
+          m < surfaceMass ||
+          moved < step * END_ADVANCE ||
+          Math.abs(there[0]! - here[0]!) >= MARKING_EDGE_LSTAR
+        ) {
+          reached = s;
+          break;
+        }
+        qx = there[5]!;
+        qy = there[6]!;
+        qz = there[7]!;
+      }
+    }
+    reach.splat(i, 1, [lengthM > 0 ? reached / lengthM : 1]);
+  }
+  const share = [0];
+  for (let i = 0; i < total; i++) {
+    if (!covered[i] || bare[i]) continue;
+    if (reach.gather(i, share) <= 0) continue;
+    out[i] = lengthMm[i]! * Math.max(MARKING_FLOOR, Math.min(1, share[0]!));
+  }
+  return out;
+}
+
+/** The median distance in space between neighbouring covered texels along a row. */
+function texelSpacing(texels: TexelMap): number {
+  const { size, covered, position } = texels;
+  const gaps: number[] = [];
+  for (let i = 0; i + 1 < size * size; i += 7) {
+    if (!covered[i] || !covered[i + 1] || (i + 1) % size === 0) continue;
+    gaps.push(
+      Math.hypot(
+        position[i * 3 + 3]! - position[i * 3]!,
+        position[i * 3 + 4]! - position[i * 3 + 1]!,
+        position[i * 3 + 5]! - position[i * 3 + 2]!,
+      ),
+    );
+  }
+  if (gaps.length === 0) return 0;
+  gaps.sort((a, b) => a - b);
+  return gaps[gaps.length >> 1]!;
 }
 
 /** Whether length is zero exactly on bare texels: counts of the two kinds of mismatch. */
