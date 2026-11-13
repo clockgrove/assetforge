@@ -13,10 +13,16 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { encodePng } from "../src/image/raster.ts";
-import { RUN_FILE } from "../src/loop.ts";
-import { parseGlb } from "../src/model3d/glb.ts";
+import { pick } from "../src/handoff.ts";
+import { RUN_FILE, writeRun } from "../src/loop.ts";
+import type { RunRecord, StagedCandidate } from "../src/loop.ts";
+import { DIGITAL_SOURCE_TYPES } from "../src/metadata.ts";
+import { GLB_MEDIA_TYPE, parseGlb, writeGlb } from "../src/model3d/glb.ts";
 import { handoffSettings } from "../src/model3d/handoff.ts";
-import type { TargetProfile } from "../src/types.ts";
+import { measure } from "../src/model3d/scene.ts";
+import { sha256 } from "../src/request.ts";
+import type { Provenance, TargetProfile } from "../src/types.ts";
+import { syntheticCharacter } from "./fixtures/glb.ts";
 import { PALETTE, drawSubject } from "./fixtures/synthetic.ts";
 import { quadrupedTemplate, walkGait } from "./fixtures/quadruped.ts";
 
@@ -57,6 +63,52 @@ const BUDGETS = { triangles: 40000, textureMaxPx: 2048, materials: 4, bones: 80,
 const CLOCKGROVE_HANDOFF = {
   clipFields: { name: "name", durationMs: "durationMs", loop: "loop", generated: "generated" },
   sideImages: "embedded",
+};
+
+/** Clockgrove's model manifest (packages/contracts) and its validator, as a profile declares them. */
+const CLOCKGROVE_TARGET = {
+  layout: {
+    media: "assets/source/{{spec.assetId}}/model.glb",
+    manifest: "assets/manifests/{{spec.assetId}}/model.json",
+  },
+  manifest: {
+    kind: "model",
+    assetManifestVersion: 2,
+    assetId: "{{spec.assetId}}",
+    source: {
+      kind: "generated",
+      path: "{{output.path}}",
+      creator: "{{profile.creator}}",
+      tool: "assetforge",
+    },
+    license: "{{profile.license}}",
+    provenance: {
+      prompt: "{{provenance.prompt}}",
+      references: "{{provenance.referenceHashes}}",
+      outputGrant: "{{provenance.outputGrant?}}",
+    },
+    review: { status: "pending", reviewer: null, reviewedAt: null, notes: "" },
+    semantic: "{{spec.fields.semantic}}",
+    accessibilityLabel: "{{spec.fields.accessibilityLabel}}",
+    output: {
+      path: "{{output.path}}",
+      mediaType: "{{output.mediaType}}",
+      extension: "{{output.extension}}",
+      sha256: "{{output.sha256}}",
+      triangles: "{{output.triangles}}",
+      textureMaxPx: "{{output.textureMaxPx}}",
+      materials: "{{output.materials}}",
+      bones: "{{output.bones}}",
+      lods: "{{output.lods}}",
+      clips: "{{output.clips}}",
+      bounds: "{{output.bounds}}",
+      rig: "{{output.rig?}}",
+    },
+  },
+  review: { path: "review.status", pending: "pending" },
+  validator: {
+    command: [process.execPath, CLOCKGROVE, "{{manifest}}", "model-target.json"],
+  },
 };
 
 /** A target whose manifest template is Clockgrove's model manifest (packages/contracts). */
@@ -116,48 +168,7 @@ async function world() {
         groom: { sizePx: 256, seasons: ["summer", "winter"] },
         handoff: CLOCKGROVE_HANDOFF,
       },
-      layout: {
-        media: "assets/source/{{spec.assetId}}/model.glb",
-        manifest: "assets/manifests/{{spec.assetId}}/model.json",
-      },
-      manifest: {
-        kind: "model",
-        assetManifestVersion: 2,
-        assetId: "{{spec.assetId}}",
-        source: {
-          kind: "generated",
-          path: "{{output.path}}",
-          creator: "{{profile.creator}}",
-          tool: "assetforge",
-        },
-        license: "{{profile.license}}",
-        provenance: {
-          prompt: "{{provenance.prompt}}",
-          references: "{{provenance.referenceHashes}}",
-          outputGrant: "{{provenance.outputGrant?}}",
-        },
-        review: { status: "pending", reviewer: null, reviewedAt: null, notes: "" },
-        semantic: "{{spec.fields.semantic}}",
-        accessibilityLabel: "{{spec.fields.accessibilityLabel}}",
-        output: {
-          path: "{{output.path}}",
-          mediaType: "{{output.mediaType}}",
-          extension: "{{output.extension}}",
-          sha256: "{{output.sha256}}",
-          triangles: "{{output.triangles}}",
-          textureMaxPx: "{{output.textureMaxPx}}",
-          materials: "{{output.materials}}",
-          bones: "{{output.bones}}",
-          lods: "{{output.lods}}",
-          clips: "{{output.clips}}",
-          bounds: "{{output.bounds}}",
-          rig: "{{output.rig?}}",
-        },
-      },
-      review: { path: "review.status", pending: "pending" },
-      validator: {
-        command: [process.execPath, CLOCKGROVE, "{{manifest}}", "model-target.json"],
-      },
+      ...CLOCKGROVE_TARGET,
     }),
   );
   const target = async (name: string) => {
@@ -297,4 +308,101 @@ test("a malformed hand-off declaration is refused", () => {
   ]) {
     assert.throws(() => handoffSettings(profile(bad)), /model3d\.handoff/, JSON.stringify(bad));
   }
+});
+
+test("pick measures the bounds on the handed-off .glb, so rounding cannot push them past Clockgrove's 1 µm", async () => {
+  // A box whose top sits one float32 step under 2.5 m, skinned to a joint 0.9 µm above its bind
+  // pose. Assetforge measures the skinned rest pose; Clockgrove measures the mesh through its node.
+  // The two differ by 0.9 µm, inside Clockgrove's 1 µm. Rounded to the micrometre, as staging
+  // writes them, the top's 2.50000066 m becomes 2.500001 m: 1.24 µm off Clockgrove's measure.
+  const top = Math.fround(2.5 - 2 ** -22);
+  const glb = parseGlb(syntheticCharacter({ joints: 1, heightUnits: top - 0.5 }));
+  glb.json.nodes![1]!.translation = [0.3, 0.5 + 9e-7, 0];
+  const bytes = writeGlb(glb);
+  const measures = measure(parseGlb(bytes));
+  const round = (v: number) => Math.round(v * 1e6) / 1e6;
+  const staged = { min: measures.bounds!.min.map(round), max: measures.bounds!.max.map(round) };
+  assert.ok(Math.abs(staged.max[1]! - top) > 1e-6, `${staged.max[1]} vs ${top}`);
+  assert.ok(Math.abs(measures.bounds!.max[1] - top) < 1e-6, `${measures.bounds!.max[1]}`);
+
+  const dir = await mkdtemp(join(tmpdir(), "assetforge-clockgrove-bounds-"));
+  const runDir = join(dir, "run");
+  await mkdir(runDir);
+  await writeFile(join(runDir, "box.glb"), bytes);
+  const provenance: Provenance = {
+    digitalSourceType: DIGITAL_SOURCE_TYPES.generated,
+    generator: "model3d",
+    route: "scripted",
+    models: ["scripted"],
+    prompt: "a box",
+    parameters: {},
+    requestIds: [],
+    referenceHashes: [],
+    bibleVersion: "v1",
+    license: "MIT",
+    providerTerms: [],
+    startedAt: "",
+    finishedAt: "",
+    costUsd: 0,
+    calls: [],
+  };
+  const candidate: StagedCandidate = {
+    id: "c1",
+    file: "box.glb",
+    mediaType: GLB_MEDIA_TYPE,
+    extension: "glb",
+    sha256: sha256(bytes),
+    reasons: [],
+    fields: {
+      triangles: measures.triangles,
+      textureMaxPx: measures.textureMaxPx,
+      materials: measures.materials,
+      bones: measures.bones,
+      lods: measures.lods,
+      clips: [],
+      bounds: staged,
+    },
+    provenance,
+  };
+  const record: RunRecord = {
+    runId: "r1",
+    createdAt: "2026-11-13T00:00:00.000Z",
+    spec: {
+      kind: "character-3d",
+      assetId: "box",
+      fields: {
+        semantic: { role: "object", entity: null, archetype: null },
+        accessibilityLabel: "A synthetic box",
+      },
+    } as RunRecord["spec"],
+    specDir: dir,
+    profile: {
+      name: "synthetic-clockgrove-world",
+      license: "MIT",
+      values: { creator: "Synthetic" },
+      frames: { width: 32, height: 32 },
+      model3d: { format: "glb", budgets: BUDGETS, units: "m", handoff: CLOCKGROVE_HANDOFF },
+      ...CLOCKGROVE_TARGET,
+    } as unknown as TargetProfile,
+    bibleVersion: "v1",
+    capUsd: 1,
+    estimateUsd: 0,
+    spentUsd: 0,
+    requested: 1,
+    candidates: [candidate],
+    filtered: 0,
+    errors: [],
+  };
+  await writeRun(runDir, record);
+  const target = join(dir, "target");
+  await mkdir(target);
+  await writeFile(
+    join(target, "model-target.json"),
+    JSON.stringify({ version: 1, limits: BUDGETS }),
+  );
+
+  const picked = await pick({ runDir, candidateId: "c1", targetDir: target });
+  assert.equal(picked.validator?.accepted, true, picked.validator?.output);
+  const manifest = JSON.parse(await readFile(picked.manifestPath, "utf8"));
+  assert.deepEqual(manifest.output.bounds, measures.bounds);
 });
