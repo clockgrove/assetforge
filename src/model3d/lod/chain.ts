@@ -134,6 +134,18 @@ function sideBySide(images: Raster[]): Raster {
   return out;
 }
 
+function stacked(images: Raster[]): Raster {
+  const width = Math.max(...images.map((i) => i.width));
+  const height = images.reduce((n, i) => n + i.height, 0);
+  const out: Raster = { width, height, data: new Uint8Array(width * height * 4) };
+  let y0 = 0;
+  for (const image of images) {
+    out.data.set(image.data, y0 * width * 4);
+    y0 += image.height;
+  }
+  return out;
+}
+
 function renderViews(glb: Glb, sizePx: number, framing: Bounds, forwardYawDeg: number): Raster[] {
   return TURNTABLE_VIEWS.map((view) =>
     renderView(glb, { sizePx, yawDeg: forwardYawDeg + view.yawDeg, framing }),
@@ -238,6 +250,24 @@ export async function buildChain(options: {
       bytes: encodePng(sideBySide(built.map((level) => level.renders[v]!))),
     });
   });
+  // Each level mid-way through every clip, one row per level, so the person sees them deform alike.
+  const clipViews = views.filter((v) => v.clip !== undefined && v.name.endsWith("frame 2"));
+  if (clipViews.length > 0) {
+    const rows = built.map((level) =>
+      sideBySide(
+        clipViews.map((view) => {
+          const pose = viewPose(source, view);
+          return renderView(level.glb, {
+            sizePx: Math.max(32, Math.round(options.sizePx / 2)),
+            yawDeg: view.yawDeg,
+            framing,
+            ...(pose && { pose }),
+          });
+        }),
+      ),
+    );
+    artifacts.push({ name: "lods-clips.png", bytes: encodePng(stacked(rows)) });
+  }
   const passing = built.filter((level) => level.passed);
 
   // 2. The default tier: the main file and, for `files`, a file per lower level.

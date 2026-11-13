@@ -1,0 +1,240 @@
+{
+  "model": "raccoon-world assets/models/stevie/stevie.glb, re-rigged with the motions of docs/examples/raccoon-motions",
+  "sourceModelSha256": "2680c2c4f6d9c9ecf4210f7054a40bcb62a71047688161424edb35bd97840985",
+  "lodSourceSha256": "c43764535d4c2938df7efe09b2200f5ceea108e6dc6f3df338e10797655c2fe5",
+  "chain": {
+    "packaging": "files",
+    "levels": [
+      {
+        "level": 0,
+        "triangleRatio": 1,
+        "minScreenHeight": 0.15,
+        "triangles": 59847,
+        "passed": true
+      },
+      {
+        "level": 1,
+        "triangleRatio": 0.33,
+        "minScreenHeight": 0.05,
+        "triangles": 19749,
+        "passed": true
+      },
+      {
+        "level": 2,
+        "triangleRatio": 0.1,
+        "minScreenHeight": 0,
+        "triangles": 5975,
+        "passed": true
+      }
+    ],
+    "tiers": [
+      {
+        "name": "desktop",
+        "levels": [0, 1, 2],
+        "textureMaxPx": 2048
+      },
+      {
+        "name": "phone",
+        "levels": [1, 2],
+        "textureMaxPx": 1024
+      }
+    ]
+  },
+  "sidecars": [
+    {
+      "name": "stevie.lod1.glb",
+      "field": "levels.lod1",
+      "extra": {
+        "level": 1,
+        "triangles": 19749,
+        "triangleRatio": 0.33,
+        "minScreenHeight": 0.05
+      }
+    },
+    {
+      "name": "stevie.lod2.glb",
+      "field": "levels.lod2",
+      "extra": {
+        "level": 2,
+        "triangles": 5975,
+        "triangleRatio": 0.1,
+        "minScreenHeight": 0
+      }
+    },
+    {
+      "name": "stevie.phone.lod1.glb",
+      "field": "tiers.phone.levels.lod1",
+      "extra": {
+        "level": 1,
+        "triangles": 19749,
+        "triangleRatio": 0.33,
+        "minScreenHeight": 0.05,
+        "textureMaxPx": 1024
+      }
+    },
+    {
+      "name": "stevie.phone.lod2.glb",
+      "field": "tiers.phone.levels.lod2",
+      "extra": {
+        "level": 2,
+        "triangles": 5975,
+        "triangleRatio": 0.1,
+        "minScreenHeight": 0,
+        "textureMaxPx": 1024
+      }
+    },
+    {
+      "name": "stevie.phone.groom.summer.length.png",
+      "field": "tiers.phone.groom.summer.length",
+      "extra": {
+        "maxLengthM": 0.035
+      }
+    },
+    {
+      "name": "stevie.phone.groom.summer.direction.png",
+      "field": "tiers.phone.groom.summer.direction"
+    },
+    {
+      "name": "stevie.phone.groom.summer.density.png",
+      "field": "tiers.phone.groom.summer.density"
+    },
+    {
+      "name": "stevie.phone.groom.winter.length.png",
+      "field": "tiers.phone.groom.winter.length",
+      "extra": {
+        "maxLengthM": 0.082
+      }
+    },
+    {
+      "name": "stevie.phone.groom.winter.direction.png",
+      "field": "tiers.phone.groom.winter.direction"
+    },
+    {
+      "name": "stevie.phone.groom.winter.density.png",
+      "field": "tiers.phone.groom.winter.density"
+    },
+    {
+      "name": "stevie.phone.tint.winter.png",
+      "field": "tiers.phone.textures.tint.winter"
+    },
+    {
+      "name": "stevie.phone.eyes.mask.png",
+      "field": "tiers.phone.eyes",
+      "extra": {
+        "material": "eyes"
+      }
+    }
+  ],
+  "reasons": [
+    {
+      "check": "gltf-validator",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 3 warning(s)"
+    },
+    {
+      "check": "mesh-hierarchy",
+      "passed": true,
+      "reason": "1 scene root(s), 1 mesh(es), 59847 triangles"
+    },
+    {
+      "check": "budget-triangles",
+      "passed": true,
+      "reason": "triangles 59847 within 60000"
+    },
+    {
+      "check": "budget-textureMaxPx",
+      "passed": true,
+      "reason": "textureMaxPx 2048 within 2048"
+    },
+    {
+      "check": "budget-materials",
+      "passed": true,
+      "reason": "materials 2 within 4"
+    },
+    {
+      "check": "budget-bones",
+      "passed": true,
+      "reason": "bones 30 within 80"
+    },
+    {
+      "check": "budget-lods",
+      "passed": true,
+      "reason": "lods 1 within 3"
+    },
+    {
+      "check": "gltf-validator-stevie.lod1.glb",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 3 warning(s)"
+    },
+    {
+      "check": "gltf-validator-stevie.lod2.glb",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 3 warning(s)"
+    },
+    {
+      "check": "gltf-validator-stevie.phone.lod1.glb",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 3 warning(s)"
+    },
+    {
+      "check": "gltf-validator-stevie.phone.lod2.glb",
+      "passed": true,
+      "reason": "Khronos glTF validator 2.0.0-dev.3.10: 0 error(s), 3 warning(s)"
+    },
+    {
+      "check": "lod-1-triangles",
+      "passed": true,
+      "reason": "level 1: 19749 triangles, within 19749 (ratio 0.33 of 59847)"
+    },
+    {
+      "check": "lod-1-rig",
+      "passed": true,
+      "reason": "level 1: same skeleton, skins, clips and materials; 13554 kept vertices carry their source's JOINTS_0, POSITION, TEXCOORD_0, WEIGHTS_0 unchanged"
+    },
+    {
+      "check": "lod-1-clips",
+      "passed": true,
+      "reason": "level 1: 6 clip(s) play: idle, walk, sniff, eat, play, shelter"
+    },
+    {
+      "check": "lod-1-silhouette",
+      "passed": true,
+      "reason": "level 1: silhouette differs from the full model's by 0.78% at worst (idle frame 1), 0.65% on average over 28 view(s) and clip frame(s); tolerance 6.00%"
+    },
+    {
+      "check": "lod-2-triangles",
+      "passed": true,
+      "reason": "level 2: 5975 triangles, within 5984 (ratio 0.1 of 59847)"
+    },
+    {
+      "check": "lod-2-rig",
+      "passed": true,
+      "reason": "level 2: same skeleton, skins, clips and materials; 5042 kept vertices carry their source's JOINTS_0, POSITION, TEXCOORD_0, WEIGHTS_0 unchanged"
+    },
+    {
+      "check": "lod-2-clips",
+      "passed": true,
+      "reason": "level 2: 6 clip(s) play: idle, walk, sniff, eat, play, shelter"
+    },
+    {
+      "check": "lod-2-silhouette",
+      "passed": true,
+      "reason": "level 2: silhouette differs from the full model's by 2.93% at worst (front), 2.11% on average over 28 view(s) and clip frame(s); tolerance 6.00%"
+    },
+    {
+      "check": "tier-desktop",
+      "passed": true,
+      "reason": "tier desktop: the main file serves it as it is: level(s) 0 (59847 triangles), 1 (19749 triangles), 2 (5975 triangles), textures 2048 px"
+    },
+    {
+      "check": "tier-phone",
+      "passed": true,
+      "reason": "tier phone: level(s) 1 (19749 triangles), 2 (5975 triangles); textures within 1024 px (budget 1024)"
+    },
+    {
+      "check": "turntable",
+      "passed": true,
+      "reason": "18 render(s) of the levels and tiers: lod0-front.png, lod0-three-quarter.png, lod0-side.png, lod0-back.png, lod1-front.png, lod1-three-quarter.png, lod1-side.png, lod1-back.png, lod2-front.png, lod2-three-quarter.png, lod2-side.png, lod2-back.png, lods-front.png, lods-three-quarter.png, lods-side.png, lods-back.png, lods-clips.png, tier-phone.png"
+    }
+  ]
+}
