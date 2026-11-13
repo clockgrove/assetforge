@@ -274,8 +274,8 @@ function worstMeshHeel(
     Math.min(...vs.map((v) => s.vertices[v * 3 + 1]!));
   let worst = -Infinity;
   for (const s of samples) {
-    const p = footPhase(s.phase, clip.touchdown[f]!);
-    if (p < 0.05 || p > clip.dutyFactor - 0.05) continue;
+    const p = footPhase(s.phase, clip.touchdown![f]!);
+    if (p < 0.05 || p > clip.dutyFactor! - 0.05) continue;
     worst = Math.max(worst, lowest(s, back) - lowest(s, front));
   }
   return worst / L;
@@ -288,7 +288,7 @@ test("raised, dog-like heels on a plantigrade template are planted flat in stanc
     r.mesh,
     r.skeleton,
     r.clip,
-    [{ ...r.samples[0]!, phase: r.clip.touchdown[0]! + 0.3, vertices: r.mesh.facing }],
+    [{ ...r.samples[0]!, phase: r.clip.touchdown![0]! + 0.3, vertices: r.mesh.facing }],
     "hind_l",
   );
   assert.ok(rest > 0.05, `rest heel ${rest}`);

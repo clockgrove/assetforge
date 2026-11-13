@@ -21,6 +21,7 @@ import {
   comparisonCheck,
   contactCheck,
   jointLimitCheck,
+  QA_SAMPLES,
   qaSampleCount,
   sampleClip,
   sampleSourceClip,
@@ -89,7 +90,9 @@ export async function rigCharacter(options: {
       clip,
       skeleton,
       options.yaw,
-      qaSampleCount(clip.dutyFactor),
+      clip.dutyFactor !== undefined
+        ? qaSampleCount(clip.dutyFactor)
+        : Math.max(QA_SAMPLES, clip.times.length - 1),
     );
     reasons.push(
       contactCheck(clip.family, samples, clip, skeleton, sole, ends, rig.qa),
