@@ -18,7 +18,7 @@ import { model3dSettings } from "../profile.ts";
 import { budgetChecks, hierarchyCheck, qaPassed, validatorCheck } from "../qa.ts";
 import { profileSha256 } from "../rig/candidate.ts";
 import { boundsOf, clips, imageSize, measure, posedPrimitives, yawBetween } from "../scene.ts";
-import { buildChain } from "./chain.ts";
+import { buildChain, dropUnusedMeshes } from "./chain.ts";
 import { lodSettings } from "./settings.ts";
 import type { SideFile } from "./textures.ts";
 
@@ -188,6 +188,43 @@ async function givenSource(options: LodOptions): Promise<Source> {
   };
 }
 
+/**
+ * The model without a chain made before: `MSFT_lod` and its screen coverage are removed, and so
+ * are the level nodes, which a chain appends after every other node. Levels a model carries from
+ * elsewhere (nodes not at the end) are refused rather than guessed at.
+ */
+export function withoutChain(glb: Glb): Glb {
+  const nodes = glb.json.nodes ?? [];
+  const ids = nodes.flatMap(
+    (n) => (n.extensions?.["MSFT_lod"] as { ids?: number[] } | undefined)?.ids ?? [],
+  );
+  if (ids.length === 0) return glb;
+  const first = Math.min(...ids);
+  const trailing = new Set(ids).size === nodes.length - first && ids.every((i) => i >= first);
+  const referenced = (glb.json.skins ?? []).some((s) => s.joints.some((j) => j >= first));
+  if (!trailing || referenced) {
+    throw new InputError(
+      "the model already carries MSFT_lod levels that Assetforge did not make; give it the full model alone",
+    );
+  }
+  glb.json.nodes = nodes.slice(0, first);
+  for (const node of glb.json.nodes) {
+    if (node.extensions?.["MSFT_lod"]) {
+      delete node.extensions["MSFT_lod"];
+      if (Object.keys(node.extensions).length === 0) delete node.extensions;
+    }
+    const extras = node["extras"] as Record<string, unknown> | undefined;
+    if (extras?.["MSFT_screencoverage"] !== undefined) {
+      delete extras["MSFT_screencoverage"];
+      if (Object.keys(extras).length === 0) delete node["extras"];
+    }
+  }
+  glb.json.extensionsUsed = glb.json.extensionsUsed?.filter((e) => e !== "MSFT_lod");
+  if (glb.json.extensionsUsed?.length === 0) delete glb.json.extensionsUsed;
+  dropUnusedMeshes(glb);
+  return glb;
+}
+
 const round = (v: number) => Math.round(v * 1e6) / 1e6;
 
 export async function lodChain(
@@ -205,10 +242,11 @@ export async function lodChain(
     throw new InputError("the spec needs an assetId: the chain's files are named after it");
   }
   const sourceSha256 = sha256(source.bytes);
-  const glb = parseGlb(source.bytes);
+  const glb = withoutChain(parseGlb(source.bytes));
   const chain = await buildChain({
     source: glb,
-    sides: source.sides,
+    // A chain made before (a re-run on a chained candidate) is made again, not carried.
+    sides: source.sides.filter((s) => !/^(levels|tiers)\./.test(s.field)),
     settings: lods,
     budgets: settings.budgets,
     assetId: spec.assetId,

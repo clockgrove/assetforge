@@ -130,7 +130,9 @@ export function tierSideImages(
   const referenced = new Set(
     images.flatMap((image) => (image.uri === undefined ? [] : [decodeURIComponent(image.uri)])),
   );
-  for (const side of sides) if (!referenced.has(side.name)) out.push(fit(side));
+  for (const side of sides) {
+    if (!referenced.has(side.name) && side.mediaType.startsWith("image/")) out.push(fit(side));
+  }
   if (!options.fur) {
     const keep: number[] = [];
     images.forEach((image, i) => {

@@ -51,7 +51,7 @@ function meshNodes(glb: Glb): number[] {
 }
 
 /** Removes meshes no node uses, renumbering the rest, then drops data nothing references. */
-function dropUnusedMeshes(glb: Glb): void {
+export function dropUnusedMeshes(glb: Glb): void {
   const json = glb.json;
   const used = [
     ...new Set((json.nodes ?? []).flatMap((n) => (n.mesh === undefined ? [] : [n.mesh]))),
