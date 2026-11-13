@@ -165,7 +165,7 @@ test("the held-out cut keeps one run's positives and drift with every generic an
   );
 });
 
-test("looked-dev renders are 3D positives for Stevie with pixel drift; LFS pointers are left out", async () => {
+test("looked-dev renders are 3D positives for Stevie with pixel drift, generics are negatives; LFS pointers are left out", async () => {
   const dir = await mkdtemp(join(tmpdir(), "identity-set-"));
   roots.push(dir);
   const source = join(dir, "source");
@@ -180,9 +180,27 @@ test("looked-dev renders are 3D positives for Stevie with pixel drift; LFS point
     "version https://git-lfs.github.com/spec/v1\noid sha256:00\nsize 1\n",
   );
   const out = join(dir, "raccoon-world");
-  const cases = await lookdevCases(out, "art/BIBLE.md", {
+  const generic = join(dir, "generic");
+  await mkdir(generic);
+  await writeFile(join(generic, "after-summer-three-quarter.png"), encodePng(raster));
+  await writeFile(
+    join(generic, "after-summer-front.png"),
+    "version https://git-lfs.github.com/spec/v1\noid sha256:00\nsize 1\n",
+  );
+  const all = await lookdevCases(out, "art/BIBLE.md", {
     sourceDir: pathToFileURL(`${source}/`),
+    genericDir: pathToFileURL(`${generic}/`),
   });
+  // The generic render is a negative against every cast member; its pointer twin is left out.
+  const generics = all.filter((c) => c.kind === "generic");
+  assert.deepEqual(
+    generics.map((c) => [c.image, c.subject, c.same, c.medium]),
+    [
+      ["lookdev/generic-after-summer-three-quarter.png", "jimothy", false, "3d"],
+      ["lookdev/generic-after-summer-three-quarter.png", "stevie", false, "3d"],
+    ],
+  );
+  const cases = all.filter((c) => c.kind !== "generic");
   const same = cases.filter((c) => c.same);
   assert.deepEqual(
     same.map((c) => c.image),

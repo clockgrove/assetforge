@@ -68,7 +68,19 @@ const textureCache = new WeakMap<Glb, Map<number, Raster | null>>();
 function baseColorTexture(glb: Glb, material: number | undefined): Raster | null {
   const pbr =
     material === undefined ? undefined : glb.json.materials?.[material]?.pbrMetallicRoughness;
-  const textureIndex = pbr?.baseColorTexture?.index;
+  return textureRaster(glb, pbr?.baseColorTexture?.index);
+}
+
+/** The material's emissive texture, decoded, or null when it has none. */
+function emissiveTexture(glb: Glb, material: number | undefined): Raster | null {
+  const entry =
+    material === undefined
+      ? undefined
+      : (glb.json.materials?.[material] as { emissiveTexture?: { index?: number } } | undefined);
+  return textureRaster(glb, entry?.emissiveTexture?.index);
+}
+
+function textureRaster(glb: Glb, textureIndex: number | undefined): Raster | null {
   if (textureIndex === undefined) return null;
   const source = glb.json.textures?.[textureIndex]?.source;
   if (source === undefined) return null;
@@ -311,6 +323,9 @@ export function renderViewWithDepth(
           (material?.pbrMetallicRoughness as { roughnessFactor?: number } | undefined)
             ?.roughnessFactor,
         );
+    const emissive = unlit || !prim.uvs ? null : emissiveTexture(glb, prim.material);
+    const emissiveFactor = (material as { emissiveFactor?: number[] } | undefined)
+      ?.emissiveFactor ?? [0, 0, 0];
     const uvs = prim.uvs;
     const normals = prim.normals;
 
@@ -441,6 +456,17 @@ export function renderViewWithDepth(
             r += spec;
             g += spec;
             b += spec;
+          }
+          if (emissive && uvs) {
+            sampleTexture(
+              emissive,
+              b0 * uvs[i0 * 2]! + b1 * uvs[i1 * 2]! + b2 * uvs[i2 * 2]!,
+              b0 * uvs[i0 * 2 + 1]! + b1 * uvs[i1 * 2 + 1]! + b2 * uvs[i2 * 2 + 1]!,
+              texel,
+            );
+            r += texel[0] * (emissiveFactor[0] ?? 0);
+            g += texel[1] * (emissiveFactor[1] ?? 0);
+            b += texel[2] * (emissiveFactor[2] ?? 0);
           }
           const o = at * 4;
           raster.data[o] = Math.round(Math.min(1, r) * 255);

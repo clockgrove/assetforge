@@ -79,6 +79,29 @@ export function replaceImage(glb: Glb, image: number, png: Uint8Array): void {
 }
 
 /**
+ * Embeds `png` as the emissive texture of the material named `materialName` (emissive factor 1),
+ * so the glow lives in that material alone. Returns the texture index, or -1 when no material has
+ * that name.
+ */
+export function setEmissive(glb: Glb, materialName: string, png: Uint8Array, name: string): number {
+  const json = glb.json;
+  const material = json.materials?.find((m) => m.name === materialName) as
+    (Record<string, unknown> & { name?: string }) | undefined;
+  if (!material) return -1;
+  json.images ??= [];
+  json.images.push({ bufferView: appendBufferView(glb, png), mimeType: "image/png", name } as {
+    bufferView: number;
+    mimeType: string;
+  });
+  json.textures ??= [];
+  json.textures.push({ source: json.images.length - 1, name });
+  const index = json.textures.length - 1;
+  material["emissiveTexture"] = { index };
+  material["emissiveFactor"] = [1, 1, 1];
+  return index;
+}
+
+/**
  * Moves every triangle of the textured material's primitives whose three corners lie inside an
  * eye marker into a new primitive with the eye material: the same textures, low roughness, no
  * metal. Returns the triangles moved.

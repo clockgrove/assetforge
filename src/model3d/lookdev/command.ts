@@ -62,6 +62,7 @@ import {
   compactBin,
   nodePositions,
   replaceImage,
+  setEmissive,
   splitEyes,
 } from "./edit.ts";
 import {
@@ -321,7 +322,7 @@ function restylePrompt(
     `Style bible version ${bible.version}:`,
     ...styleNotes(spec, bible).map((n) => `- ${n}`),
     "Keep the exact silhouette, pose, framing, camera and size of the render: change only the colour and texture painted on the surface, so it can be projected back onto the model.",
-    "Keep every identity marking where the references have it.",
+    "Keep every identity marking where the references have it: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
     "Paint the colour as evenly lit albedo: no cast shadows, no highlights, no rim light, no background objects. Keep the plain background colour.",
   ].join("\n");
 }
@@ -445,9 +446,10 @@ export function parseMarkers(
 }
 
 /**
- * Paints a soft catch-light into each eye of the albedo: a small near-white spot on the eye's
- * surface, offset from its centre toward the key light (above, in front, to the character's
- * left, as the turntable light). Changes only texels inside the eye markers.
+ * Paints a soft catch-light into each eye of a texture on the model's UVs: a small near-white
+ * spot on the eye's surface, offset from its centre toward the key light (above, in front, to the
+ * character's left, as the turntable light). Changes only texels inside the eye markers. Look-dev
+ * paints it into the eye material's own emissive texture, never into the base colour.
  */
 export function paintCatchLights(
   albedo: Raster,
@@ -592,7 +594,7 @@ function changedShare(a: Raster, b: Raster): number {
   return changed / (a.width * a.height);
 }
 
-/** Whether the close-up shows a catch-light: a near-white highlight inside an eye. */
+/** Whether the close-up shows a catch-light in every located eye: a near-white highlight inside it. */
 export function catchLight(
   render: Raster,
   camera: ViewCamera,
@@ -622,7 +624,7 @@ export function catchLight(
     peak = Math.max(peak, max);
     if (max >= 200 && max - sum / n >= 60) found++;
   }
-  return { found: eyes.length > 0 && found > 0, peak: Math.round(peak), eyes: found };
+  return { found: eyes.length > 0 && found === eyes.length, peak: Math.round(peak), eyes: found };
 }
 
 function greyMask(mask: Uint8Array, size: number): Raster {
@@ -785,7 +787,7 @@ export async function lookDev(
       ? sourceTexture
       : resize(sourceTexture, textureSize, textureSize);
   const albedo = dilate(fillUnseen(projection, texels, source), texels.covered, 8);
-  let albedoPng = encodePng(albedo);
+  const albedoPng = encodePng(albedo);
 
   // The new albedo goes into the model before the eyes and close-ups are made.
   replaceImage(glb, textured.image, albedoPng);
@@ -806,13 +808,6 @@ export async function lookDev(
     markers = parseMarkers(locateText, locateCamera, depthMap(glb, locateCamera));
   } catch {
     markers = { eyes: [], nose: [] };
-  }
-  // A catch-light painted into each eye, toward the key light, so the eyes read as wet at the
-  // closest zoom whatever the eye geometry; the glossy eye material adds the live highlight.
-  if (markers.eyes.length > 0) {
-    paintCatchLights(albedo, texels, markers.eyes, forward);
-    albedoPng = encodePng(albedo);
-    replaceImage(glb, textured.image, albedoPng);
   }
 
   // 3. Groom: bare masks, then each season's maps.
@@ -839,6 +834,19 @@ export async function lookDev(
   const count = (m: Uint8Array) =>
     m.reduce((s, v, i) => s + (v && groomTexels.covered[i] ? 1 : 0), 0);
   for (let i = 0; i < bare.length; i++) bare[i] = eyeMask[i] || noseMask[i] || pads[i] ? 1 : 0;
+  // Each bare mask on its own: an empty one means that part has fur nobody checked.
+  const bareCounts = { eyes: count(eyeMask), nose: count(noseMask), "paw pads": count(pads) };
+  const emptyMasks = Object.entries(bareCounts)
+    .filter(([, n]) => n === 0)
+    .map(([name]) => name);
+  const tooSmall = `no texel of the ${groomSize} px groom maps falls inside it`;
+  const whyEmpty: Record<string, string> = {
+    eyes: markers.eyes.length > 0 ? tooSmall : "the locate call found no eye",
+    nose: markers.nose.length > 0 ? tooSmall : "the locate call found no nose",
+    "paw pads": rig
+      ? "no texel faces down under the rig template's feet"
+      : "the profile declares no rig template, so the feet are unknown",
+  };
 
   const reasons: Reason[] = [];
   const sidecars: Sidecar[] = [];
@@ -860,12 +868,17 @@ export async function lookDev(
     const label = look.seasons ? `groom-${season}-masks` : "groom-masks";
     reasons.push({
       check: label,
-      passed: check.ok && check.bareTexels > 0,
+      passed: check.ok && emptyMasks.length === 0,
       reason:
-        check.bareTexels === 0
-          ? "no bare texels: neither eyes, nose nor paw pads were found, so the zero-length masks cannot be checked"
-          : `length zero on ${check.bareTexels} bare texel(s) (eyes, nose, paw pads), ` +
-            `${check.zeroOnBare} bare texel(s) with fur and ${check.zeroOutside} zero-length texel(s) outside the masks`,
+        `bare masks: ${Object.entries(bareCounts)
+          .map(([name, n]) => `${name} ${n}`)
+          .join(", ")} texel(s); ` +
+        `${check.zeroOnBare} bare texel(s) with fur and ${check.zeroOutside} zero-length texel(s) outside the masks` +
+        emptyMasks
+          .map(
+            (m) => `; the ${m} mask is empty (${whyEmpty[m]}), so zero length there is unchecked`,
+          )
+          .join(""),
       source: "deterministic",
     });
     const key = look.seasons ? `${season}.` : "";
@@ -888,6 +901,16 @@ export async function lookDev(
 
   // 4. The eye material and its mask.
   const eyeTriangles = splitEyes(glb, textured.material, markers.eyes);
+  // The catch-light lives in the eye material alone, as its emissive texture, so the eyes read as
+  // wet at the closest zoom whatever the eye geometry, while the base colour stays unlit albedo.
+  // The target can keep it, or drop it and shade the eyes itself; the glossy eye material adds
+  // the live highlight.
+  if (eyeTriangles > 0) {
+    const catchLightTexture = createRaster(textureSize, textureSize);
+    for (let i = 3; i < catchLightTexture.data.length; i += 4) catchLightTexture.data[i] = 255;
+    paintCatchLights(catchLightTexture, texels, markers.eyes, forward);
+    setEmissive(glb, EYE_MATERIAL, encodePng(catchLightTexture), "eyes.catchLight");
+  }
   const eyeMaskTexture = markerMask(texels, markers.eyes);
   sidecars.push({
     name: `${asset}.eyes.mask.png`,
@@ -923,7 +946,7 @@ export async function lookDev(
         ),
       },
       images: groomExtras,
-      eyes: { material: EYE_MATERIAL },
+      eyes: { material: EYE_MATERIAL, catchLight: "the eye material's emissiveTexture" },
     },
   };
   const raw = writeGlb(glb);
@@ -1001,7 +1024,8 @@ export async function lookDev(
     passed: eyeTriangles > 0 && light.found,
     reason:
       `${markers.eyes.length} eye(s) located, ${eyeTriangles} triangle(s) in the "${EYE_MATERIAL}" material; ` +
-      `catch-light in ${light.eyes} eye(s) of the close-up at the closest zoom (peak luminance ${light.peak})`,
+      `catch-light in ${light.eyes} of ${markers.eyes.length} eye(s) of the close-up at the closest zoom ` +
+      `(peak luminance ${light.peak}; the catch-light is the eye material's emissive texture, the base colour has none)`,
     source: "deterministic",
   });
   reasons.push(
@@ -1050,16 +1074,23 @@ export async function lookDev(
   }
 
   // 7. Before and after beside the approved turnaround, for the person who approves.
-  const refFor = (name: string) => {
-    const ref =
-      references.find((r) => r.view === name) ?? references.find((r) => r.view === "front");
+  // Each compare image leads with the turnaround's matching view; one that has to borrow the
+  // front view, or has no turnaround column at all, is named in a reason for the person.
+  const substituted: string[] = [];
+  const noColumn: string[] = [];
+  const refFor = (name: string, wanted: string) => {
+    let ref = references.find((r) => r.view === wanted);
+    if (!ref) {
+      ref = references.find((r) => r.view === "front");
+      (ref ? substituted : noColumn).push(name);
+    }
     return ref ? decodeImage(ref.bytes) : undefined;
   };
   const compareNames = [...TURNTABLE_VIEWS.map((v) => v.name), "close-up"];
   compareNames.forEach((name, i) => {
     const before = i < 4 ? beforeViews[i]! : beforeClose;
     const afters = plan.seasons.map((s) => (i < 4 ? afterBySeason[s]![i]! : afterClose[s]!));
-    const ref = refFor(name === "close-up" ? "front" : name);
+    const ref = refFor(name, name === "close-up" ? "front" : name);
     const height = before.height;
     artifacts.push({
       name: `compare-${name}.png`,
@@ -1069,6 +1100,25 @@ export async function lookDev(
     plan.seasons.forEach((s, k) =>
       artifacts.push({ name: `after-${s}-${name}.png`, bytes: encodePng(afters[k]!) }),
     );
+  });
+
+  const views = references.map((r) => r.view).filter((v): v is string => v !== undefined);
+  reasons.push({
+    check: "lookdev-compare",
+    passed: noColumn.length === 0,
+    reason:
+      substituted.length === 0 && noColumn.length === 0
+        ? "every compare image leads with the matching view of the approved references"
+        : [
+            `the approved references name the view(s) ${views.length > 0 ? [...new Set(views)].join(", ") : "none"}`,
+            ...(substituted.length > 0
+              ? [`compare-${substituted.join(", compare-")} show(s) the front reference instead`]
+              : []),
+            ...(noColumn.length > 0
+              ? [`compare-${noColumn.join(", compare-")} have no turnaround column`]
+              : []),
+          ].join("; "),
+    source: "deterministic",
   });
 
   // Stage the candidate.
@@ -1121,9 +1171,9 @@ export async function lookDev(
       })),
       padRadiusM: round(padRadius),
       bareTexels: {
-        eyes: count(eyeMask),
-        nose: count(noseMask),
-        pads: count(pads),
+        eyes: bareCounts.eyes,
+        nose: bareCounts.nose,
+        pads: bareCounts["paw pads"],
       },
       closestZoom: look.closestZoom,
       coverage: round(projection.coverage, 4),

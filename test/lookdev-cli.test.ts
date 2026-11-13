@@ -47,6 +47,8 @@ const checksOf = (c: Doc): Record<string, { passed: boolean; reason: string }> =
   Object.fromEntries(c["reasons"].map((x: { check: string }) => [x.check, x]));
 
 const GROOM = {
+  // Finer than the 8 px synthetic texture, so the eye and nose masks hold texels.
+  sizePx: 256,
   seasons: ["summer", "winter"],
   traits: { summer: "short, sleek, grey-brown", winter: "long, dense, frosted" },
 };
@@ -142,17 +144,20 @@ async function world(options: { groom?: Doc | null; model3d?: boolean } = {}) {
 
 /** A rigged one-candidate run made by `rig` (the look-dev input), with its provenance in a file. */
 async function riggedModel(w: Awaited<ReturnType<typeof world>>) {
-  const staged = await cli([
-    "stage",
-    ...w.base,
-    "--runs",
-    w.runs,
-    "--candidates",
-    "1",
-    "--provider-script",
-    SCRIPT,
-    "--json",
-  ]);
+  const staged = await cli(
+    [
+      "stage",
+      ...w.base,
+      "--runs",
+      w.runs,
+      "--candidates",
+      "1",
+      "--provider-script",
+      SCRIPT,
+      "--json",
+    ],
+    { SCRIPT_QUADRUPED_ATLAS: "1" },
+  );
   assert.equal(staged.code, 0, staged.stdout + staged.stderr);
   const c = doc(staged)["candidates"][0];
   const stagedModel = join(w.runs, doc(staged)["runId"], c.file);
@@ -284,6 +289,22 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
     glb.json.images!.some((i) => i.bufferView !== undefined),
     "base colour is embedded",
   );
+  // The catch-light is the eye material's own emissive texture, never painted into the base colour.
+  type Emissive = { name?: string; emissiveTexture?: { index: number } };
+  const materials = glb.json.materials as Emissive[];
+  assert.ok(materials.find((m) => m.name === "eyes")?.emissiveTexture);
+  assert.ok(materials.filter((m) => m.name !== "eyes").every((m) => !m.emissiveTexture));
+  assert.match(checks["eyes-catch-light"]!.reason, /catch-light in 2 of 2 eye\(s\)/);
+  assert.match(
+    checks["groom-summer-masks"]!.reason,
+    /eyes [1-9]\d*, nose [1-9]\d*, paw pads [1-9]/,
+  );
+  // The synthetic references have no three-quarter view: the compare image says it borrows the front.
+  assert.equal(checks["lookdev-compare"]?.passed, true);
+  assert.match(
+    checks["lookdev-compare"]!.reason,
+    /compare-three-quarter show\(s\) the front reference/,
+  );
 
   const renders = await readdir(join(runDir, "c1-character-3d"));
   for (const view of ["front", "three-quarter", "side", "back", "close-up"]) {
@@ -336,7 +357,7 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
 });
 
 test("without declared seasons the maps are keyed by name and there is no tint", async () => {
-  const w = await world({ groom: {} });
+  const w = await world({ groom: { sizePx: 256 } });
   const input = await riggedModel(w);
   const r = await cli(lookDevArgs(w, input));
   assert.equal(r.code, 0, r.stdout + r.stderr);
@@ -351,4 +372,28 @@ test("without declared seasons the maps are keyed by name and there is no tint",
   assert.equal(checks["groom-render"]?.passed, true, checks["groom-render"]?.reason);
   assert.equal(checks["groom-summer-masks"], undefined);
   assert.ok(existsSync(join(doc(r)["runDir"], "c1.glb")));
+});
+
+test("an empty bare mask fails the groom check and is named", async () => {
+  const w = await world();
+  const input = await riggedModel(w);
+  const r = await cli(lookDevArgs(w, input), {
+    SCRIPT_LOOKDEV_EYES: JSON.stringify({
+      eyes: [
+        { x: 240, y: 250, r: 45 },
+        { x: 270, y: 250, r: 45 },
+      ],
+      nose: null,
+    }),
+  });
+  const run = doc(r);
+  assert.equal(run["candidates"].length, 0, r.stdout + r.stderr);
+  const reasons: Array<{ check: string; passed: boolean; reason: string }> =
+    run["rejections"][0].reasons;
+  for (const season of ["summer", "winter"]) {
+    const check = reasons.find((x) => x.check === `groom-${season}-masks`)!;
+    assert.equal(check.passed, false);
+    assert.match(check.reason, /nose 0/);
+    assert.match(check.reason, /the nose mask is empty \(the locate call found no nose\)/);
+  }
 });

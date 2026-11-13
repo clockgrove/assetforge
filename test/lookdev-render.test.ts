@@ -160,3 +160,45 @@ test("background replaces the grey", () => {
   assert.deepEqual([...out.data.subarray(0, 4)], [0, 0, 0, 255]);
   assert.ok(covered(out, 0) > 0);
 });
+
+test("an emissive texture adds light to its material, and unlit renders leave it out", async () => {
+  const { setEmissive } = await import("../src/model3d/lookdev/edit.ts");
+  const { encodePng } = await import("../src/image/raster.ts");
+  const { glb, base } = setup();
+  glb.json.materials![0]!.name = "glow";
+  const plain = renderView(glb, base);
+  assert.equal(setEmissive(glb, "missing", encodePng(solid([255, 255, 255, 255])), "x"), -1);
+  assert.ok(setEmissive(glb, "glow", encodePng(solid([255, 255, 255, 255])), "glow") >= 0);
+  assert.ok(maxLuminance(renderView(glb, base)) > maxLuminance(plain));
+  assert.deepEqual(
+    renderView(glb, { ...base, unlit: true }).data,
+    renderView(parseGlb(syntheticCharacter({ triangles: 12 * 64 })), { ...base, unlit: true }).data,
+  );
+});
+
+test("catchLight needs a highlight in every located eye", async () => {
+  const { catchLight } = await import("../src/model3d/lookdev/command.ts");
+  const camera = viewCamera({ sizePx: 64, yawDeg: 0, framing: setup().base.framing });
+  const eyeAt = (x: number, y: number) => {
+    // A point on the view axis plane at the camera's focus distance, projected to (x, y).
+    const depth = 1;
+    const sx = ((x + 0.5 - 32) * depth) / camera.focal;
+    const sy = (-(y + 0.5 - 32) * depth) / camera.focal;
+    const point = [0, 1, 2].map(
+      (k) =>
+        camera.eye[k]! + camera.forward[k]! * depth + camera.right[k]! * sx + camera.up[k]! * sy,
+    ) as [number, number, number];
+    return { point, radius: (3 * depth) / camera.focal };
+  };
+  const eyes = [eyeAt(20, 30), eyeAt(44, 30)];
+  const render = solid([40, 40, 40, 255], 64);
+  const spot = (x: number, y: number) => render.data.set([255, 255, 255, 255], (y * 64 + x) * 4);
+  spot(20, 30);
+  const one = catchLight(render, camera, eyes);
+  assert.equal(one.eyes, 1);
+  assert.equal(one.found, false);
+  spot(44, 30);
+  const both = catchLight(render, camera, eyes);
+  assert.equal(both.eyes, 2);
+  assert.equal(both.found, true);
+});

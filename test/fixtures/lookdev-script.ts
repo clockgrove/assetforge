@@ -27,10 +27,10 @@ const script: Script = {
           process.env["SCRIPT_LOOKDEV_EYES"] ??
           JSON.stringify({
             eyes: [
-              { x: 232, y: 195, r: 45 },
-              { x: 278, y: 195, r: 45 },
+              { x: 240, y: 250, r: 45 },
+              { x: 270, y: 250, r: 45 },
             ],
-            nose: { x: 255, y: 232, r: 12 },
+            nose: { x: 255, y: 240, r: 12 },
           }),
         costUsd: 0.001,
       };

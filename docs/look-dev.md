@@ -33,7 +33,7 @@ The groom prompt reads the season's `traits` from the profile, as given.
 1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, three-quarter, side, back, the other side, the other three-quarter, and a high view of the back. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The prompt asks the model to:
    - keep the silhouette, pose and framing;
    - repaint only the surface colour, as evenly lit albedo;
-   - keep every identity marking where the references have it.
+   - keep every identity marking where the references have it: in the same place, with the same shape, size, colour and contrast, and the same number of repeats, neither softened nor added.
 
    Each edited view is registered onto its render: the figure's box is scaled and moved onto the render's. It is then projected back onto the model's own UVs:
    - every texel is baked to its rest-pose surface point and normal;
@@ -42,11 +42,11 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
    Texels that no view sees (the underside) keep the source texture, colour-matched to the projected result. The projection is made in 3D, so both sides of a UV seam receive the same colour. The islands are then dilated 8 px, so filtering never reads the background. The texture keeps the source's size, within the profile's `textureMaxPx`.
 
-2. **Eyes and nose.** One `lookdev-locate` call (`google/gemini-3-flash`) reads a close-up front render and returns the pixel centre and radius of each eye and of the nose. Each point is cast onto the surface through the depth map, which gives a 3D sphere. The eye triangles are moved into their own material, `eyes`: the same base colour, roughness 0.05, no metal. Their mask is written too.
+2. **Eyes and nose.** One `lookdev-locate` call (`google/gemini-3-flash`) reads a close-up front render and returns the pixel centre and radius of each eye and of the nose. Each point is cast onto the surface through the depth map, which gives a 3D sphere. The eye triangles are moved into their own material, `eyes`: the same base colour, roughness 0.05, no metal. Their mask is written too. Each eye gets a soft catch-light, offset toward the key light, painted into the `eyes` material's own emissive texture (emissive factor 1), never into the base colour. The target can keep it, or drop it and shade the eyes itself.
 3. **Paw pads.** From the target's rig template: the downward-facing surface under each foot's ankle-to-toe span.
 4. **Groom.** One `lookdev-groom` call per season reads the season's `traits` with the approved references. It returns fur length in millimetres and density (0 to 1) per region, and a tip tint where the coat's colour differs from the references. The regions are `face`, `cheek`, `head`, `neck`, `body`, `leg` and `tail`. They come from the rig template's joint roles and feet: the front of the head is face, and its lower sides are cheek. The maps are then written on the same UVs.
 5. **Before and after.** The turntable views (front, three-quarter, side, back) and a close-up at the target's closest zoom are rendered before and after, once per season. After look-dev, the renders draw Assetforge's own shell fur, driven by that season's maps. `compare-<view>.png` puts, left to right:
-   - the approved reference of that view (the front view for the close-up);
+   - the approved reference of that view (the front view for the close-up). A view the references do not name borrows the front view, and `lookdev-compare` says so;
    - the model before look-dev;
    - one column per season after look-dev.
 
@@ -54,15 +54,16 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
 All of these are recorded as reasons before the person sees the result. A failing check filters the candidate.
 
-| Check                                    | Passes when                                                                                                                                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `lookdev-albedo-coverage`                | At least 50% of the texels take colour from the restyled views.                                                                                                                            |
-| `lookdev-seams`                          | The mean colour difference across UV seam edges (mesh edges welded by position whose UVs differ) is at most 8 (0–255), or at most 1.25 times the source texture's.                         |
-| `groom-<season>-masks` (`groom-masks`)   | Length is zero on every eye, nose and paw-pad texel and on no other texel, and there are bare texels to check.                                                                             |
-| `groom-<season>-render` (`groom-render`) | Shell fur driven by the season's maps changes more than 1% of a turntable view's pixels.                                                                                                   |
-| `eyes-catch-light`                       | Eyes were located, their triangles are in the `eyes` material, and the close-up at the closest zoom shows a highlight in an eye (peak luminance at least 200, and 60 over the eye's mean). |
-| `gltf-validator`, `budget-*`             | As for every 3D candidate. The groom maps are resolved as external files. Their size counts toward `textureMaxPx`.                                                                         |
-| `identity-lock`                          | The identity lock scores the front and three-quarter renders after look-dev (first season) against the approved references, in the profile's identity mode, as for wave 0.                 |
+| Check                                    | Passes when                                                                                                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lookdev-albedo-coverage`                | At least 50% of the texels take colour from the restyled views.                                                                                                                                       |
+| `lookdev-seams`                          | The mean colour difference across UV seam edges (mesh edges welded by position whose UVs differ) is at most 8 (0–255), or at most 1.25 times the source texture's.                                    |
+| `groom-<season>-masks` (`groom-masks`)   | Length is zero on every eye, nose and paw-pad texel and on no other texel, and each of the three masks holds texels. The reason gives each mask's count and names an empty mask and why it is empty.  |
+| `groom-<season>-render` (`groom-render`) | Shell fur driven by the season's maps changes more than 1% of a turntable view's pixels.                                                                                                              |
+| `eyes-catch-light`                       | Eyes were located, their triangles are in the `eyes` material, and the close-up at the closest zoom shows a highlight in every located eye (peak luminance at least 200, and 60 over the eye's mean). |
+| `lookdev-compare`                        | Every compare image has a turnaround column. A view whose own reference is missing, and so shows the front view, is named in the reason.                                                              |
+| `gltf-validator`, `budget-*`             | As for every 3D candidate. The groom maps are resolved as external files. Their size counts toward `textureMaxPx`.                                                                                    |
+| `identity-lock`                          | The identity lock scores the front and three-quarter renders after look-dev (first season) against the approved references, in the profile's identity mode, as for wave 0.                            |
 
 ## Contract
 
@@ -94,7 +95,7 @@ The field names below are shared with clockgrove/raccoon-world#39 and Clockgrove
 | `output.groom.<season>.<map>`   | `{ path, sha256 }` of each map, keyed by season then map when `seasons` is declared (`output.groom.<map>` without). `length` also has `maxLengthM`.                                                            |
 | `output.textures.baseColor`     | `{ path, sha256 }` of the new base colour PNG. The same image is embedded in the `.glb`, so the model stays self-contained.                                                                                    |
 | `output.textures.tint.<season>` | `{ path, sha256 }` of an RGBA texture on the model's UVs. Its RGB multiplies the base colour, and its alpha weights the tint toward the fur tips. Present only for seasons whose colour differs from the base. |
-| `output.eyes`                   | `{ material, path, sha256 }`: the eye material's name (`eyes`) and its mask (white on the eyes).                                                                                                               |
+| `output.eyes`                   | `{ material, path, sha256 }`: the eye material's name (`eyes`) and its mask (white on the eyes). The catch-light is that material's embedded emissive texture.                                                 |
 
 The usual 3D outputs (`output.triangles`, `output.clips`, `output.bounds`, `output.rig` and the rest) are carried over from the source model, measured on the new file.
 

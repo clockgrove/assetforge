@@ -2,7 +2,12 @@
  * The 3D cases of #82's look-dev (Outcome 9): Stevie's looked-dev turntable renders, committed under
  * `docs/examples/look-dev/stevie/` by the real look-dev run, each a 3D positive for Stevie, and pixel
  * drift of some of them made in code as 3D drift. They join the Raccoon World cast. No other cast
- * member has a 3D model yet, so there are no 3D look-alikes; there is no generic 3D render either.
+ * member has a 3D model yet, so there are no 3D look-alikes. The 3D generics are a second real
+ * look-dev run on Stevie's mesh with a generic subject in place of Stevie: the bible's subject was
+ * "an ordinary raccoon with a pale, silvery coat and a narrow eye mask, not any particular named
+ * character", and its one reference the set's 2D generic `generic-silver-front`. They are committed
+ * under `docs/examples/look-dev/generic/`, and each is a negative against every cast member, as the
+ * 2D generics are. They keep Stevie's mesh and proportions; only the surface is generic.
  */
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -13,6 +18,12 @@ export const LOOKDEV_DIR = new URL("../../../docs/examples/look-dev/stevie/", im
 export const LOOKDEV_SUBJECT = "stevie";
 export const LOOKDEV_SEASONS = ["summer", "winter"] as const;
 export const LOOKDEV_VIEWS = ["front", "three-quarter", "side", "back", "close-up"] as const;
+export const LOOKDEV_GENERIC_DIR = new URL(
+  "../../../docs/examples/look-dev/generic/",
+  import.meta.url,
+);
+/** The cast a generic is a negative against, as for the 2D generics (generated.json `subjects`). */
+export const LOOKDEV_GENERIC_SUBJECTS = ["jimothy", "stevie"] as const;
 
 /** Pixel drift of looked-dev renders: the two wave-0 3D drift edits, plus a colourless coat. */
 export const LOOKDEV_DRIFT: { from: string; edit: DriftEdit; amount: number; note: string }[] = [
@@ -46,9 +57,10 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 export async function lookdevCases(
   raccoonWorldDir: string,
   bible: string,
-  options: { sourceDir?: URL; cast?: string } = {},
+  options: { sourceDir?: URL; genericDir?: URL; cast?: string } = {},
 ) {
   const sourceDir = options.sourceDir ?? LOOKDEV_DIR;
+  const genericDir = options.genericDir ?? LOOKDEV_GENERIC_DIR;
   const cast = options.cast ?? "raccoon-world";
   await mkdir(join(raccoonWorldDir, "lookdev"), { recursive: true });
   const cases: { image: string; bible: string; [key: string]: unknown }[] = [];
@@ -94,6 +106,27 @@ export async function lookdevCases(
       bible,
       note: `${d.edit} ${d.amount} of ${d.from}: ${d.note}`,
     });
+  }
+  for (const view of LOOKDEV_VIEWS) {
+    const name = `after-summer-${view}`;
+    const bytes = await readFile(new URL(`${name}.png`, genericDir)).catch(() => undefined);
+    if (!bytes || !PNG_SIGNATURE.equals(bytes.subarray(0, 8))) {
+      missing.push(`generic ${name}`);
+      continue;
+    }
+    const image = `lookdev/generic-${name}.png`;
+    await writeFile(join(raccoonWorldDir, image), bytes);
+    for (const subject of LOOKDEV_GENERIC_SUBJECTS)
+      cases.push({
+        image,
+        subject,
+        same: false,
+        kind: "generic",
+        cast,
+        medium: "3d",
+        bible,
+        note: `generic raccoon surface on Stevie's mesh, looked-dev (#82) summer coat, ${view} turntable render`,
+      });
   }
   if (missing.length > 0)
     console.error(
