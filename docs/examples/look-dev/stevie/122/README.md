@@ -1,6 +1,6 @@
 # Look-dev on Stevie, second pass: before and after (assetforge#122)
 
-These are #122's renders, kept for comparison with the third pass (assetforge#129, in [`129/`](../129/)) and the winter-groom pass (assetforge#131, one directory up).
+These are #122's renders, kept for comparison with the third pass (assetforge#129, in [`129/`](../129/)) the winter-groom pass (assetforge#131, in [`131/`](../131/)) and the face detail pass (assetforge#143, one directory up).
 
 This is one real `assetforge look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is raccoon-world `main` at 4ef1222. #82's renders are kept in [`82/`](../82/) for comparison.
 

@@ -184,6 +184,73 @@ export function viewCamera(options: {
   );
 }
 
+/**
+ * The camera of `viewCamera`'s direction, aimed and zoomed so the figure's own outline (every
+ * point in `positions`, projected) fills `fill` of the view's larger side, rather than its
+ * bounding sphere. A view that sees the figure end-on or small then still spends its pixels on it.
+ */
+export function framedCamera(options: {
+  sizePx: number;
+  yawDeg: number;
+  framing: Bounds;
+  elevationDeg?: number;
+  positions: Float64Array[];
+  fill: number;
+}): ViewCamera {
+  const { min, max } = options.framing;
+  const size = options.sizePx;
+  const radius = Math.max(Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2, 1e-6);
+  let focus: Vec = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
+  let distance = radius / Math.sin(Math.atan(FILL * Math.tan(FOV / 2)));
+  const near = (d: number) => Math.max(d - radius * 4, d * 0.01);
+  let camera = orbitCamera(
+    size,
+    focus,
+    distance,
+    options.yawDeg,
+    near(distance),
+    options.elevationDeg,
+  );
+  // Two passes: the second corrects the first's perspective error.
+  for (let pass = 0; pass < 2; pass++) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const p of options.positions) {
+      for (let v = 0; v + 2 < p.length; v += 3) {
+        const [x, y, d] = camera.project(p[v]!, p[v + 1]!, p[v + 2]!);
+        if (!(d > 0)) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    const extent = Math.max(x1 - x0, y1 - y0);
+    if (!(extent > 0)) break;
+    const perPixel = distance / camera.focal;
+    const dx = ((x0 + x1) / 2 - size / 2) * perPixel;
+    const dy = ((y0 + y1) / 2 - size / 2) * perPixel;
+    const { right, up } = camera;
+    focus = [
+      focus[0] + right[0] * dx - up[0] * dy,
+      focus[1] + right[1] * dx - up[1] * dy,
+      focus[2] + right[2] * dx - up[2] * dy,
+    ];
+    distance *= extent / (options.fill * size);
+    camera = orbitCamera(
+      size,
+      focus,
+      distance,
+      options.yawDeg,
+      near(distance),
+      options.elevationDeg,
+    );
+  }
+  return camera;
+}
+
 function orbitCamera(
   size: number,
   focus: Vec,

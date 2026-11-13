@@ -49,7 +49,7 @@ import { GLB_MEDIA_TYPE, parseGlb, writeGlb } from "../glb.ts";
 import type { Glb } from "../glb.ts";
 import { CHARACTER_3D_KIND, characterSpec, model3dSettings } from "../profile.ts";
 import { budgetChecks, qaPassed, validatorCheck } from "../qa.ts";
-import { TURNTABLE_VIEWS, closeUpCamera, renderView, speckle, viewCamera } from "../render.ts";
+import { TURNTABLE_VIEWS, closeUpCamera, framedCamera, renderView, speckle } from "../render.ts";
 import type { FurMaps, PreviewLighting, ViewCamera } from "../render.ts";
 import { profileSha256 } from "../rig/candidate.ts";
 import { declaresRig, loadRig } from "../rig/template.ts";
@@ -110,6 +110,23 @@ export const LOOKDEV_VIEWS = [
   { name: "top", yawDeg: 135, elevationDeg: 65 },
 ] as const;
 
+/**
+ * The detail pass: a view framed on the head (the rig template's head region, where the eyes and
+ * nose are), from the close-up's direction, restyled after the views above and projected with
+ * them. It sees the face at several times the turntable views' resolution, so the projection
+ * hands the face to it (assetforge#143: the front view painted the face about 200 px across, and
+ * the close-up enlarged that). Without a head region it falls back to the close-up at the
+ * target's closest zoom. `reference` names the turnaround view it is restyled against. Close-ups
+ * from the diagonals were tried: each painted the cheeks its own way and took the face's sides
+ * from the front one, so the mask came out as a hard bar.
+ */
+export const LOOKDEV_DETAIL_VIEWS = [{ name: "close-up", yawDeg: 0, reference: "front" }] as const;
+
+/** The share of a restyled turntable view's larger side the figure's outline fills. */
+const VIEW_FILL = 0.86;
+/** The share of a detail view's larger side the head's outline fills. */
+const DETAIL_FILL = 0.8;
+
 /** Restyled views are rendered and projected at this edge. */
 const VIEW_PX = 1024;
 const CLOSE_UP_PX = 512;
@@ -164,7 +181,9 @@ export function planLookdev(profile: TargetProfile, routes: Routes, capUsd?: num
     if (!route) throw new InputError(`no model route for operation "${operation}"`);
     calls.push({ operation, model: route.model, estimatedCostUsd: route.estimatedCostUsd });
   };
-  for (let i = 0; i < LOOKDEV_VIEWS.length; i++) add(LOOKDEV_OPERATION);
+  for (let i = 0; i < LOOKDEV_VIEWS.length + LOOKDEV_DETAIL_VIEWS.length; i++) {
+    add(LOOKDEV_OPERATION);
+  }
   add(LOOKDEV_LOCATE_OPERATION);
   for (let i = 0; i < seasonsOf(settings).length; i++) add(LOOKDEV_GROOM_OPERATION);
   // At most one markings call per turntable view: only views with their own turnaround view call.
@@ -433,12 +452,18 @@ function restylePrompt(
   view: string,
   referenceRoles: string[],
   continued = false,
+  detail = false,
 ): string {
   const subject = subjectOf(spec);
   const description = bible.subjects?.[subject]?.description;
   return [
     "Repaint the surface colour of this 3D character render so it matches the approved references.",
     `The first image is a flat-lit render (${view} view) of the character's 3D model; the others are its approved references (${referenceRoles.join("; ")}).`,
+    ...(detail
+      ? [
+          "The render is a close-up of the character's head: the figure runs on past the image's edges. Paint its identity markings and features at full detail, with the shape and clean edges the references give them. Leave out the fine strands the references draw standing off the face: paint the surface beneath them.",
+        ]
+      : []),
     ...(continued
       ? [
           "The render already carries colour painted from other views of the same model. Where a marking from that painting shows in this view, keep it where it is and continue it in the same colour; repaint what does not match the references.",
@@ -451,7 +476,7 @@ function restylePrompt(
     "The character's features (its eyes, nose and mouth, and any ears, limbs or tail it has) are where the render has them: keep each one exactly there, even where the model's proportions differ from the references, and do not draw a feature (such as an eye) anywhere the render does not show it.",
     "Identity markings include broad colour regions (a paler or darker underside, limbs, back or face) as well as small marks, bands and rims. Keep every identity marking where the references have it relative to those features: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. Where a part alternates bands of two colours, give each band the width the references give it against its neighbours (where the darker bands are broader than the paler ones in the references, keep them broader), and end the part in the colour the references end it in. A marking that surrounds or runs from a feature in the references (around an eye or running back from it) does so around or from that feature as the render places it. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
     "Paint the colour as evenly lit albedo: no cast shadows, no highlights, no rim light, no background objects. Keep the plain background colour.",
-    "Paint nothing that stands off the surface, such as whiskers or stray hairs: it is not surface colour, and projected back it would break up the marking under it.",
+    "Paint nothing that stands off the surface, even where the references show it: no strands, bristles or stray hairs lying over the surface. They are not surface colour, and projected back they would break up the marking under them.",
   ].join("\n");
 }
 
@@ -686,6 +711,19 @@ function headFocus(texels: TexelMap, regions: Uint8Array, bounds: Bounds, forwar
   return [c[0] + forward[0] * reach, c[1], c[2] + forward[2] * reach];
 }
 
+/** The surface points of the head region (face, cheek and head texels), every `step`th texel. */
+function headPoints(texels: TexelMap, regions: Uint8Array, step = 7): Float64Array {
+  const head = new Set(
+    ["face", "cheek", "head"].map((r) => GROOM_REGIONS.indexOf(r as GroomRegion)),
+  );
+  const points: number[] = [];
+  for (let i = 0; i < regions.length; i += step) {
+    if (!texels.covered[i] || !head.has(regions[i]!)) continue;
+    points.push(texels.position[i * 3]!, texels.position[i * 3 + 1]!, texels.position[i * 3 + 2]!);
+  }
+  return Float64Array.from(points);
+}
+
 function sideBySide(images: Raster[], height: number): Raster {
   const scaled = images.map((r) =>
     r.height === height
@@ -889,13 +927,14 @@ export async function lookDev(
   const regions = texelRegions(texels, skeleton);
   const focus = headFocus(texels, regions, framing, forward);
   const zoom = look.closestZoom;
-  const closeUp = (yawDeg: number) =>
+  // At another edge than the close-up's, the same framing: the character spans as much of it.
+  const closeUp = (yawDeg: number, sizePx = CLOSE_UP_PX) =>
     closeUpCamera({
-      sizePx: CLOSE_UP_PX,
+      sizePx,
       yawDeg: facingDeg + yawDeg,
       focus,
       heightM,
-      screenHeightPx: zoom.screenHeightPx,
+      screenHeightPx: (zoom.screenHeightPx * sizePx) / CLOSE_UP_PX,
       characterScreenFraction: zoom.characterScreenFraction,
     });
 
@@ -944,24 +983,51 @@ export async function lookDev(
   const depths: Float32Array[] = [];
   const viewArtifacts: Array<{ name: string; bytes: Uint8Array }> = [];
   let painted = glb;
-  for (const [k, v] of LOOKDEV_VIEWS.entries()) {
-    const camera = viewCamera({
-      sizePx: VIEW_PX,
-      yawDeg: facingDeg + v.yawDeg,
-      framing,
-      elevationDeg: v.elevationDeg,
-    });
+  // The turntable views framed on the figure's own outline, then the detail pass.
+  const positions = posedPrimitives(glb).map((p) => p.positions);
+  const head = headPoints(texels, regions);
+  const restyleViews = [
+    ...LOOKDEV_VIEWS.map((v) => ({
+      name: v.name as string,
+      reference: v.name.replace(/^other-/, "").replace(/^top$/, "back"),
+      detail: false,
+      camera: framedCamera({
+        sizePx: VIEW_PX,
+        yawDeg: facingDeg + v.yawDeg,
+        framing,
+        elevationDeg: v.elevationDeg,
+        positions,
+        fill: VIEW_FILL,
+      }),
+    })),
+    ...LOOKDEV_DETAIL_VIEWS.map((v) => ({
+      name: v.name as string,
+      reference: v.reference as string,
+      detail: true,
+      camera:
+        head.length > 0
+          ? framedCamera({
+              sizePx: VIEW_PX,
+              yawDeg: facingDeg + v.yawDeg,
+              framing,
+              positions: [head],
+              fill: DETAIL_FILL,
+            })
+          : closeUp(v.yawDeg, VIEW_PX),
+    })),
+  ];
+  for (const [k, v] of restyleViews.entries()) {
+    const { camera } = v;
     const flat = renderView(painted, {
       sizePx: VIEW_PX,
-      yawDeg: facingDeg + v.yawDeg,
+      yawDeg: 0,
       framing,
       camera,
       unlit: true,
       background: BACKGROUND,
     });
     const flatPng = encodePng(flat);
-    const viewName = v.name.replace(/^other-/, "").replace(/^top$/, "back");
-    const matching = references.filter((r) => r.view === viewName);
+    const matching = references.filter((r) => r.view === v.reference);
     const refs = [...matching, ...references.filter((r) => !matching.includes(r))].slice(0, 3);
     const edited = await caller.image(
       LOOKDEV_OPERATION,
@@ -971,13 +1037,14 @@ export async function lookDev(
         v.name,
         refs.map((r) => r.role),
         k > 0,
+        v.detail,
       ),
       [{ ...png(flatPng), role: `flat-lit render, ${v.name} view` }, ...refs],
     );
     const aligned = register(decodeImage(edited.bytes), flat);
     projected.push({ camera, image: aligned, background: editedBackground(aligned, flat) });
     depths.push(depthMap(glb, camera));
-    if (k < LOOKDEV_VIEWS.length - 1) {
+    if (k < restyleViews.length - 1) {
       const sofar = projectViews(glb, texels, projected, depths);
       painted = parseGlb(options.model.bytes);
       replaceImage(
@@ -1497,6 +1564,7 @@ export async function lookDev(
       sourceModel: basename(options.model.path),
       sourceModelSha256: sourceSha256,
       views: LOOKDEV_VIEWS,
+      detailViews: LOOKDEV_DETAIL_VIEWS,
       textureSizePx: textureSize,
       groomSizePx: groomSize,
       seasons: plan.seasons,
@@ -1538,7 +1606,7 @@ export async function lookDev(
   const step = {
     op: LOOKDEV_STEP,
     params: {
-      views: LOOKDEV_VIEWS.length,
+      views: LOOKDEV_VIEWS.length + LOOKDEV_DETAIL_VIEWS.length,
       seasons: plan.seasons,
       targetProfileSha256: profileSha256(profile),
     },
