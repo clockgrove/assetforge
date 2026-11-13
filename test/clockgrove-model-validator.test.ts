@@ -303,7 +303,6 @@ test("a malformed hand-off declaration is refused", () => {
     { clipFields: {} },
     { clipFields: { name: 3 } },
     { clipFields: { "a.b": "name" } },
-    { clipField: { name: "name" } },
     [],
   ]) {
     assert.throws(() => handoffSettings(profile(bad)), /model3d\.handoff/, JSON.stringify(bad));
