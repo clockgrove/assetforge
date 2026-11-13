@@ -30,16 +30,20 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
 ## How it works
 
-1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, three-quarter, side, back, the other side, the other three-quarter, and a high view of the back. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The prompt asks the model to:
+1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, three-quarter, side, back, the other side, the other three-quarter, and a high view of the back. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The views are restyled in that order, and each view after the first starts from a render of the model carrying what the earlier views painted (projected as below), so it extends their markings instead of placing its own. The prompt asks the model to:
    - keep the silhouette, pose and framing;
    - repaint only the surface colour, as evenly lit albedo;
-   - keep every identity marking where the references have it: in the same place, with the same shape, size, colour and contrast, and the same number of repeats, neither softened nor added.
+   - keep the character's features (eyes, nose, mouth, and any ears, limbs or tail) exactly where the render has them, even where the model's proportions differ from the references, and draw no feature where the render shows none;
+   - keep every identity marking, broad colour regions included, where the references have it relative to those features: in the same place, with the same shape, size, colour and contrast, and the same number of repeats, neither softened nor added;
+   - after the first view, keep a marking already painted where it shows, and continue it in the same colour.
+
+   On Stevie (assetforge#122), each view restyled on its own put the side view's eye mask where the three-quarter view put pale coat, because the image model drew the profile's eye higher than the mesh's. Their average was a grey smudge.
 
    Each edited view is registered onto its render: the figure's box is scaled and moved onto the render's. It is then projected back onto the model's own UVs:
    - every texel is baked to its rest-pose surface point and normal;
    - a texel takes a view's colour only where it is visible in that view, on the depth map, and faces the camera;
    - it never takes the edit's background: where the edit drew its figure narrower than the render (a leg drawn thinner), the background colour connected to the image's border, grown by one pixel, is left out. A pixel where the render itself is background-coloured is kept, since there the model's surface cannot be told from background;
-   - each view is weighted by how squarely it sees the texel.
+   - each view is weighted by how squarely it sees the texel (facing⁴). Where the views agree, the texel takes their weighted mean. Where they disagree (the weighted spread of their colours, smoothed over 0.8% of the texture's edge, rises from 12 to 36 of 255), the facing power rises smoothly to 48. The view that sees the texel most squarely then takes it over, so a marking two views paint in slightly different places stays crisp instead of averaging to grey.
 
    Texels that no view sees (the underside) keep the source texture, colour-matched to the projected result. The projection is made in 3D, so both sides of a UV seam receive the same colour. The islands are then dilated 8 px, so filtering never reads the background. The texture keeps the source's size, within the profile's `textureMaxPx`.
 

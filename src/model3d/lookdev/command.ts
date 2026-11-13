@@ -426,17 +426,24 @@ function restylePrompt(
   bible: StyleBible,
   view: string,
   referenceRoles: string[],
+  continued = false,
 ): string {
   const subject = subjectOf(spec);
   const description = bible.subjects?.[subject]?.description;
   return [
     "Repaint the surface colour of this 3D character render so it matches the approved references.",
     `The first image is a flat-lit render (${view} view) of the character's 3D model; the others are its approved references (${referenceRoles.join("; ")}).`,
+    ...(continued
+      ? [
+          "The render already carries colour painted from other views of the same model. Where a marking from that painting shows in this view, keep it where it is and continue it in the same colour; repaint what does not match the references.",
+        ]
+      : []),
     description ? `Subject: ${subject}, ${description}.` : `Subject: ${subject}.`,
     `Style bible version ${bible.version}:`,
     ...styleNotes(spec, bible).map((n) => `- ${n}`),
     "Keep the exact silhouette, pose, framing, camera and size of the render: change only the colour and texture painted on the surface, so it can be projected back onto the model.",
-    "Keep every identity marking where the references have it: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
+    "The character's features (its eyes, nose and mouth, and any ears, limbs or tail it has) are where the render has them: keep each one exactly there, even where the model's proportions differ from the references, and do not draw a feature (such as an eye) anywhere the render does not show it.",
+    "Identity markings include broad colour regions (a paler or darker underside, limbs, back or face) as well as small marks, bands and rims. Keep every identity marking where the references have it relative to those features: each marking at the same place on the body, with the same shape, size, colour and contrast, and the same number of repeats where a marking repeats along a part. A marking that surrounds or runs from a feature in the references (around an eye or running back from it) does so around or from that feature as the render places it. Do not soften, blur, shrink or blend a marking into the colour around it, and add none the references do not show.",
     "Paint the colour as evenly lit albedo: no cast shadows, no highlights, no rim light, no background objects. Keep the plain background colour.",
   ].join("\n");
 }
@@ -917,17 +924,27 @@ export async function lookDev(
     lighting,
   });
 
-  // 1. Albedo: restyle flat-lit renders and project them back onto the UVs.
+  // 1. Albedo: restyle flat-lit renders and project them back onto the UVs. The views are
+  // restyled in turn: each later view starts from the model carrying what the earlier views
+  // painted, so it extends their markings instead of placing its own (assetforge#122: restyled
+  // independently, the side view put the eye mask where the three-quarter view put pale coat,
+  // and the blend averaged the two to grey).
+  const source =
+    sourceTexture.width === textureSize && sourceTexture.height === textureSize
+      ? sourceTexture
+      : resize(sourceTexture, textureSize, textureSize);
   const projected = [];
+  const depths: Float32Array[] = [];
   const viewArtifacts: Array<{ name: string; bytes: Uint8Array }> = [];
-  for (const v of LOOKDEV_VIEWS) {
+  let painted = glb;
+  for (const [k, v] of LOOKDEV_VIEWS.entries()) {
     const camera = viewCamera({
       sizePx: VIEW_PX,
       yawDeg: facingDeg + v.yawDeg,
       framing,
       elevationDeg: v.elevationDeg,
     });
-    const flat = renderView(glb, {
+    const flat = renderView(painted, {
       sizePx: VIEW_PX,
       yawDeg: facingDeg + v.yawDeg,
       framing,
@@ -946,11 +963,22 @@ export async function lookDev(
         bible,
         v.name,
         refs.map((r) => r.role),
+        k > 0,
       ),
       [{ ...png(flatPng), role: `flat-lit render, ${v.name} view` }, ...refs],
     );
     const aligned = register(decodeImage(edited.bytes), flat);
     projected.push({ camera, image: aligned, background: editedBackground(aligned, flat) });
+    depths.push(depthMap(glb, camera));
+    if (k < LOOKDEV_VIEWS.length - 1) {
+      const sofar = projectViews(glb, texels, projected, depths);
+      painted = parseGlb(options.model.bytes);
+      replaceImage(
+        painted,
+        textured.image,
+        encodePng(dilate(fillUnseen(sofar, texels, source), texels.covered, 8)),
+      );
+    }
     viewArtifacts.push(
       { name: `lookdev-view-${v.name}-render.png`, bytes: flatPng },
       { name: `lookdev-view-${v.name}-restyled.png`, bytes: encodePng(aligned) },
@@ -958,12 +986,7 @@ export async function lookDev(
     for (const a of viewArtifacts.slice(-2)) await writeFile(join(runDir, dir, a.name), a.bytes);
     log(`look-dev: restyled the ${v.name} view`);
   }
-  const depths = projected.map((p) => depthMap(glb, p.camera));
   const projection = projectViews(glb, texels, projected, depths);
-  const source =
-    sourceTexture.width === textureSize && sourceTexture.height === textureSize
-      ? sourceTexture
-      : resize(sourceTexture, textureSize, textureSize);
   const albedo = dilate(fillUnseen(projection, texels, source), texels.covered, 8);
   const albedoPng = encodePng(albedo);
 

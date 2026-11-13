@@ -89,6 +89,35 @@ test("projecting a uniform view gives that colour on visible texels", () => {
   assert.ok(seen > 0);
 });
 
+test("views that disagree on a texel give it the squarer view's colour, not their grey mean", () => {
+  const { glb, texels } = character();
+  const { list, depths } = views(glb, [0, 0, 0]);
+  // The front paints the coat dark, a three-quarter view paints it pale: a marking one view drew.
+  const dark: [number, number, number] = [40, 40, 40];
+  const pale: [number, number, number] = [220, 200, 180];
+  const framing = boundsOf(posedPrimitives(glb))!;
+  const oblique = viewCamera({ sizePx: 96, yawDeg: 45, framing });
+  const two = [
+    { ...list[0]!, image: uniform(96, 96, dark) },
+    { camera: oblique, image: uniform(96, 96, pale) },
+  ];
+  const twoDepths = [depths[0]!, depthMap(glb, oblique)];
+  const both = projectViews(glb, texels, two, twoDepths);
+  const front = projectViews(glb, texels, [two[0]!], [twoDepths[0]!]);
+  const side = projectViews(glb, texels, [two[1]!], [twoDepths[1]!]);
+  let shared = 0;
+  let mixed = 0;
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    if (!(front.weight[i]! > 0 && side.weight[i]! > 0)) continue;
+    shared++;
+    const c = [...both.color.data.subarray(i * 4, i * 4 + 3)];
+    const near = (rgb: number[]) => Math.hypot(...c.map((v, k) => v - rgb[k]!)) < 40;
+    if (!near(dark) && !near(pale)) mixed++;
+  }
+  assert.ok(shared > 20, `shared ${shared}`);
+  assert.ok(mixed / shared < 0.3, `${mixed} of ${shared} shared texels are a mix of both views`);
+});
+
 test("a restyle's background is never projected, and pale coat inside the figure still is", () => {
   const { glb, texels } = character();
   const { list, depths } = views(glb, [100, 150, 200]);

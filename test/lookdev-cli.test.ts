@@ -278,6 +278,14 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
       "identity",
     ].toSorted(),
   );
+  // Views are restyled in turn: every view after the first starts from what earlier views painted.
+  const restyles = c.provenance.calls
+    .slice(input.source.calls.length)
+    .filter((x: { operation: string }) => x.operation === "lookdev");
+  assert.doesNotMatch(restyles[0].prompt, /already carries colour painted from other views/);
+  for (const r of restyles.slice(1)) {
+    assert.match(r.prompt, /already carries colour painted from other views/);
+  }
   // The markings call records the route's provider options it was sent with.
   const markingsCall = c.provenance.calls.find(
     (x: { operation: string }) => x.operation === "lookdev-markings",
