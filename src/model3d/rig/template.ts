@@ -1,6 +1,7 @@
 /**
  * The shared-rig contract (assetforge#84, shared with clockgrove/raccoon-world#39): the profile's
- * `model3d.rig` and `model3d.gaits`, and the skeleton template file a rig names. Everything here is
+ * `model3d.rig`, `model3d.gaits` and `model3d.motions` (assetforge#135), and the skeleton template
+ * file a rig names. Everything here is
  * target data; nothing is specific to one animal.
  */
 import { readFile } from "node:fs/promises";
@@ -81,6 +82,61 @@ export interface GaitProfile {
   loop?: boolean;
 }
 
+/** A foot's place in a motion pose, from where it stands at rest, in body lengths and degrees. */
+export interface MotionFoot {
+  /** Height of the sole above the ground; 0 (the default) plants the foot. */
+  liftBodyLengths?: number;
+  forwardBodyLengths?: number;
+  /** Toward the character's left (+x). */
+  sideBodyLengths?: number;
+  /** Downward curl of the foot, degrees. */
+  curlDeg?: number;
+}
+
+/** One key pose of a motion (added here, assetforge#135). Every field defaults to 0. */
+export interface MotionPose {
+  /** The root's offset and turn from the neutral stance. Positive pitch lowers the front. */
+  body?: {
+    raiseBodyLengths?: number;
+    forwardBodyLengths?: number;
+    sideBodyLengths?: number;
+    pitchDeg?: number;
+    yawDeg?: number;
+    rollDeg?: number;
+  };
+  /** Spread over the `spine` joints; positive hunches the back. */
+  backArchDeg?: number;
+  /** Spread over the `neck` and `head` joints; positive lowers the head, positive yaw turns it left. */
+  headPitchDeg?: number;
+  headYawDeg?: number;
+  /** Spread over the `tail` joints; positive lowers the tail. */
+  tailPitchDeg?: number;
+  tailYawDeg?: number;
+  /** Extra local rotation of named template joints, X-Y-Z Euler degrees, after the roles'. */
+  joints?: Record<string, { x?: number; y?: number; z?: number }>;
+  /** Feet by template foot name; a foot not listed stays planted where it stands. */
+  feet?: Record<string, MotionFoot>;
+}
+
+/**
+ * A clip family besides locomotion (assetforge#135): a looping idle or a one-shot gesture or
+ * interaction, keyed as poses on the shared rig.
+ */
+export interface MotionProfile {
+  /** A looping family (an idle) or a one-shot (a gesture or an interaction). */
+  loop: boolean;
+  /** Seconds the keys span; a one-shot's clip also includes its entry and exit. */
+  durationS: number;
+  /** Key poses, `at` a fraction of `durationS` from 0, ascending; eased between keys. */
+  keys: Array<{ at: number; pose: MotionPose }>;
+  /** One-shots: the looping motion whose first pose the clip starts from and returns to. */
+  idle?: string;
+  /** One-shots: seconds blending from the idle's first pose into the first key. */
+  entryS?: number;
+  /** One-shots: seconds blending from the last key back to the idle's first pose. */
+  exitS?: number;
+}
+
 export interface RigQaTolerances {
   /** How far a stance foot's sole may be from the ground line, in body lengths. */
   contactBodyLengths: number;
@@ -118,6 +174,10 @@ export interface LoadedRig {
   gaits: Record<string, GaitProfile>;
   /** SHA-256 of each gait profile's canonical JSON. */
   gaitSha256: Record<string, string>;
+  /** Clip families besides locomotion (`model3d.motions`). */
+  motions: Record<string, MotionProfile>;
+  /** SHA-256 of each motion's canonical JSON. */
+  motionSha256: Record<string, string>;
   qa: RigQaTolerances;
   /** Directory relative paths resolved against. */
   baseDir: string;
@@ -312,6 +372,136 @@ export function parseGait(value: unknown, template: SkeletonTemplate, where: str
   return structuredClone(g);
 }
 
+const POSE_KEYS = [
+  "body",
+  "backArchDeg",
+  "headPitchDeg",
+  "headYawDeg",
+  "tailPitchDeg",
+  "tailYawDeg",
+  "joints",
+  "feet",
+] as const;
+const BODY_KEYS = [
+  "raiseBodyLengths",
+  "forwardBodyLengths",
+  "sideBodyLengths",
+  "pitchDeg",
+  "yawDeg",
+  "rollDeg",
+] as const;
+const FOOT_KEYS = ["liftBodyLengths", "forwardBodyLengths", "sideBodyLengths", "curlDeg"] as const;
+
+/** Checks an object holds only the given keys, each a finite number. */
+function numbers(value: unknown, keys: readonly string[], where: string): void {
+  if (!isObject(value)) throw new InputError(`${where} must be an object`);
+  for (const [key, v] of Object.entries(value)) {
+    if (!keys.includes(key)) {
+      throw new InputError(`${where} has an unknown key "${key}" (${keys.join(", ")})`);
+    }
+    if (!finite(v)) throw new InputError(`${where}.${key} must be a number`);
+  }
+}
+
+function parsePose(value: unknown, template: SkeletonTemplate, where: string): void {
+  if (!isObject(value)) throw new InputError(`${where} must be an object`);
+  for (const [key, v] of Object.entries(value)) {
+    if (!(POSE_KEYS as readonly string[]).includes(key)) {
+      throw new InputError(`${where} has an unknown key "${key}" (${POSE_KEYS.join(", ")})`);
+    }
+    if (key === "body") numbers(v, BODY_KEYS, `${where}.body`);
+    else if (key === "joints") {
+      if (!isObject(v)) throw new InputError(`${where}.joints must map joint names to rotations`);
+      // A leg's upper, lower and ankle joints are posed by the feet, through inverse kinematics.
+      const solved = new Set(template.feet.flatMap((f) => f.joints.slice(0, 3)));
+      for (const [name, rotation] of Object.entries(v)) {
+        if (!template.joints.some((j) => j.name === name)) {
+          throw new InputError(`${where}.joints names "${name}", which the template has not`);
+        }
+        if (solved.has(name)) {
+          throw new InputError(
+            `${where}.joints names "${name}", a leg joint the feet pose: move its foot under feet`,
+          );
+        }
+        numbers(rotation, ["x", "y", "z"], `${where}.joints.${name}`);
+      }
+    } else if (key === "feet") {
+      if (!isObject(v)) throw new InputError(`${where}.feet must map foot names to places`);
+      for (const [name, foot] of Object.entries(v)) {
+        if (!template.feet.some((f) => f.name === name)) {
+          throw new InputError(`${where}.feet names "${name}", which the template has not`);
+        }
+        numbers(foot, FOOT_KEYS, `${where}.feet.${name}`);
+        const lift = (foot as MotionFoot).liftBodyLengths;
+        if (lift !== undefined && lift < 0) {
+          throw new InputError(`${where}.feet.${name}.liftBodyLengths must be at least 0`);
+        }
+      }
+    } else if (!finite(v)) throw new InputError(`${where}.${key} must be a number`);
+  }
+}
+
+const MOTION_KEYS = ["loop", "durationS", "keys", "idle", "entryS", "exitS"];
+
+/**
+ * Validates one motion against a template; throws an InputError naming what is wrong. The `idle`
+ * a one-shot names is checked against the other motions by `loadRig`.
+ */
+export function parseMotion(
+  value: unknown,
+  template: SkeletonTemplate,
+  where: string,
+): MotionProfile {
+  if (!isObject(value)) throw new InputError(`${where} must be an object`);
+  for (const key of Object.keys(value)) {
+    if (!MOTION_KEYS.includes(key)) {
+      throw new InputError(`${where} has an unknown key "${key}" (${MOTION_KEYS.join(", ")})`);
+    }
+  }
+  const m = value as unknown as MotionProfile;
+  if (typeof m.loop !== "boolean") {
+    throw new InputError(`${where}.loop must be true (an idle) or false (a one-shot)`);
+  }
+  if (!finite(m.durationS) || m.durationS <= 0) {
+    throw new InputError(`${where}.durationS must be a positive number of seconds`);
+  }
+  if (!Array.isArray(m.keys) || m.keys.length === 0) {
+    throw new InputError(`${where}.keys must list at least one key pose`);
+  }
+  let previous = -Infinity;
+  m.keys.forEach((key, i) => {
+    const at = `${where}.keys[${i}]`;
+    if (!isObject(key)) throw new InputError(`${at} must be { at, pose }`);
+    for (const k of Object.keys(key)) {
+      if (k !== "at" && k !== "pose") throw new InputError(`${at} has an unknown key "${k}"`);
+    }
+    if (!finite(key.at) || key.at < 0 || key.at > 1) {
+      throw new InputError(`${at}.at must be a fraction of durationS, from 0 to 1`);
+    }
+    if (i === 0 && key.at !== 0) throw new InputError(`${where}.keys must start at 0`);
+    if (key.at <= previous) throw new InputError(`${where}.keys must be in ascending order of at`);
+    previous = key.at;
+    parsePose(key.pose ?? {}, template, `${at}.pose`);
+  });
+  if (m.loop) {
+    for (const key of ["idle", "entryS", "exitS"] as const) {
+      if (m[key] !== undefined) {
+        throw new InputError(`${where}.${key} is for one-shots; a looping motion has none`);
+      }
+    }
+  } else {
+    if (m.idle !== undefined && typeof m.idle !== "string") {
+      throw new InputError(`${where}.idle must name a looping motion`);
+    }
+    for (const key of ["entryS", "exitS"] as const) {
+      if (m[key] !== undefined && (!finite(m[key]) || m[key] < 0)) {
+        throw new InputError(`${where}.${key} must be at least 0 seconds`);
+      }
+    }
+  }
+  return structuredClone(m);
+}
+
 /** Whether the profile declares a rig template (and so generated gaits). */
 export function declaresRig(profile: TargetProfile): boolean {
   return profile.model3d?.rig !== undefined;
@@ -339,6 +529,10 @@ export function rigProfileOf(profile: TargetProfile): RigProfile {
   const gaits = profile.model3d?.gaits as unknown;
   if (gaits !== undefined && !isObject(gaits)) {
     throw new InputError("model3d.gaits must map clip families to gait profiles");
+  }
+  const motions = profile.model3d?.motions as unknown;
+  if (motions !== undefined && !isObject(motions)) {
+    throw new InputError("model3d.motions must map clip families to motions");
   }
   return rig as unknown as RigProfile;
 }
@@ -374,6 +568,29 @@ export async function loadRig(profile: TargetProfile, baseDir: string): Promise<
     gaits[family] = parseGait(value, template, `model3d.gaits.${family}`);
     gaitSha256[family] = sha256(Buffer.from(canonicalJson(value)));
   }
+  const motions: Record<string, MotionProfile> = {};
+  const motionSha256: Record<string, string> = {};
+  for (const [family, value] of Object.entries(
+    (profile.model3d?.motions ?? {}) as Record<string, unknown>,
+  )) {
+    if (!/^[a-z][a-z0-9-]*$/.test(family)) {
+      throw new InputError(`model3d.motions has an invalid family name "${family}"`);
+    }
+    if (gaits[family]) {
+      throw new InputError(
+        `"${family}" is declared as both a gait (model3d.gaits) and a motion (model3d.motions)`,
+      );
+    }
+    motions[family] = parseMotion(value, template, `model3d.motions.${family}`);
+    motionSha256[family] = sha256(Buffer.from(canonicalJson(value)));
+  }
+  for (const [family, motion] of Object.entries(motions)) {
+    if (motion.idle !== undefined && motions[motion.idle]?.loop !== true) {
+      throw new InputError(
+        `model3d.motions.${family}.idle names "${motion.idle}", which is not a looping motion in model3d.motions`,
+      );
+    }
+  }
   return {
     templatePath: rig.template,
     kind: rig.kind,
@@ -381,6 +598,8 @@ export async function loadRig(profile: TargetProfile, baseDir: string): Promise<
     templateSha256: sha256(bytes),
     gaits,
     gaitSha256,
+    motions,
+    motionSha256,
     qa: { ...DEFAULT_RIG_QA, ...rig.qa },
     baseDir,
   };

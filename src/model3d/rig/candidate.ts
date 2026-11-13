@@ -9,9 +9,10 @@ import type { Glb } from "../glb.ts";
 import { FRAMES_PER_CLIP } from "../profile.ts";
 import type { CharacterSpec, ResolvedModel3d } from "../profile.ts";
 import { budgetChecks, clipChecks, hierarchyCheck, skeletonCheck, validatorCheck } from "../qa.ts";
+import { endsCheck } from "./qa.ts";
 import { renderTurntable } from "../render.ts";
 import type { TurntableFrame } from "../render.ts";
-import { boundsOf, measure, normalize, posedPrimitives, yawBetween } from "../scene.ts";
+import { boundsOf, imageSize, measure, normalize, posedPrimitives, yawBetween } from "../scene.ts";
 import type { Axis, Bounds, Measures } from "../scene.ts";
 import { rigCharacter } from "./rig.ts";
 import { canonicalJson } from "./template.ts";
@@ -43,6 +44,13 @@ export async function riggedCandidate(options: {
   settings: ResolvedModel3d;
   character: CharacterSpec;
   rig: LoadedRig;
+  /**
+   * The source's external images by `uri` (a look-dev'd model's groom maps, beside it), so the
+   * validator can resolve them and the texture budget can measure them.
+   */
+  resources?: Record<string, Uint8Array>;
+  /** Keep the source's `asset.extras`: `rig` re-rigging a handed-off model, never `stage`. */
+  keepAssetExtras?: boolean;
 }): Promise<RiggedCandidate> {
   const { source, settings, character, rig } = options;
   // Normalise first, so fitting sees the model facing the target's forward at its height.
@@ -58,19 +66,37 @@ export async function riggedCandidate(options: {
     rig,
     families: character.clips,
     sizePx: settings.turntablePx,
+    ...(options.keepAssetExtras && { keepAssetExtras: true }),
   });
   const written = rigged.glb;
   const measures = measure(written);
+  // External images are measured from their files, when given.
+  measures.unmeasuredImages = measures.unmeasuredImages.filter((index) => {
+    const uri = written.json.images?.[index]?.uri;
+    const bytes = uri === undefined ? undefined : options.resources?.[decodeURIComponent(uri)];
+    const size = bytes && imageSize(bytes);
+    if (!size) return true;
+    measures.textureMaxPx = Math.max(measures.textureMaxPx, size.width, size.height);
+    return false;
+  });
   const bounds = measures.bounds ?? boundsOf(posedPrimitives(written))!;
   const height = bounds.max[1] - bounds.min[1];
   const planned = rigged.clips.map((c) => ({ family: c.family, loop: c.loop }));
 
   const reasons: Reason[] = [
-    await validatorCheck(rigged.bytes),
+    await validatorCheck(rigged.bytes, options.resources),
     hierarchyCheck(written, measures),
     ...budgetChecks(measures, settings),
     skeletonCheck(measures),
     ...clipChecks(written, planned, rigged.missing, settings, height),
+    // A one-shot starts and ends on its idle's pose, held to the loop tolerance.
+    ...rigged.clips.flatMap((clip, index) => {
+      const reason = endsCheck(written, index, clip, rigged.skeleton, {
+        rotationDeg: settings.loopTolerance.rotationDeg,
+        translationM: settings.loopTolerance.translationFraction * height,
+      });
+      return reason ? [reason] : [];
+    }),
     ...rigged.reasons,
   ];
   const renders = renderTurntable(written, {
@@ -83,15 +109,22 @@ export async function riggedCandidate(options: {
     passed: renders.length >= 4,
     reason:
       `${renders.length} render(s) from a fixed camera and light: ${renders.map((r) => r.name).join(", ")}; ` +
-      `walk renders: ${rigged.artifacts.map((a) => a.name).join(", ") || "none"}`,
+      `clip renders and previews: ${rigged.artifacts.map((a) => a.name).join(", ") || "none"}`,
     source: "deterministic",
   });
 
   const gaits = Object.fromEntries(
-    rigged.clips.map((c) => [
-      c.family,
-      { sha256: rig.gaitSha256[c.family], profile: rig.gaits[c.family] },
-    ]),
+    rigged.clips
+      .filter((c) => rig.gaits[c.family])
+      .map((c) => [c.family, { sha256: rig.gaitSha256[c.family], profile: rig.gaits[c.family] }]),
+  );
+  const motions = Object.fromEntries(
+    rigged.clips
+      .filter((c) => rig.motions[c.family])
+      .map((c) => [
+        c.family,
+        { sha256: rig.motionSha256[c.family], profile: rig.motions[c.family] },
+      ]),
   );
   return {
     bytes: rigged.bytes,
@@ -119,6 +152,7 @@ export async function riggedCandidate(options: {
         template: rig.templatePath,
         templateSha256: rig.templateSha256,
         gaits,
+        ...(Object.keys(motions).length > 0 && { motions }),
         sourceModelSha256: options.sourceSha256,
         qa: rig.qa,
         fit: {

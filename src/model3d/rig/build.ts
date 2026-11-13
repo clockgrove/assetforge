@@ -98,10 +98,21 @@ export function buildRiggedGlb(
   clips: GeneratedClip[],
   /** The shared-rig identity the target compares (`asset.extras.rig`), as the manifest records it. */
   rig: { template: string; sha256: string },
+  /** Keep the source's own `asset.extras` (re-rigging a look-dev'd model keeps its groom record). */
+  keepAssetExtras = false,
 ): Glb {
   const out = new BinWriter();
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge shared rig", extras: { rig } },
+    // Only a re-rig keeps the source's asset extras (look-dev's groom record); `stage` writes the
+    // rig's alone, so a provider's own extras never ship. The rig's replaces any.
+    asset: {
+      version: "2.0",
+      generator: "assetforge shared rig",
+      extras: {
+        ...(keepAssetExtras && (source.json.asset.extras as Record<string, unknown> | undefined)),
+        rig,
+      },
+    },
     scene: 0,
     scenes: [{ nodes: [0] }],
   };

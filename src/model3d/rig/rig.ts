@@ -1,6 +1,6 @@
 /**
  * The shared rig end to end on one character: fit the target's skeleton template to the mesh, skin
- * it, generate the clips its gait profiles declare, write the re-rigged `.glb`, and check every
+ * it, generate the clips its gait profiles and motions declare, write the re-rigged `.glb`, and check every
  * clip and render it for the person. No provider call is made.
  */
 import { readFile, readdir } from "node:fs/promises";
@@ -8,19 +8,24 @@ import { extname, join, resolve } from "node:path";
 import { createRaster, decodeImage, encodePng } from "../../image/raster.ts";
 import type { Raster } from "../../image/raster.ts";
 import { resampleTo } from "../../image/resample.ts";
+import { encodeAnimatedWebp } from "../../image/webp.ts";
+import { flattenFrame } from "../../animation/preview.ts";
 import type { Reason } from "../../types.ts";
 import { parseGlb, writeGlb } from "../glb.ts";
 import type { Glb } from "../glb.ts";
 import { renderView } from "../render.ts";
 import { boundsOf, posedPrimitives, samplePose } from "../scene.ts";
 import { buildRiggedGlb } from "./build.ts";
+import type { Skeleton } from "./fit.ts";
 import { bakeMesh, fitSkeleton, skinWeights, soleEnds, soles } from "./fit.ts";
 import { generateGait } from "./gait.ts";
+import { generateMotion } from "./motion.ts";
 import type { GeneratedClip } from "./gait.ts";
 import {
   comparisonCheck,
   contactCheck,
   jointLimitCheck,
+  QA_SAMPLES,
   qaSampleCount,
   sampleClip,
   sampleSourceClip,
@@ -36,12 +41,14 @@ export interface RiggedCharacter {
   glb: Glb;
   bytes: Uint8Array;
   clips: GeneratedClip[];
-  /** Requested families the profile declares no gait for: reported, never faked. */
+  /** Requested families the profile declares no gait or motion for: reported, never faked. */
   missing: Array<{ family: string; why: string }>;
   /** contact, joint-limits and skinning per clip. */
   reasons: Reason[];
-  /** Side-view walk frames and the side-by-side with the reference frames, for the person. */
+  /** Side-view frames and a looping preview per clip, and the walk beside its reference frames. */
   artifacts: Array<{ name: string; bytes: Uint8Array }>;
+  /** The fitted skeleton the clips were generated on. */
+  skeleton: Skeleton;
   /** Fitted joints, in body lengths moved from the template. */
   fit: { bodyLengthM: number; joints: number; maxMovedBodyLengths: number };
 }
@@ -54,6 +61,8 @@ export async function rigCharacter(options: {
   rig: LoadedRig;
   families: string[];
   sizePx: number;
+  /** Keep the source's `asset.extras` (a re-rig only; see `buildRiggedGlb`). */
+  keepAssetExtras?: boolean;
 }): Promise<RiggedCharacter> {
   const { rig } = options;
   const mesh = bakeMesh(options.source, options.yaw);
@@ -65,19 +74,32 @@ export async function rigCharacter(options: {
   const missing: RiggedCharacter["missing"] = [];
   for (const family of options.families) {
     const gait = rig.gaits[family];
+    const motion = rig.motions[family];
     if (gait) clips.push(generateGait(family, gait, skeleton, mesh, sole, skin));
-    else {
+    else if (motion) {
+      clips.push(generateMotion(family, motion, rig.motions, skeleton, mesh, sole, skin));
+    } else {
       missing.push({
         family,
-        why: `the target declares no gait profile for "${family}" (model3d.gaits.${family})`,
+        why:
+          `the target declares no gait profile or motion for "${family}" ` +
+          `(model3d.gaits.${family} or model3d.motions.${family})`,
       });
     }
   }
   const bytes = writeGlb(
-    buildRiggedGlb(options.source, mesh, skeleton, skin, clips, {
-      template: rig.templatePath,
-      sha256: rig.templateSha256,
-    }),
+    buildRiggedGlb(
+      options.source,
+      mesh,
+      skeleton,
+      skin,
+      clips,
+      {
+        template: rig.templatePath,
+        sha256: rig.templateSha256,
+      },
+      options.keepAssetExtras ?? false,
+    ),
   );
   const glb = parseGlb(bytes);
 
@@ -89,7 +111,9 @@ export async function rigCharacter(options: {
       clip,
       skeleton,
       options.yaw,
-      qaSampleCount(clip.dutyFactor),
+      clip.dutyFactor !== undefined
+        ? qaSampleCount(clip.dutyFactor)
+        : Math.max(QA_SAMPLES, clip.times.length - 1),
     );
     reasons.push(
       contactCheck(clip.family, samples, clip, skeleton, sole, ends, rig.qa),
@@ -121,6 +145,14 @@ export async function rigCharacter(options: {
         frames.push(raster);
       }
       artifacts.push({ name: `${clip.family}-side.png`, bytes: encodePng(row(frames)) });
+      artifacts.push({
+        name: `${clip.family}-preview.webp`,
+        bytes: clipPreview(glb, index, clip.durationS, {
+          sizePx: Math.max(64, Math.round(options.sizePx / 2)),
+          yawDeg: (options.yaw * 180) / Math.PI + 45,
+          framing,
+        }),
+      });
       const referenceDir = rig.gaits[clip.family]?.reference;
       if (referenceDir !== undefined) {
         const references = await referenceFrames(resolve(rig.baseDir, referenceDir));
@@ -151,12 +183,42 @@ export async function rigCharacter(options: {
     missing,
     reasons,
     artifacts,
+    skeleton,
     fit: {
       bodyLengthM: skeleton.bodyLength,
       joints: skeleton.names.length,
       maxMovedBodyLengths: Math.max(...skeleton.moved),
     },
   };
+}
+
+/** Frames per second of a clip's looping preview. */
+export const PREVIEW_FPS = 10;
+
+/**
+ * A clip's looping preview for the person: an animated WebP from the three-quarter camera, over
+ * the clip's whole length at PREVIEW_FPS, looping forever. A one-shot starts and ends on its
+ * idle's pose, so it loops too.
+ */
+function clipPreview(
+  glb: Glb,
+  index: number,
+  durationS: number,
+  view: { sizePx: number; yawDeg: number; framing: NonNullable<ReturnType<typeof boundsOf>> },
+): Uint8Array {
+  const count = Math.max(2, Math.round(durationS * PREVIEW_FPS));
+  const frames: Raster[] = [];
+  for (let i = 0; i < count; i++) {
+    frames.push(
+      flattenFrame(
+        renderView(glb, { ...view, pose: samplePose(glb, index, (i * durationS) / count) }),
+      ),
+    );
+  }
+  return encodeAnimatedWebp(frames, {
+    durationMs: Math.round((1000 * durationS) / count),
+    loopCount: 0,
+  });
 }
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);

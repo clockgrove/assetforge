@@ -11,7 +11,7 @@ import { encodePng } from "../src/image/raster.ts";
 import { parseGlb } from "../src/model3d/glb.ts";
 import { sha256 } from "../src/request.ts";
 import { PALETTE, drawSubject } from "./fixtures/synthetic.ts";
-import { quadrupedTemplate, walkGait } from "./fixtures/quadruped.ts";
+import { quadrupedIdle, quadrupedPaw, quadrupedTemplate, walkGait } from "./fixtures/quadruped.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const SCRIPT = fileURLToPath(new URL("./fixtures/model3d-quadruped-script.ts", import.meta.url));
@@ -54,7 +54,7 @@ const GROOM = {
 };
 
 /** A target with a rig template, a groom declaration and a manifest that carries the look-dev fields. */
-async function world(options: { groom?: Doc | null; model3d?: boolean } = {}) {
+async function world(options: { groom?: Doc | null; model3d?: boolean; motions?: boolean } = {}) {
   const dir = await mkdtemp(join(tmpdir(), "assetforge-lookdev-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
@@ -75,7 +75,7 @@ async function world(options: { groom?: Doc | null; model3d?: boolean } = {}) {
       assetId: "kit",
       subject: "kit",
       gait: "quadruped",
-      clips: ["walk"],
+      clips: options.motions ? ["walk", "idle", "paw"] : ["walk"],
       heightM: 0.45,
     }),
   );
@@ -104,6 +104,7 @@ async function world(options: { groom?: Doc | null; model3d?: boolean } = {}) {
           turntable: { sizePx: 64 },
           rig: { template: "rig/quadruped.json", kind: "synthetic-quadruped" },
           gaits: { walk: walkGait() },
+          ...(options.motions && { motions: { idle: quadrupedIdle(), paw: quadrupedPaw() } }),
           ...(groom && { groom }),
         },
       }),
@@ -391,6 +392,28 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
   assert.equal(manifest.textures.tint.summer, undefined);
   assert.ok(manifest.textures.baseColor.sha256);
   assert.ok(manifest.eyes.sha256);
+});
+
+test("look-dev reports a declared motion's clip as rig and stage do, staying put", async () => {
+  const w = await world({ motions: true });
+  const input = await riggedModel(w);
+  const r = await cli(lookDevArgs(w, input));
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const run = doc(r);
+  assert.equal(run["candidates"].length, 1, JSON.stringify(run["rejections"]));
+  const shape = (clips: Doc[]) =>
+    clips.map((x) => [x["name"], x["loop"], x["generated"], typeof x["speedMps"]]);
+  const clips = run["candidates"][0].fields.clips;
+  assert.deepEqual(shape(clips), [
+    ["walk", true, true, "number"],
+    ["idle", true, true, "number"],
+    ["paw", false, true, "number"],
+  ]);
+  assert.ok(clips[0].speedMps > 0);
+  assert.deepEqual(
+    clips.slice(1).map((x: Doc) => x["speedMps"]),
+    [0, 0],
+  );
 });
 
 test("without declared seasons the maps are keyed by name and there is no tint", async () => {

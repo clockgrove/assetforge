@@ -43,9 +43,29 @@ export interface GeneratedClip {
   rotations: Quat[][];
   /** Per key, the root joint's local translation. */
   rootTranslation: V3[];
-  /** Per foot (template order), the phase at which it touches down, as a fraction of the cycle. */
-  touchdown: number[];
-  dutyFactor: number;
+  /** Per foot (template order), the spans of the clip it is down: planted, bearing weight. */
+  contacts: ContactSpan[][];
+  /** Gaits: per foot (template order), the phase at which it touches down, as a fraction of the cycle. */
+  touchdown?: number[];
+  /** Gaits: the fraction of the cycle each foot is on the ground. */
+  dutyFactor?: number;
+  /**
+   * One-shot motions: the pose the clip must start and end on (its idle's first pose, or the
+   * neutral stance), as every joint's local rotation and the root joint's translation.
+   */
+  ends?: { from: string; rotations: Quat[]; rootTranslation: V3 };
+}
+
+/** Part of a clip a foot is down: from phase `start` (0..1) for `length` of the clip (at most 1). */
+export interface ContactSpan {
+  start: number;
+  length: number;
+}
+
+/** Where a phase falls in a contact span: its phase since the span began, and whether it is in it. */
+export function inSpan(phase: number, span: ContactSpan): { p: number; inside: boolean } {
+  const p = footPhase(phase, span.start);
+  return { p, inside: p < span.length };
 }
 
 /** A foot's phase from touchdown, 0..1: stance is [0, dutyFactor). */
@@ -117,42 +137,12 @@ export function generateGait(
   const hipSway = gait.hipSwayDeg ?? gait.tailSwayDeg / 3;
 
   // Per foot: rest geometry and the sole relative to the ankle.
-  const ends = soleEnds(skeleton, mesh, soleVertices);
-  const feet = skeleton.feet.map((foot, f) => {
-    const [u, l, a, t] = foot.chain;
-    const P = skeleton.rest;
-    // Plantigrade feet stand flat: the underside of the mesh's foot, heel end to toe end, turned
-    // level about the lateral axis, so a heel that rests raised goes down with the toe. Without a
-    // measurable underside, the ankle-to-toe line is levelled instead.
-    const line = soleLine(mesh, ends[f]!);
-    const toeDir = line ?? sub(P[t]!, P[a]!);
-    const pitch =
-      foot.plantigrade && toeDir[2] > 1e-9 ? Math.atan2(toeDir[1], Math.hypot(toeDir[2])) : 0;
-    const base = foot.plantigrade ? rotX(pitch) : QUAT_IDENTITY;
-    const fallbackKnee: V3 = foot.pair === "hind" ? [0, 0, 1] : [0, 0, -1];
-    const bend = bendNormal(skeleton, foot.chain, fallbackKnee);
-    const sole = soleVertices[f]!.map(
-      (v) =>
-        sub([mesh.facing[v * 3]!, mesh.facing[v * 3 + 1]!, mesh.facing[v * 3 + 2]!], P[a]!) as V3,
-    );
-    return {
-      foot,
-      u,
-      l,
-      a,
-      upper: length(sub(P[l]!, P[u]!)),
-      lower: length(sub(P[a]!, P[l]!)),
-      base,
-      bend,
-      sole: sole.length > 0 ? sole : [sub(P[t]!, P[a]!)],
-      /** The underside's heel and toe ends, and the distance between them, when measurable. */
-      ends: foot.plantigrade && line ? { ...ends[f]!, span: length(line) } : undefined,
-      curl: rad(
-        foot.pair === "fore" ? (gait.swingCurlDeg?.fore ?? 0) : (gait.swingCurlDeg?.hind ?? 0),
-      ),
-      restAnkle: P[a]!,
-    };
-  });
+  const feet = legGeometry(skeleton, mesh, soleVertices).map((leg) => ({
+    ...leg,
+    curl: rad(
+      leg.foot.pair === "fore" ? (gait.swingCurlDeg?.fore ?? 0) : (gait.swingCurlDeg?.hind ?? 0),
+    ),
+  }));
 
   // The body's pose apart from the gait's oscillation: arch, head, tail, and the root's height
   // offset and extra pitch that let every leg reach the ground with its foot planted.
@@ -212,73 +202,7 @@ export function generateGait(
       ];
       return { footWorld, target, up, stance: p < duty };
     });
-    // Two-bone IK from the posed hip (or shoulder) to the ankle target.
-    const solve = (leg: (typeof feet)[number], footWorld: Quat, target: V3) => {
-      const hip = body.position[leg.u]!;
-      const parentRotation = body.rotation[skeleton.parent[leg.u]!] ?? QUAT_IDENTITY;
-      const toTarget = sub(target, hip);
-      const reach = leg.upper + leg.lower;
-      const span = Math.min(
-        Math.max(length(toTarget), Math.abs(leg.upper - leg.lower) + 1e-6 * reach),
-        reach * (1 - 1e-6),
-      );
-      const along = normalize(toTarget);
-      const kneeWant = rotate(parentRotation, leg.bend.knee);
-      let knee = normalize(sub(kneeWant, scale(along, dot(kneeWant, along))));
-      if (length(knee) < 1e-9) knee = normalize(cross(along, [1, 0, 0]));
-      const a = (leg.upper * leg.upper - leg.lower * leg.lower + span * span) / (2 * span);
-      const h = Math.sqrt(Math.max(leg.upper * leg.upper - a * a, 0));
-      const kneePos = add(hip, add(scale(along, a), scale(knee, h)));
-      const anklePos = add(hip, scale(along, span));
-      const normal = normalize(cross(knee, along));
-      const P = skeleton.rest;
-      const upperWorld = frameRotation(
-        normalize(sub(P[leg.l]!, P[leg.u]!)),
-        leg.bend.normal,
-        normalize(sub(kneePos, hip)),
-        normal,
-      );
-      const lowerWorld = frameRotation(
-        normalize(sub(P[leg.a]!, P[leg.l]!)),
-        leg.bend.normal,
-        normalize(sub(anklePos, kneePos)),
-        normal,
-      );
-      local[leg.u] = quatMul(quatConj(parentRotation), upperWorld);
-      local[leg.l] = quatMul(quatConj(upperWorld), lowerWorld);
-      local[leg.a] = quatMul(quatConj(lowerWorld), footWorld);
-    };
-    feet.forEach((leg, f) => solve(leg, targets[f]!.footWorld, targets[f]!.target));
-    if (skin) {
-      // The sole is skinned, not rigid: a foot's vertices are carried partly by the shin, so the
-      // posed sole is measured as skinned and each ankle target corrected until it meets the
-      // ground line (or the swing's height), so the stance foot neither sinks nor floats.
-      for (let round = 0; round < SOLE_ROUNDS; round++) {
-        const fk = forwardKinematics(skeleton, local, offset);
-        let worst = 0;
-        feet.forEach((leg, f) => {
-          const planted = targets[f]!;
-          const { target, up } = planted;
-          // A plantigrade stance foot is also turned until its skinned heel end is level with its
-          // toe end, so a heel the shin carries partly does not lift as the shin swings back.
-          let tilt = 0;
-          if (leg.ends && planted.stance) {
-            const heel = skinnedLowest(skeleton, mesh, skin, leg.ends.heel, fk);
-            const toe = skinnedLowest(skeleton, mesh, skin, leg.ends.toe, fk);
-            if (Math.abs(heel - toe) > 1e-6 * L) tilt = -Math.atan2(heel - toe, leg.ends.span);
-            // A turn about +x lowers the toe, so a heel above the toe needs a negative one.
-            planted.footWorld = quatMul(rotX(tilt), planted.footWorld);
-            worst = Math.max(worst, Math.abs(heel - toe));
-          }
-          const error = skinnedLowest(skeleton, mesh, skin, soleVertices[f]!, fk) - up;
-          worst = Math.max(worst, Math.abs(error));
-          if (Math.abs(error) <= 1e-6 * L && tilt === 0) return;
-          target[1] -= error;
-          solve(leg, planted.footWorld, target);
-        });
-        if (worst <= 1e-6 * L) break;
-      }
-    }
+    plantLegs(skeleton, mesh, feet, targets, soleVertices, local, offset, body, skin);
 
     const previous = rotations.at(-1);
     rotations.push(local.map((q, j) => sameHemisphere(previous?.[j], q)));
@@ -295,9 +219,157 @@ export function generateGait(
     times,
     rotations,
     rootTranslation,
+    contacts: touchdown.map((start) => [{ start, length: duty }]),
     touchdown,
     dutyFactor: duty,
   };
+}
+
+/** A leg's rest geometry, as the gait and motions solve it. */
+export interface Leg {
+  foot: Skeleton["feet"][number];
+  u: number;
+  l: number;
+  a: number;
+  upper: number;
+  lower: number;
+  /** The foot's world rotation that stands it flat (plantigrade) at rest. */
+  base: Quat;
+  bend: ReturnType<typeof bendNormal>;
+  /** The sole's vertices relative to the ankle at rest. */
+  sole: V3[];
+  /** The underside's heel and toe ends, and the distance between them, when measurable. */
+  ends?: { heel: number[]; toe: number[]; span: number };
+  restAnkle: V3;
+}
+
+/** Each template foot's rest geometry: its chain, bone lengths, flat-foot rotation and sole. */
+export function legGeometry(skeleton: Skeleton, mesh: BakedMesh, soleVertices: number[][]): Leg[] {
+  const ends = soleEnds(skeleton, mesh, soleVertices);
+  return skeleton.feet.map((foot, f) => {
+    const [u, l, a, t] = foot.chain;
+    const P = skeleton.rest;
+    // Plantigrade feet stand flat: the underside of the mesh's foot, heel end to toe end, turned
+    // level about the lateral axis, so a heel that rests raised goes down with the toe. Without a
+    // measurable underside, the ankle-to-toe line is levelled instead.
+    const line = soleLine(mesh, ends[f]!);
+    const toeDir = line ?? sub(P[t]!, P[a]!);
+    const pitch =
+      foot.plantigrade && toeDir[2] > 1e-9 ? Math.atan2(toeDir[1], Math.hypot(toeDir[2])) : 0;
+    const base = foot.plantigrade ? rotX(pitch) : QUAT_IDENTITY;
+    const fallbackKnee: V3 = foot.pair === "hind" ? [0, 0, 1] : [0, 0, -1];
+    const bend = bendNormal(skeleton, foot.chain, fallbackKnee);
+    const sole = soleVertices[f]!.map(
+      (v) =>
+        sub([mesh.facing[v * 3]!, mesh.facing[v * 3 + 1]!, mesh.facing[v * 3 + 2]!], P[a]!) as V3,
+    );
+    return {
+      foot,
+      u,
+      l,
+      a,
+      upper: length(sub(P[l]!, P[u]!)),
+      lower: length(sub(P[a]!, P[l]!)),
+      base,
+      bend,
+      sole: sole.length > 0 ? sole : [sub(P[t]!, P[a]!)],
+      ...(foot.plantigrade && line && { ends: { ...ends[f]!, span: length(line) } }),
+      restAnkle: P[a]!,
+    };
+  });
+}
+
+/** Where one foot goes on a frame: its world rotation, its ankle target, its lift, and whether it is down. */
+export interface FootTarget {
+  footWorld: Quat;
+  target: V3;
+  up: number;
+  stance: boolean;
+}
+
+/**
+ * Solves every leg onto its target by two-bone inverse kinematics from the posed hip (or
+ * shoulder), writing the leg's local rotations into `local`. With a skin, each ankle target is then
+ * corrected until the skinned sole meets the ground line (or the foot's lift), and a plantigrade
+ * stance foot is turned until its skinned heel end is level with its toe end.
+ */
+export function plantLegs(
+  skeleton: Skeleton,
+  mesh: BakedMesh,
+  legs: Leg[],
+  targets: FootTarget[],
+  soleVertices: number[][],
+  local: Quat[],
+  offset: V3,
+  body: Fk,
+  skin?: SkinWeights,
+): void {
+  const L = skeleton.bodyLength;
+  const solve = (leg: Leg, footWorld: Quat, target: V3) => {
+    const hip = body.position[leg.u]!;
+    const parentRotation = body.rotation[skeleton.parent[leg.u]!] ?? QUAT_IDENTITY;
+    const toTarget = sub(target, hip);
+    const reach = leg.upper + leg.lower;
+    const span = Math.min(
+      Math.max(length(toTarget), Math.abs(leg.upper - leg.lower) + 1e-6 * reach),
+      reach * (1 - 1e-6),
+    );
+    const along = normalize(toTarget);
+    const kneeWant = rotate(parentRotation, leg.bend.knee);
+    let knee = normalize(sub(kneeWant, scale(along, dot(kneeWant, along))));
+    if (length(knee) < 1e-9) knee = normalize(cross(along, [1, 0, 0]));
+    const a = (leg.upper * leg.upper - leg.lower * leg.lower + span * span) / (2 * span);
+    const h = Math.sqrt(Math.max(leg.upper * leg.upper - a * a, 0));
+    const kneePos = add(hip, add(scale(along, a), scale(knee, h)));
+    const anklePos = add(hip, scale(along, span));
+    const normal = normalize(cross(knee, along));
+    const P = skeleton.rest;
+    const upperWorld = frameRotation(
+      normalize(sub(P[leg.l]!, P[leg.u]!)),
+      leg.bend.normal,
+      normalize(sub(kneePos, hip)),
+      normal,
+    );
+    const lowerWorld = frameRotation(
+      normalize(sub(P[leg.a]!, P[leg.l]!)),
+      leg.bend.normal,
+      normalize(sub(anklePos, kneePos)),
+      normal,
+    );
+    local[leg.u] = quatMul(quatConj(parentRotation), upperWorld);
+    local[leg.l] = quatMul(quatConj(upperWorld), lowerWorld);
+    local[leg.a] = quatMul(quatConj(lowerWorld), footWorld);
+  };
+  legs.forEach((leg, f) => solve(leg, targets[f]!.footWorld, targets[f]!.target));
+  if (!skin) return;
+  // The sole is skinned, not rigid: a foot's vertices are carried partly by the shin, so the
+  // posed sole is measured as skinned and each ankle target corrected until it meets the
+  // ground line (or the swing's height), so the stance foot neither sinks nor floats.
+  for (let round = 0; round < SOLE_ROUNDS; round++) {
+    const fk = forwardKinematics(skeleton, local, offset);
+    let worst = 0;
+    legs.forEach((leg, f) => {
+      const planted = targets[f]!;
+      const { target, up } = planted;
+      // A plantigrade stance foot is also turned until its skinned heel end is level with its
+      // toe end, so a heel the shin carries partly does not lift as the shin swings back.
+      let tilt = 0;
+      if (leg.ends && planted.stance) {
+        const heel = skinnedLowest(skeleton, mesh, skin, leg.ends.heel, fk);
+        const toe = skinnedLowest(skeleton, mesh, skin, leg.ends.toe, fk);
+        if (Math.abs(heel - toe) > 1e-6 * L) tilt = -Math.atan2(heel - toe, leg.ends.span);
+        // A turn about +x lowers the toe, so a heel above the toe needs a negative one.
+        planted.footWorld = quatMul(rotX(tilt), planted.footWorld);
+        worst = Math.max(worst, Math.abs(heel - toe));
+      }
+      const error = skinnedLowest(skeleton, mesh, skin, soleVertices[f]!, fk) - up;
+      worst = Math.max(worst, Math.abs(error));
+      if (Math.abs(error) <= 1e-6 * L && tilt === 0) return;
+      target[1] -= error;
+      solve(leg, planted.footWorld, target);
+    });
+    if (worst <= 1e-6 * L) break;
+  }
 }
 
 /**
@@ -345,14 +417,14 @@ function skinnedLowest(
   return sole.length > 0 ? lowest : Infinity;
 }
 
-function lowestSole(sole: V3[], footWorld: Quat): number {
+export function lowestSole(sole: V3[], footWorld: Quat): number {
   let lowest = Infinity;
   for (const o of sole) lowest = Math.min(lowest, rotate(footWorld, o)[1]);
   return lowest;
 }
 
 /** How far a leg may straighten at the ends of its stance, as a fraction of its length. */
-const MAX_EXTENSION = 0.97;
+export const MAX_EXTENSION = 0.97;
 
 interface LegGeometry {
   foot: { pair: "fore" | "hind" };

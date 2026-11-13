@@ -5,10 +5,16 @@
  */
 import type { Reason } from "../../types.ts";
 import type { Glb } from "../glb.ts";
-import { clips as clipsOf, posedPrimitives, samplePose, worldMatrices } from "../scene.ts";
+import {
+  clips as clipsOf,
+  posedPrimitives,
+  quatAngleDeg,
+  samplePose,
+  worldMatrices,
+} from "../scene.ts";
 import type { BakedMesh, Skeleton, SkinWeights } from "./fit.ts";
 import { dominantJoint } from "./fit.ts";
-import { footPhase } from "./gait.ts";
+import { inSpan } from "./gait.ts";
 import type { GeneratedClip } from "./gait.ts";
 import { jointNode } from "./build.ts";
 import { QUAT_IDENTITY, add, dot, eulerXyzDeg, length, rotY, rotate, scale, sub } from "./math.ts";
@@ -146,35 +152,41 @@ export function contactCheck(
       for (const v of vertices) y = Math.min(y, s.vertices[v * 3 + 1]!);
       return y;
     };
-    let worstGround = 0;
-    let worstHeel = -Infinity;
-    const ground: Array<[number, number]> = [];
-    for (const s of samples) {
-      const p = footPhase(s.phase, clip.touchdown[f]!);
-      if (p < STANCE_MARGIN || p > clip.dutyFactor - STANCE_MARGIN) continue;
-      let minY = Infinity;
-      let cx = 0;
-      let cz = 0;
-      for (const v of sole) {
-        minY = Math.min(minY, s.vertices[v * 3 + 1]!);
-        cx += s.vertices[v * 3]!;
-        cz += s.vertices[v * 3 + 2]!;
-      }
-      if (Math.abs(minY) > Math.abs(worstGround)) worstGround = minY;
-      // In the ground frame the in-place clip moves forward at its speed since touchdown.
-      ground.push([cx / sole.length, cz / sole.length + clip.speedMps * p * clip.durationS]);
-      if (foot.plantigrade) worstHeel = Math.max(worstHeel, lowestY(s, heel) - lowestY(s, toe));
-    }
-    if (ground.length < MIN_STANCE_SAMPLES) {
-      failures.push(
-        `${foot.name} has ${ground.length} stance frame${ground.length === 1 ? "" : "s"} to measure ` +
-          `of ${samples.length} (needs ${MIN_STANCE_SAMPLES}): sample the clip more densely`,
-      );
+    if (clip.contacts[f]!.length === 0) {
+      summary.push(`${foot.name} never down`);
       return;
     }
+    let worstGround = 0;
+    let worstHeel = -Infinity;
     let slide = 0;
-    for (const a of ground) {
-      for (const b of ground) slide = Math.max(slide, Math.hypot(a[0] - b[0], a[1] - b[1]));
+    for (const span of clip.contacts[f]!) {
+      const ground: Array<[number, number]> = [];
+      for (const s of samples) {
+        const { p, inside } = inSpan(s.phase, span);
+        if (!inside || p < STANCE_MARGIN || p > span.length - STANCE_MARGIN) continue;
+        let minY = Infinity;
+        let cx = 0;
+        let cz = 0;
+        for (const v of sole) {
+          minY = Math.min(minY, s.vertices[v * 3 + 1]!);
+          cx += s.vertices[v * 3]!;
+          cz += s.vertices[v * 3 + 2]!;
+        }
+        if (Math.abs(minY) > Math.abs(worstGround)) worstGround = minY;
+        // In the ground frame the in-place clip moves forward at its speed since touchdown.
+        ground.push([cx / sole.length, cz / sole.length + clip.speedMps * p * clip.durationS]);
+        if (foot.plantigrade) worstHeel = Math.max(worstHeel, lowestY(s, heel) - lowestY(s, toe));
+      }
+      if (ground.length < MIN_STANCE_SAMPLES) {
+        failures.push(
+          `${foot.name} has ${ground.length} stance frame${ground.length === 1 ? "" : "s"} to measure ` +
+            `of ${samples.length} (needs ${MIN_STANCE_SAMPLES}): sample the clip more densely`,
+        );
+        return;
+      }
+      for (const a of ground) {
+        for (const b of ground) slide = Math.max(slide, Math.hypot(a[0] - b[0], a[1] - b[1]));
+      }
     }
     const groundOk = Math.abs(worstGround) <= tolerances.contactBodyLengths * L;
     const slideOk = slide <= tolerances.slideBodyLengths * L;
@@ -336,8 +348,7 @@ export function jointLimitCheck(
       let phaseName = "any phase";
       const f = stanceAnkle.get(j);
       if (!problem && f !== undefined && joint.stanceLimits) {
-        const p = footPhase(s.phase, clip.touchdown[f]!);
-        if (p < clip.dutyFactor) {
+        if (clip.contacts[f]!.some((span) => inSpan(s.phase, span).inside)) {
           problem = outside(angles, joint.stanceLimits);
           phaseName = "stance";
         }
@@ -430,5 +441,46 @@ export function skinningCheck(
     failing.length === 0
       ? `girth at bent leg joints kept at ${(Math.min(...results.map((r) => r.ratio)) * 100).toFixed(0)}% of rest or more (minimum ${(tolerances.minGirthRatio * 100).toFixed(0)}%)`
       : `volume collapses at ${failing.map(describe).join(", ")} (minimum ${(tolerances.minGirthRatio * 100).toFixed(0)}% of rest girth)`,
+  );
+}
+
+/**
+ * A one-shot starts and ends on its idle's first pose: the clip as written, at its first and last
+ * key, against that pose, within the loop tolerance (the largest joint rotation, and the root's
+ * translation).
+ */
+export function endsCheck(
+  glb: Glb,
+  clipIndex: number,
+  clip: GeneratedClip,
+  skeleton: Skeleton,
+  tolerance: { rotationDeg: number; translationM: number },
+): Reason | undefined {
+  const ends = clip.ends;
+  if (!ends) return undefined;
+  const root = skeleton.parent.indexOf(-1);
+  const measure = (timeS: number) => {
+    const pose = samplePose(glb, clipIndex, timeS);
+    let rotationDeg = 0;
+    skeleton.names.forEach((_, j) => {
+      const q = (pose.get(jointNode(j))?.r as Quat | undefined) ?? QUAT_IDENTITY;
+      rotationDeg = Math.max(rotationDeg, quatAngleDeg(q, ends.rotations[j]!));
+    });
+    const t = (pose.get(jointNode(root))?.t as V3 | undefined) ?? skeleton.rest[root]!;
+    return { rotationDeg, translationM: length(sub(t, ends.rootTranslation)) };
+  };
+  const first = measure(0);
+  const last = measure(clip.durationS);
+  const ok = (m: { rotationDeg: number; translationM: number }) =>
+    m.rotationDeg <= tolerance.rotationDeg && m.translationM <= tolerance.translationM;
+  const passed = ok(first) && ok(last);
+  const describe = (m: { rotationDeg: number; translationM: number }) =>
+    `${m.rotationDeg.toFixed(2)}°, ${m.translationM.toFixed(4)} m`;
+  return deterministic(
+    `ends-${clip.family}`,
+    passed,
+    `the one-shot ${passed ? "starts and ends" : "does not start and end"} on the pose of ${ends.from}: ` +
+      `first ${describe(first)}, last ${describe(last)} ` +
+      `(tolerance ${tolerance.rotationDeg}°, ${tolerance.translationM.toFixed(4)} m)`,
   );
 }

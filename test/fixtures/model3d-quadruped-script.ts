@@ -30,6 +30,10 @@ const script: Script = {
         facing: "+x",
         // Look-dev tests need a real unwrap, so masks on the head hold their own texels.
         atlasUvs: process.env["SCRIPT_QUADRUPED_ATLAS"] === "1",
+        // A provider's own asset extras, which a staged model must not carry.
+        ...(process.env["SCRIPT_QUADRUPED_EXTRAS"] === "1" && {
+          assetExtras: { provider: { task: `model-${index}` } },
+        }),
       }),
       costUsd: 0.3,
       ...(request.seed !== undefined && { seed: request.seed }),

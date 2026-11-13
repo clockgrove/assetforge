@@ -1698,14 +1698,15 @@ fixes its text or its references. See docs/generation-knobs.md.`,
 
 const rigCommand: Command = {
   name: "rig",
-  summary: "re-rig a 3D character on the target's shared rig with generated gaits",
+  summary: "re-rig a 3D character on the target's shared rig with generated gaits and motions",
   usage: `Usage: assetforge rig --model <model.glb> --provenance <provenance.json> --spec <spec.json>
                      --profile <profile.json> [--runs .assetforge/runs] [--json]
 
 Fits the target profile's skeleton template (model3d.rig) to an existing character model, such
-as a picked candidate, skins it, generates the clips its gait profiles declare (model3d.gaits)
-for the spec's clips, and checks foot contact, joint limits, skinning and loops per clip. The
-result is staged as a one-candidate run, with turntable and walk renders, that pick hands off
+as a picked candidate, skins it, generates the clips its gait profiles (model3d.gaits) and
+motions (model3d.motions) declare for the spec's clips, and checks foot contact, joint limits,
+skinning, loops and one-shot ends per clip. The result is staged as a one-candidate run, with
+turntable renders, side views and a looping preview per clip, that pick hands off
 as for stage. The source's provenance is carried over with the rig's hashes. No model is called
 and nothing is spent (docs/characters-3d.md).`,
   options: {

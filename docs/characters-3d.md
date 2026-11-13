@@ -107,7 +107,7 @@ A candidate that fails a filtering check is not staged. It is listed in the run'
 
 ## Shared rig and generated gait
 
-A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetforge#84; Kirk, 2026-11-10). For such a target, Assetforge does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetforge rig` does the same for a model that already exists, such as a wave 0 pick:
+A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetforge#84; Kirk, 2026-11-10), and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetforge does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetforge rig` does the same for a model that already exists, such as a wave 0 pick:
 
 ```sh
 assetforge rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
@@ -152,7 +152,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
   and `minGirthRatio`, default 0.7.
 
-- `gaits.<family>` is the gait profile of one clip family. A spec family with no gait profile is reported in `missingClips`, never faked.
+- `gaits.<family>` is the gait profile of one clip family. A spec family with neither a gait profile nor a motion ([below](#motions-besides-walking)) is reported in `missingClips`, never faked.
   - `footfall`: every template foot, in the order the feet touch down. Foot _i_ touches down at phase _i_ ÷ count.
   - `dutyFactor`: the fraction of the cycle each foot is on the ground.
   - `strideBodyLengths`: the distance travelled per cycle, in body lengths. `stepHeightBodyLengths` is the peak swing lift. The cycle lasts stride ÷ speed.
@@ -237,6 +237,84 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
    - the fit.
 
    They also record `targetProfileSha256`. A `rig` run keeps the source's provenance, with its calls, cost and output grant, and adds `parameters.rerig` (`sourceModel`, the source file's name only, and `sourceModelSha256`) and a `rig-generated-gait` step. That step's input is the source model's hash and its output is the re-rigged model's hash.
+
+## Motions besides walking
+
+A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetforge#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`. A draft for Stevie's idle, sniff, eat, play and shelter is in [examples/raccoon-motions/](examples/raccoon-motions/).
+
+### Declaration
+
+The field names below are added to the shared contract (clockgrove/raccoon-world#39).
+
+```json
+"model3d": {
+  "motions": {
+    "idle": {
+      "loop": true,
+      "durationS": 4,
+      "keys": [
+        { "at": 0, "pose": { "backArchDeg": 14, "headPitchDeg": 18, "tailPitchDeg": 14 } },
+        { "at": 0.5, "pose": { "backArchDeg": 17, "headYawDeg": 8, "joints": { "ear_l": { "x": -4 } } } }
+      ]
+    },
+    "sniff": {
+      "loop": false,
+      "idle": "idle",
+      "entryS": 0.5,
+      "durationS": 2,
+      "exitS": 0.6,
+      "keys": [
+        { "at": 0, "pose": { "headPitchDeg": 52, "body": { "pitchDeg": 6 } } },
+        { "at": 0.5, "pose": { "headPitchDeg": 56, "headYawDeg": 12, "body": { "pitchDeg": 6 } } },
+        { "at": 1, "pose": { "headPitchDeg": 50, "body": { "pitchDeg": 5 } } }
+      ]
+    }
+  }
+}
+```
+
+- `motions.<family>` is one clip family. A family may be a gait or a motion, not both.
+  - `loop`: `true` for a looping family (an idle), `false` for a one-shot (a gesture or an interaction).
+  - `durationS`: the seconds the keys span.
+  - `keys`: key poses in ascending order. `at` is a fraction of `durationS`, and the first key is at 0. The pose is eased (cosine) from one key to the next. A looping motion wraps from its last key back to its first.
+  - `idle`, one-shots only: a looping motion. The one-shot starts on the idle's first pose and blends into its first key over `entryS` seconds. Its last key's pose holds until `durationS` ends; then it blends back to the idle's first pose over `exitS` seconds. Both default to 0. The clip lasts `entryS + durationS + exitS`. Without `idle`, a one-shot starts and ends on the neutral stance (the pose with every field 0).
+- A pose's fields are all optional and default to 0. They are measured from the neutral stance:
+  - `body`: the root's offset and turn.
+    - `raiseBodyLengths`, `forwardBodyLengths` and `sideBodyLengths` (toward the character's left).
+    - `pitchDeg` (positive lowers the front), `yawDeg` (positive turns left) and `rollDeg`.
+  - `backArchDeg`: spread over the `spine` joints, as in a gait profile. The root tilts against it, so the arch hunches the back without dipping the shoulders.
+  - `headPitchDeg` and `headYawDeg`: spread over the `neck` and `head` joints. Positive pitch lowers the head.
+  - `tailPitchDeg` and `tailYawDeg`: spread over the `tail` joints. Pitch is measured from level and positive lowers the tail.
+  - `joints.<name>`: `{ x, y, z }`, an extra local rotation of a template joint, as X-Y-Z Euler degrees, after the roles' rotation. An ear or a jaw is posed this way. A leg's upper, lower and ankle joints are posed by its foot and cannot be named here.
+  - `feet.<name>`: where a template foot goes, from where it stands at rest.
+    - `liftBodyLengths`: the sole's height above the ground. At 0 the foot is planted.
+    - `forwardBodyLengths` and `sideBodyLengths`.
+    - `curlDeg`: the foot's downward curl.
+
+    A foot that is not listed stays planted where it stands.
+
+The declaration names joints, feet and roles of the target's own template. Assetforge's code names no family, species or body part.
+
+### What a motion does
+
+1. **Stance.** The neutral stance is the fitted rest pose, lowered only as far as every leg needs to reach the ground with its foot flat (plantigrade). It is never raised.
+2. **Generate.** Each clip is deterministic, keyed at 30 frames per second (at least 24 keys). Each frame poses the body, back, head, tail and named joints from the eased keys. Then each leg is solved as in the walk: the same two-bone inverse kinematics, the same skinned-sole correction, and the same flat plantigrade stance. A planted foot stays where it stands on the ground line while the body moves over it. A lifted foot goes where its pose puts it. A looping clip's last key is its first. The clip's `speedMps` is 0: it stays put.
+3. **QA**, on the written file's deformed mesh at every key, held to the rig's existing bar:
+   - `contact-<family>`: on every span a foot is down, its sole stays on the ground line within `contactBodyLengths` and slides no more than `slideBodyLengths`, and a plantigrade heel stays down within `heelBodyLengths`. A foot that is never down is not measured. A span with fewer than two frames to measure fails.
+   - `joint-limits-<family>`: as for the walk. A weight-bearing ankle or wrist is held to its `stanceLimits` while its foot is down.
+   - `skinning-<family>`: as for the walk.
+   - `clip-<family>`, and `loop-<family>` for a looping family: as for every clip.
+   - `ends-<family>`, for a one-shot: its first and last poses are within the profile's `loopTolerance` of its idle's first pose. That is every joint's rotation, and the root's translation as a fraction of the model's height.
+   - `compare-<family>`: when the source carries its own clip of the family, as for the walk (shadow).
+
+   A failing check filters the candidate, with its reason, and its renders are kept.
+
+4. **Preview.** Every generated clip, the walk included, gets `<family>-preview.webp`: an animated, looping, lossless WebP from the turntable's three-quarter camera and light, at 10 frames per second and half the turntable's size. It sits beside the turntable renders and `<family>-side.png`. A one-shot starts and ends on its idle's pose, so it loops too.
+5. **Provenance.** `parameters.rig.motions.<family>` records `{ sha256, profile }` for each generated motion. The `rig-generated-gait` step's parameters add `motionSha256`. `output.clips[]` has `generated: true` and `speedMps: 0` for each motion.
+
+### Re-rigging a look-dev'd model
+
+A model that has been through look-dev carries its groom maps, tint and eye mask as external images beside the `.glb`. `rig` reads each image whose `uri` is a relative path inside the model's directory. It gives them to the validator and measures them against the texture budget. It also keeps the source's `asset.extras` (look-dev's groom record), and replaces only `rig`. The sidecar files are not staged again: they are already beside the model in the target.
 
 ## Look-dev
 

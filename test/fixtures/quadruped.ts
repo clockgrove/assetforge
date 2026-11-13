@@ -5,11 +5,12 @@ import type {
   GaitProfile,
   JointLimits,
   JointRole,
+  MotionProfile,
   SkeletonTemplate,
   TemplateJoint,
 } from "../../src/model3d/rig/template.ts";
 
-type Vec = [number, number, number];
+export type Vec = [number, number, number];
 
 export interface QuadrupedOptions {
   digitigrade?: boolean;
@@ -26,6 +27,8 @@ export interface QuadrupedOptions {
   splayedHindL?: number;
   /** Sides of each tube. */
   segments?: number;
+  /** `asset.extras` a provider writes into its own file. */
+  assetExtras?: Record<string, unknown>;
   /** The way the model faces: +z (default), or +x as Tripo's models do (a root node turns it). */
   facing?: "+z" | "+x";
   /**
@@ -77,11 +80,11 @@ export const DIGITIGRADE_JOINTS: Record<string, Vec> = {
   ftoe_r: [-0.08, 0.035, 0.2],
 };
 
-const FLOAT = 5126;
-const UINT = 5125;
+export const FLOAT = 5126;
+export const UINT = 5125;
 const UBYTE = 5121;
 
-class Buffer3d {
+export class Buffer3d {
   readonly chunks: Uint8Array[] = [];
   length = 0;
   readonly bufferViews: NonNullable<GltfDocument["bufferViews"]> = [];
@@ -135,11 +138,11 @@ class Buffer3d {
   }
 }
 
-function floats(values: number[]): Uint8Array {
+export function floats(values: number[]): Uint8Array {
   return new Uint8Array(Float32Array.from(values).buffer);
 }
 
-function minMax(values: number[], width: number) {
+export function minMax(values: number[], width: number) {
   const min = Array<number>(width).fill(Infinity);
   const max = Array<number>(width).fill(-Infinity);
   for (let i = 0; i < values.length; i++) {
@@ -161,7 +164,7 @@ const cross = (a: Vec, b: Vec): Vec => [
 ];
 const unit = (a: Vec): Vec => mul(a, 1 / Math.hypot(a[0], a[1], a[2]));
 
-interface Mesh {
+export interface Mesh {
   positions: number[];
   normals: number[];
   uvs: number[];
@@ -174,7 +177,7 @@ interface Mesh {
  * A closed tube along a centre line: one ring per point, radial normals, a fan cap at each end. The
  * end rings of a tube with `flatEnds` lie in a plane of constant z so its extreme point is exact.
  */
-function addTube(
+export function addTube(
   mesh: Mesh,
   points: Vec[],
   radii: number[],
@@ -232,7 +235,7 @@ function addTube(
 }
 
 /** A closed hexahedron from corners 0-3 (bottom, in a loop) and 4-7 (the matching top corners). */
-function addBox(mesh: Mesh, c: Vec[]): void {
+export function addBox(mesh: Mesh, c: Vec[]): void {
   const faces = [
     [0, 1, 2, 3],
     [4, 5, 6, 7],
@@ -282,7 +285,7 @@ function atlas(mesh: Mesh): void {
 }
 
 /** The joints themselves plus two interpolated points inside each segment. */
-function densify(points: Vec[]): Vec[] {
+export function densify(points: Vec[]): Vec[] {
   const out: Vec[] = [points[0]!];
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1]!;
@@ -292,7 +295,7 @@ function densify(points: Vec[]): Vec[] {
   return out;
 }
 
-function taper(points: Vec[], from: number, to: number): number[] {
+export function taper(points: Vec[], from: number, to: number): number[] {
   return points.map((_, k) => from + ((to - from) * k) / (points.length - 1));
 }
 
@@ -511,7 +514,11 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
   }
 
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge-test-fixture" },
+    asset: {
+      version: "2.0",
+      generator: "assetforge-test-fixture",
+      ...(options.assetExtras && { extras: options.assetExtras }),
+    },
     scene: 0,
     scenes: [{ nodes: sceneNodes }],
     nodes,
@@ -543,7 +550,7 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
 }
 
 const range = (n: number): [number, number] => [-n, n];
-const limits = (x: number, y: number, z: number): JointLimits => ({
+export const limits = (x: number, y: number, z: number): JointLimits => ({
   x: range(x),
   y: range(y),
   z: range(z),
@@ -632,3 +639,27 @@ export function walkGait(options: { digitigrade?: boolean } = {}): GaitProfile {
     swingCurlDeg: { fore: 40, hind: 15 },
   };
 }
+
+/** A quadruped's idle: head and tail sway, the back breathes. */
+export const quadrupedIdle = (): MotionProfile => ({
+  loop: true,
+  durationS: 2.5,
+  keys: [
+    { at: 0, pose: { headPitchDeg: 0, tailPitchDeg: 0 } },
+    { at: 0.5, pose: { backArchDeg: 3, headPitchDeg: 6, tailPitchDeg: 8, tailYawDeg: 6 } },
+  ],
+});
+
+/** A quadruped's one-shot: a fore paw lifted, the head lowered, then back to the idle. */
+export const quadrupedPaw = (): MotionProfile => ({
+  loop: false,
+  idle: "idle",
+  entryS: 0.3,
+  exitS: 0.3,
+  durationS: 1,
+  keys: [
+    { at: 0, pose: {} },
+    { at: 0.5, pose: { headPitchDeg: 10, feet: { fore_l: { liftBodyLengths: 0.04 } } } },
+    { at: 1, pose: {} },
+  ],
+});

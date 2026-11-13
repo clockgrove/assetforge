@@ -12,7 +12,13 @@ import { parseGlb } from "../src/model3d/glb.ts";
 import { clips as clipsOf } from "../src/model3d/scene.ts";
 import { sha256 } from "../src/request.ts";
 import { PALETTE, drawSubject } from "./fixtures/synthetic.ts";
-import { quadrupedTemplate, syntheticQuadruped, walkGait } from "./fixtures/quadruped.ts";
+import {
+  quadrupedIdle,
+  quadrupedPaw,
+  quadrupedTemplate,
+  syntheticQuadruped,
+  walkGait,
+} from "./fixtures/quadruped.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const SCRIPT = fileURLToPath(new URL("./fixtures/model3d-quadruped-script.ts", import.meta.url));
@@ -24,8 +30,8 @@ interface Result {
   stderr: string;
 }
 
-function cli(args: string[]): Promise<Result> {
-  const env = { ...process.env };
+function cli(args: string[], extraEnv: Record<string, string> = {}): Promise<Result> {
+  const env = { ...process.env, ...extraEnv };
   delete env["AI_GATEWAY_API_KEY"];
   delete env["TRIPO_API_KEY"];
   delete env["MESHY_API_KEY"];
@@ -44,7 +50,7 @@ function cli(args: string[]): Promise<Result> {
 const doc = (r: Result): Record<string, any> => JSON.parse(r.stdout);
 
 /** A target that declares the shared rig: the template file sits beside the profile. */
-async function world(options: { template?: string; reference?: boolean } = {}) {
+async function world(options: { template?: string; reference?: boolean; motions?: boolean } = {}) {
   const dir = await mkdtemp(join(tmpdir(), "assetforge-rig-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
@@ -74,7 +80,7 @@ async function world(options: { template?: string; reference?: boolean } = {}) {
       assetId: "kit",
       subject: "kit",
       gait: "quadruped",
-      clips: ["walk", "sniff"],
+      clips: options.motions ? ["walk", "idle", "paw", "sniff"] : ["walk", "sniff"],
       heightM: 0.45,
     }),
   );
@@ -103,6 +109,7 @@ async function world(options: { template?: string; reference?: boolean } = {}) {
         gaits: {
           walk: { ...walkGait(), ...(options.reference && { reference: "gait-reference" }) },
         },
+        ...(options.motions && { motions: { idle: quadrupedIdle(), paw: quadrupedPaw() } }),
       },
       layout: {
         media: "characters/{{spec.assetId}}/{{spec.assetId}}.{{output.extension}}",
@@ -144,6 +151,69 @@ test("a target with a rig template forecasts no provider rig or clip call", asyn
     doc(r)["plan"].perCandidate.map((c: { operation: string }) => c.operation),
     ["model3d", "identity"],
   );
+});
+
+test("stage generates a target's declared motions beside the walk, with hashes and previews", async () => {
+  const w = await world({ motions: true });
+  const r = await cli(
+    [
+      "stage",
+      ...w.base,
+      ...["--runs", w.runs, "--candidates", "1", "--provider-script", SCRIPT, "--json"],
+    ],
+    { SCRIPT_QUADRUPED_EXTRAS: "1" },
+  );
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const run = doc(r);
+  assert.equal(run["candidates"].length, 1, JSON.stringify(run["rejections"]));
+  const c = run["candidates"][0];
+  const checks = Object.fromEntries(
+    c.reasons.map((x: { check: string; passed: boolean; reason: string }) => [x.check, x]),
+  );
+  for (const check of [
+    "loop-idle",
+    "ends-paw",
+    "contact-paw",
+    "joint-limits-paw",
+    "skinning-paw",
+  ]) {
+    assert.equal(checks[check]?.passed, true, `${check}: ${checks[check]?.reason}`);
+  }
+  assert.match(checks["clip-sniff"].reason, /missing, not faked/);
+  assert.deepEqual(
+    c.fields.clips.map(
+      (x: { name: string; loop: boolean; generated: boolean; speedMps: number }) => [
+        x.name,
+        x.loop,
+        x.generated,
+        x.name === "walk" ? x.speedMps > 0 : x.speedMps,
+      ],
+    ),
+    [
+      ["walk", true, true, true],
+      ["idle", true, true, 0],
+      ["paw", false, true, 0],
+    ],
+  );
+  const profile = JSON.parse(await readFile(w.files.profile, "utf8"));
+  const rig = c.provenance.parameters.rig;
+  assert.deepEqual(Object.keys(rig.motions), ["idle", "paw"]);
+  for (const family of ["idle", "paw"]) {
+    assert.match(rig.motions[family].sha256, /^[0-9a-f]{64}$/);
+    assert.deepEqual(rig.motions[family].profile, profile.model3d.motions[family]);
+    assert.ok(
+      c.artifacts.includes(`c1-character-3d/${family}-preview.webp`),
+      c.artifacts.join(", "),
+    );
+  }
+  const glb = parseGlb(new Uint8Array(await readFile(join(w.runs, run["runId"], c.file))));
+  assert.deepEqual(
+    clipsOf(glb).map((x) => x.name),
+    ["walk", "idle", "paw"],
+  );
+  assert.deepEqual(glb.json.animations?.[2]?.["extras"], { loop: false, generated: true });
+  // stage writes the rig's record alone: a provider's own asset extras never ship.
+  assert.deepEqual(glb.json.asset["extras"], { rig: c.fields.rig });
 });
 
 test("stage fits the shared rig, generates the walk, checks every clip, and pick hands it off", async () => {

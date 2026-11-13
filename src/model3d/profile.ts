@@ -40,6 +40,8 @@ export interface Model3dProfile {
   rig?: import("./rig/template.ts").RigProfile;
   /** Gait profiles per clip family, for example `walk` (assetforge#84). */
   gaits?: Record<string, import("./rig/template.ts").GaitProfile>;
+  /** Clip families besides locomotion: idles, gestures and interactions (assetforge#135). */
+  motions?: Record<string, import("./rig/template.ts").MotionProfile>;
   /** Fur groom maps per season (assetforge#82; docs/look-dev.md). */
   groom?: import("./lookdev/settings.ts").GroomProfile;
   /** Look-dev settings (assetforge#82; docs/look-dev.md). */

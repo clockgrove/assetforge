@@ -1592,6 +1592,8 @@ export async function lookDev(
           bodyLengthM !== undefined && {
             speedMps: round(gait.speedBodyLengthsPerSecond * bodyLengthM),
           }),
+        // A declared motion stays put, as `rig` and `stage` report it.
+        ...(extras["generated"] === true && !gait && rig?.motions[c.name] && { speedMps: 0 }),
       };
     }),
     ...(p["missingClips"] !== undefined && { missingClips: p["missingClips"] }),
