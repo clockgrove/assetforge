@@ -280,7 +280,7 @@ A target's validator may take fewer clip fields than Assetforge produces, or onl
 - `sideImages` is `beside` (the default) or `embedded`. `embedded` moves look-dev's groom maps, tints and eye mask into the `.glb`'s binary chunk and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set. `asset.extras.lookdev.images` still maps each field to its image index.
 - A malformed `handoff` is refused before any spend (exit 2).
 
-Whatever the shape, `pick` measures each clip's `durationMs` on the `.glb` it hands off (the last key time, unrounded), so it matches what a validator reads from the file.
+Whatever the shape, `pick` measures each clip's `durationMs` (the last key time) and `output.bounds` (the rest-pose bounds) on the `.glb` it hands off, unrounded, so they match what a validator reads from the file. Staging rounds bounds to the micrometre, which alone could put them 0.5 µm off the file, half of Clockgrove's 1 µm tolerance.
 
 Clockgrove's model validator (`packages/contracts/src/model-asset.ts`) takes the declaration above. `test/clockgrove-model-validator.test.ts` hands a `rig` and a `look-dev` result to it, vendored in `test/fixtures/clockgrove/`.
 

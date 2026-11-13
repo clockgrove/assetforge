@@ -7,8 +7,9 @@ import { InputError } from "../errors.ts";
 import type { TargetWrite } from "../handoff.ts";
 import type { TargetProfile } from "../types.ts";
 import { parseGlb, writeGlb } from "./glb.ts";
+import type { Glb } from "./glb.ts";
 import { appendBufferView } from "./lookdev/edit.ts";
-import { clips } from "./scene.ts";
+import { boundsOf, clips, posedPrimitives } from "./scene.ts";
 
 export const SIDE_IMAGE_MODES = ["beside", "embedded"] as const;
 export type SideImageMode = (typeof SIDE_IMAGE_MODES)[number];
@@ -112,9 +113,9 @@ function embedSideImages(output: ModelHandoff): ModelHandoff {
  * Each clip's `durationMs` as the file has it: the last key time of its animation, in
  * milliseconds, unrounded, so a target that measures the `.glb` finds the manifest's value.
  */
-function measuredDurations(bytes: Uint8Array, clipList: unknown): unknown {
+function measuredDurations(glb: Glb, clipList: unknown): unknown {
   if (!Array.isArray(clipList)) return clipList;
-  const measured = new Map(clips(parseGlb(bytes)).map((c) => [c.name, c.durationS * 1000]));
+  const measured = new Map(clips(glb).map((c) => [c.name, c.durationS * 1000]));
   return clipList.map((clip: Record<string, unknown>) => {
     const durationMs = measured.get(clip["name"] as string);
     return durationMs === undefined || clip["durationMs"] === undefined
@@ -124,8 +125,9 @@ function measuredDurations(bytes: Uint8Array, clipList: unknown): unknown {
 }
 
 /**
- * The output as the target declares it (see `handoffSettings`). Every clip's `durationMs` is
- * measured on the file handed off; nothing else changes without a declaration.
+ * The output as the target declares it (see `handoffSettings`). Every clip's `durationMs` and the
+ * `bounds` are measured on the file handed off, unrounded (the rest-pose bounds, as at staging);
+ * nothing else changes without a declaration.
  */
 export function shapeModelHandoff(profile: TargetProfile, output: ModelHandoff): ModelHandoff {
   const settings = handoffSettings(profile);
@@ -133,14 +135,16 @@ export function shapeModelHandoff(profile: TargetProfile, output: ModelHandoff):
     settings.sideImages === "embedded" && output.sidecars.length > 0
       ? embedSideImages(output)
       : output;
-  if (shaped.fields["clips"] === undefined) return shaped;
-  const measured = measuredDurations(shaped.bytes, shaped.fields["clips"]);
-  return {
-    ...shaped,
-    fields: {
-      ...shaped.fields,
-      clips:
-        settings.clipFields === undefined ? measured : shapeClips(measured, settings.clipFields),
-    },
-  };
+  const glb = parseGlb(shaped.bytes);
+  const fields = { ...shaped.fields };
+  if (fields["bounds"] !== undefined) {
+    const bounds = boundsOf(posedPrimitives(glb));
+    if (bounds) fields["bounds"] = { min: [...bounds.min], max: [...bounds.max] };
+  }
+  if (fields["clips"] !== undefined) {
+    const measured = measuredDurations(glb, fields["clips"]);
+    fields["clips"] =
+      settings.clipFields === undefined ? measured : shapeClips(measured, settings.clipFields);
+  }
+  return { ...shaped, fields };
 }
