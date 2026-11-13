@@ -22,7 +22,7 @@ import {
 } from "../src/model3d/lookdev/project.ts";
 import { editedBackground } from "../src/model3d/lookdev/command.ts";
 import { bakeTexels } from "../src/model3d/lookdev/texels.ts";
-import { viewCamera } from "../src/model3d/render.ts";
+import { framedCamera, viewCamera } from "../src/model3d/render.ts";
 import { boundsOf, posedPrimitives } from "../src/model3d/scene.ts";
 import { syntheticCharacter } from "./fixtures/glb.ts";
 
@@ -117,6 +117,46 @@ test("views that disagree on a texel give it the squarer view's colour, not thei
   }
   assert.ok(shared > 20, `shared ${shared}`);
   assert.ok(mixed / shared < 0.3, `${mixed} of ${shared} shared texels are a mix of both views`);
+});
+
+test("where views disagree, the one that sees the texel larger takes it: a close-up wins", () => {
+  const { glb, texels } = character();
+  const framing = boundsOf(posedPrimitives(glb))!;
+  const far = viewCamera({ sizePx: 96, yawDeg: 0, framing });
+  // The same direction, framed on the figure: every texel it sees appears larger.
+  const near = framedCamera({
+    sizePx: 96,
+    yawDeg: 0,
+    framing,
+    positions: posedPrimitives(glb).map((p) => p.positions),
+    fill: 0.95,
+  });
+  const dark: [number, number, number] = [40, 40, 40];
+  const pale: [number, number, number] = [220, 200, 180];
+  const both = projectViews(
+    glb,
+    texels,
+    [
+      { camera: far, image: uniform(96, 96, pale) },
+      { camera: near, image: uniform(96, 96, dark) },
+    ],
+    [depthMap(glb, far), depthMap(glb, near)],
+  );
+  const alone = projectViews(
+    glb,
+    texels,
+    [{ camera: near, image: uniform(96, 96, dark) }],
+    [depthMap(glb, near)],
+  );
+  let shared = 0;
+  let closer = 0;
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    if (!(alone.weight[i]! > 0) || !(both.weight[i]! > 0)) continue;
+    shared++;
+    if (both.color.data[i * 4]! < 80) closer++;
+  }
+  assert.ok(shared > 20, `shared ${shared}`);
+  assert.ok(closer / shared > 0.9, `${closer} of ${shared} texels take the closer view's colour`);
 });
 
 test("a restyle's background is never projected, and pale coat inside the figure still is", () => {

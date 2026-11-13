@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import validator from "gltf-validator";
 import { parseGlb } from "../src/model3d/glb.ts";
-import { renderTurntable, renderView } from "../src/model3d/render.ts";
+import { framedCamera, renderTurntable, renderView, viewCamera } from "../src/model3d/render.ts";
 import {
   boundsOf,
   closeLoop,
@@ -57,6 +57,36 @@ test("renderView is deterministic and draws the model", () => {
   const front = renderView(glb, { sizePx: 64, yawDeg: 0, framing });
   const back = renderView(glb, { sizePx: 64, yawDeg: 180, framing });
   assert.notDeepEqual(front.data, back.data);
+});
+
+test("framedCamera fills the asked share of the view with the figure's outline, centred", () => {
+  const glb = parseGlb(syntheticCharacter({ heightUnits: 3 }));
+  const prims = posedPrimitives(glb);
+  const framing = boundsOf(prims)!;
+  const positions = prims.map((p) => p.positions);
+  const extent = (camera: ReturnType<typeof viewCamera>) => {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const p of positions)
+      for (let v = 0; v < p.length; v += 3) {
+        const [x, y] = camera.project(p[v]!, p[v + 1]!, p[v + 2]!);
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
+      }
+    return { x0, y0, x1, y1, side: Math.max(x1 - x0, y1 - y0) / camera.sizePx };
+  };
+  for (const fill of [0.5, 0.8]) {
+    const framed = extent(framedCamera({ sizePx: 256, yawDeg: 30, framing, positions, fill }));
+    assert.ok(Math.abs(framed.side - fill) < 0.03, `asked ${fill}, fills ${framed.side}`);
+  }
+  const framed = extent(framedCamera({ sizePx: 256, yawDeg: 30, framing, positions, fill: 0.8 }));
+  // Centred.
+  assert.ok(Math.abs((framed.x0 + framed.x1) / 2 - 128) < 4);
+  assert.ok(Math.abs((framed.y0 + framed.y1) / 2 - 128) < 4);
 });
 
 test("renderTurntable returns four views and the clip frames", () => {

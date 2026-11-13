@@ -211,7 +211,8 @@ test("look-dev forecasts its calls, refuses over the cap and needs a model3d pro
   const plan = doc(r)["plan"];
   const count = (op: string) =>
     plan.calls.filter((c: { operation: string }) => c.operation === op).length;
-  assert.equal(count("lookdev"), 7);
+  // 7 turntable views and a close-up of the head (the detail pass).
+  assert.equal(count("lookdev"), 8);
   assert.equal(count("lookdev-locate"), 1);
   assert.equal(count("lookdev-groom"), 2);
   assert.equal(count("lookdev-markings"), 4);
@@ -267,11 +268,11 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
   const ops = (calls: Array<{ operation: string }>) => calls.map((x) => x.operation);
   const added = ops(c.provenance.calls).slice(input.source.calls.length);
   // One markings call per turntable view with its own reference: front, side and back.
-  assert.equal(c.provenance.calls.length, input.source.calls.length + 14);
+  assert.equal(c.provenance.calls.length, input.source.calls.length + 15);
   assert.deepEqual(
     added.toSorted(),
     [
-      ...Array(7).fill("lookdev"),
+      ...Array(8).fill("lookdev"),
       "lookdev-locate",
       "lookdev-groom",
       "lookdev-groom",
@@ -287,6 +288,13 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
   for (const r of restyles.slice(1)) {
     assert.match(r.prompt, /already carries colour painted from other views/);
   }
+  // The detail pass comes last: close-ups of the head, after the turntable views.
+  assert.equal(
+    restyles.filter((x: { prompt: string }) => /close-up of the character's head/.test(x.prompt))
+      .length,
+    1,
+  );
+  assert.match(restyles.at(-1).prompt, /close-up of the character's head/);
   // The markings call records the route's provider options it was sent with.
   const markingsCall = c.provenance.calls.find(
     (x: { operation: string }) => x.operation === "lookdev-markings",
