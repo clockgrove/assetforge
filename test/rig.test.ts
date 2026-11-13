@@ -38,6 +38,8 @@ function loaded(template: SkeletonTemplate, gait: GaitProfile): LoadedRig {
     templateSha256: "0".repeat(64),
     gaits: { walk: gait },
     gaitSha256: { walk: "1".repeat(64) },
+    motions: {},
+    motionSha256: {},
     qa: DEFAULT_RIG_QA,
     baseDir: ".",
   };
