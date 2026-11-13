@@ -205,7 +205,9 @@ export class Caller {
 
   /** A vision-model analysis of images; returns the model's text. */
   async vision(operation: string, prompt: string, images: LoadedReference[]): Promise<string> {
+    const route = this.route(operation);
     const parameters = {
+      ...(route.providerOptions !== undefined && { providerOptions: route.providerOptions }),
       images: images.map((r) => ({ role: r.role, path: r.path, sha256: r.sha256 })),
     };
     const result = await this.record(operation, prompt, images, parameters, undefined, (r) =>

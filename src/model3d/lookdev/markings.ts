@@ -146,7 +146,16 @@ export function toLab(r: number, g: number, b: number): [number, number, number]
 
 export interface Patch {
   lab: [number, number, number];
+  /** The spread of L* inside the box, 80th minus 20th percentile: the banding of a ringed mark. */
+  spread: number;
   pixels: number;
+}
+
+function quantile(sorted: number[], q: number): number {
+  const at = (sorted.length - 1) * q;
+  const lo = Math.floor(at);
+  const hi = Math.ceil(at);
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (at - lo);
 }
 
 function median(values: number[]): number {
@@ -199,17 +208,37 @@ export function measureBox(
   }
   const pixels = ch[0]!.length;
   if (pixels < MIN_PIXELS) return undefined;
-  return { lab: [median(ch[0]!), median(ch[1]!), median(ch[2]!)], pixels };
+  const lightness = [...ch[0]!].sort((a, b) => a - b);
+  return {
+    lab: [median(ch[0]!), median(ch[1]!), median(ch[2]!)],
+    spread: quantile(lightness, 0.8) - quantile(lightness, 0.2),
+    pixels,
+  };
 }
 
-export interface MarkingMeasure {
-  marking: string;
-  view: string;
-  image: string;
+/**
+ * How a marking's contrast is measured: `against` the neighbouring coat (mark L* minus ground
+ * L*), `within` the mark's own box (its L* spread, for a banded or ringed mark whose median
+ * matches its neighbour's), or `none` when the turnaround shows too little of either to measure.
+ */
+export type ContrastKind = "against" | "within" | "none";
+
+export interface MarkingComparison {
   deltaE: number;
+  contrastKind: ContrastKind;
   contrastRef: number;
   contrastRender: number;
   drifts: boolean;
+  why?: string;
+}
+
+export interface MarkingMeasure extends Partial<MarkingComparison> {
+  marking: string;
+  view: string;
+  image: string;
+  drifts: boolean;
+  /** Set when the turnaround shows the marking and the render does not: it drifts. */
+  missing?: string;
   why?: string;
 }
 
@@ -220,47 +249,67 @@ const round1 = (n: number): string => {
 
 export function compareMarking(
   ref: { mark: Patch; ground: Patch },
-  render: { mark: Patch; ground: Patch },
-): {
-  deltaE: number;
-  contrastRef: number;
-  contrastRender: number;
-  drifts: boolean;
-  why?: string;
-} {
+  render: { mark: Patch; ground?: Patch },
+): MarkingComparison {
   const a = ref.mark.lab;
   const b = render.mark.lab;
   const deltaE = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-  const contrastRef = a[0] - ref.ground.lab[0];
-  const contrastRender = b[0] - render.ground.lab[0];
+  const against = a[0] - ref.ground.lab[0];
+  // A render whose neighbouring-coat box holds no figure leaves only the colour and banding.
+  const contrastKind: ContrastKind =
+    Math.abs(against) >= MIN_REF_CONTRAST && render.ground
+      ? "against"
+      : ref.mark.spread >= MIN_REF_CONTRAST
+        ? "within"
+        : "none";
+  const contrastRef = contrastKind === "within" ? ref.mark.spread : against;
+  const contrastRender =
+    contrastKind === "against" ? b[0] - render.ground!.lab[0] : render.mark.spread;
+  const base = { deltaE, contrastKind, contrastRef, contrastRender };
   if (deltaE > MAX_DELTA_E) {
-    return {
-      deltaE,
-      contrastRef,
-      contrastRender,
-      drifts: true,
-      why: `colour ΔE ${round1(deltaE)}`,
-    };
+    return { ...base, drifts: true, why: `colour ΔE ${round1(deltaE)}` };
   }
   if (
-    Math.abs(contrastRef) >= MIN_REF_CONTRAST &&
+    contrastKind === "against" &&
     (Math.sign(contrastRender) !== Math.sign(contrastRef) ||
       Math.abs(contrastRender) < MIN_CONTRAST_KEPT * Math.abs(contrastRef))
   ) {
     return {
-      deltaE,
-      contrastRef,
-      contrastRender,
+      ...base,
       drifts: true,
       why: `contrast ${round1(contrastRef)} → ${round1(contrastRender)} L*`,
     };
   }
-  return { deltaE, contrastRef, contrastRender, drifts: false };
+  if (contrastKind === "within" && contrastRender < MIN_CONTRAST_KEPT * contrastRef) {
+    return {
+      ...base,
+      drifts: true,
+      why: `banding ${round1(contrastRef)} → ${round1(contrastRender)} L*`,
+    };
+  }
+  return { ...base, drifts: false };
 }
 
+function detail(m: MarkingMeasure): string {
+  if (m.missing !== undefined) return `${m.image} ${m.missing}`;
+  const contrast =
+    m.contrastKind === "within"
+      ? `banding ${round1(m.contrastRef!)}→${round1(m.contrastRender!)} L*`
+      : m.contrastKind === "none"
+        ? `contrast not measurable (turnaround ${round1(m.contrastRef!)} L*)`
+        : `contrast ${round1(m.contrastRef!)}→${round1(m.contrastRender!)} L*`;
+  return `${m.image} ΔE ${round1(m.deltaE!)}, ${contrast}`;
+}
+
+/**
+ * The check's verdict. A marking drifts when its colour or contrast drifts, or when the
+ * turnaround shows it and a render does not (`missing`); a view whose reply could not be read
+ * (`unreadable`) fails too, because a marking there could have vanished unseen. Only what the
+ * references give nothing to measure (`unmeasured`) passes, named.
+ */
 export function markingsReason(
   measures: MarkingMeasure[],
-  notes: { unmeasured: string[] },
+  notes: { unmeasured: string[]; unreadable?: string[] },
 ): { check: "lookdev-markings"; passed: boolean; reason: string; source: "deterministic" } {
   const parts: string[] = [];
   if (measures.length === 0) {
@@ -271,14 +320,11 @@ export function markingsReason(
       const inView = measures.filter((m) => m.view === view);
       const names = [...new Set(inView.map((m) => m.marking))];
       const each = names.map((name) => {
-        const detail = inView
+        const measured = inView
           .filter((m) => m.marking === name)
-          .map(
-            (m) =>
-              `${m.image} ΔE ${round1(m.deltaE)}, contrast ${round1(m.contrastRef)}→${round1(m.contrastRender)} L*`,
-          )
+          .map(detail)
           .join("; ");
-        return `${name} (${detail})`;
+        return `${name} (${measured})`;
       });
       return `${view}: ${each.join("; ")}`;
     });
@@ -290,10 +336,12 @@ export function markingsReason(
       );
     }
   }
+  const unreadable = notes.unreadable ?? [];
+  if (unreadable.length > 0) parts.push(`unreadable: ${unreadable.join("; ")}`);
   if (notes.unmeasured.length > 0) parts.push(`not measured: ${notes.unmeasured.join("; ")}`);
   return {
     check: "lookdev-markings",
-    passed: !measures.some((m) => m.drifts),
+    passed: !measures.some((m) => m.drifts) && unreadable.length === 0,
     reason: parts.join(". "),
     source: "deterministic",
   };

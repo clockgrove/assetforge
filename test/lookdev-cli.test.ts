@@ -278,6 +278,13 @@ test("look-dev gives a rigged model its look, maps and eyes; pick hands it all o
       "identity",
     ].toSorted(),
   );
+  // The markings call records the route's provider options it was sent with.
+  const markingsCall = c.provenance.calls.find(
+    (x: { operation: string }) => x.operation === "lookdev-markings",
+  );
+  assert.deepEqual(markingsCall.parameters.providerOptions, {
+    google: { thinkingConfig: { thinkingLevel: "low" } },
+  });
   // One preview lighting, auto-exposed, for before and after; lit renders read near the albedo.
   const lighting = c.provenance.parameters.lookdev.lighting;
   assert.equal(lighting.auto, true);
@@ -436,6 +443,18 @@ test("a marking that drifts from the turnaround fails the markings check and is 
   assert.match(check.reason, /front: patch \(default ΔE/);
   assert.match(check.reason, /drifting: patch \(front, default: colour ΔE/);
   assert.match(check.reason, /not measured: three-quarter/);
+});
+
+test("a marking the turnaround shows and the renders lost fails the markings check", async () => {
+  const w = await world({ groom: { sizePx: 256 } });
+  const input = await riggedModel(w);
+  const r = await cli(lookDevArgs(w, input), { SCRIPT_LOOKDEV_MARKINGS: "vanished" });
+  assert.equal(r.code, 5, r.stdout + r.stderr);
+  const reasons: Array<{ check: string; passed: boolean; reason: string }> =
+    doc(r)["rejections"][0].reasons;
+  const check = reasons.find((x) => x.check === "lookdev-markings")!;
+  assert.equal(check.passed, false);
+  assert.match(check.reason, /drifting: patch \(front, default: not shown in the render\)/);
 });
 
 test("a profile's preview lighting is used as declared, and bad lighting is refused", async () => {

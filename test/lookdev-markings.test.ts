@@ -26,7 +26,11 @@ function canvas(
   return r;
 }
 
-const patch = (l: number, a = 0, b = 0): Patch => ({ lab: [l, a, b], pixels: 100 });
+const patch = (l: number, a = 0, b = 0, spread = 0): Patch => ({
+  lab: [l, a, b],
+  spread,
+  pixels: 100,
+});
 
 test("parse tolerates prose, bad boxes and pads", () => {
   const text = `Sure! {"markings":[
@@ -83,6 +87,38 @@ test("compareMarking passes a match and flags colour and contrast drift", () => 
     { mark: patch(50), ground: patch(50) },
   );
   assert.equal(flat.drifts, false);
+  assert.equal(flat.contrastKind, "none");
+});
+
+test("a banded marking whose median matches its neighbour is held to its banding", () => {
+  // A ringed tail: dark and pale bands, so the box's median sits near the coat beside it.
+  const rings = canvas(
+    [128, 128, 128],
+    [
+      [10, 10, 20, 40, [40, 35, 30]],
+      [20, 10, 30, 40, [200, 185, 160]],
+      [30, 10, 40, 40, [40, 35, 30]],
+      [40, 10, 50, 40, [200, 185, 160]],
+    ],
+  );
+  const ref = measureBox(rings, [0.1, 0.1, 0.5, 0.4], undefined)!;
+  assert.ok(ref.spread > 40, String(ref.spread));
+  const ground = { mark: ref, ground: patch(ref.lab[0] + 2) };
+  const muted = compareMarking(ground, {
+    mark: patch(ref.lab[0], 0, 0, ref.spread * 0.3),
+    ground: patch(ref.lab[0] + 2),
+  });
+  assert.equal(muted.contrastKind, "within");
+  assert.ok(muted.drifts && muted.why?.startsWith("banding "), muted.why);
+  const held = compareMarking(ground, { mark: { ...ref }, ground: patch(ref.lab[0] + 2) });
+  assert.equal(held.drifts, false);
+  // A render whose neighbour box held no figure is still held to colour and banding.
+  const noGround = compareMarking(
+    { mark: patch(20, 0, 0, 30), ground: patch(60) },
+    { mark: patch(22, 0, 0, 5) },
+  );
+  assert.equal(noGround.contrastKind, "within");
+  assert.equal(noGround.drifts, true);
 });
 
 test("markingsReason names drifting markings; nothing measured passes and says why", () => {
@@ -112,6 +148,21 @@ test("markingsReason names drifting markings; nothing measured passes and says w
   assert.equal(fail.passed, false);
   assert.match(fail.reason, /drifting: muzzle \(front, summer: contrast 30\.0 → 9\.0 L\*\)/);
   assert.match(fail.reason, /back view: no reference/);
+  const lost: MarkingMeasure = {
+    marking: "mask",
+    view: "side",
+    image: "winter",
+    drifts: true,
+    missing: "not shown in the render",
+    why: "not shown in the render",
+  };
+  const vanished = markingsReason([ok, lost], { unmeasured: [] });
+  assert.equal(vanished.passed, false);
+  assert.match(vanished.reason, /side: mask \(winter not shown in the render\)/);
+  assert.match(vanished.reason, /drifting: mask \(side, winter: not shown in the render\)/);
+  const unreadable = markingsReason([ok], { unmeasured: [], unreadable: ["side (no JSON)"] });
+  assert.equal(unreadable.passed, false);
+  assert.match(unreadable.reason, /unreadable: side \(no JSON\)/);
   const empty = markingsReason([], { unmeasured: ["no views had a reference"] });
   assert.equal(empty.passed, true);
   assert.match(empty.reason, /no marking was measured.*no views had a reference/);

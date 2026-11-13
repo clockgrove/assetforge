@@ -4,7 +4,7 @@
  * the nose on the synthetic quadruped's head in the close-up (`SCRIPT_LOOKDEV_EYES` overrides the reply); groom calls
  * answer lengths per region, with a frosted tint for a season named `winter`. Markings calls name
  * no marking, unless `SCRIPT_LOOKDEV_MARKINGS` is `figure` (one marking, "patch", boxed, on the 0..1000 scale, on the middle
- * of each image's figure against its lower part) or a literal reply.
+ * of each image's figure against its lower part), `vanished` (that marking on the reference only) or a literal reply.
  */
 import type { Script } from "../../src/gateway/scripted.ts";
 import { decodeImage, encodePng } from "../../src/image/raster.ts";
@@ -50,8 +50,12 @@ const script: Script = {
     if (request.prompt.includes('"markings"')) {
       const markings = process.env["SCRIPT_LOOKDEV_MARKINGS"];
       if (!markings) return { text: JSON.stringify({ markings: [] }), costUsd: 0.001 };
-      if (markings !== "figure") return { text: markings, costUsd: 0.001 };
-      const boxes = request.images.map((ref) => {
+      if (markings !== "figure" && markings !== "vanished") {
+        return { text: markings, costUsd: 0.001 };
+      }
+      const boxes = request.images.map((ref, k) => {
+        // `vanished`: the reference shows the marking and no render does.
+        if (markings === "vanished" && k > 0) return null;
         const [x0, y0, x1, y1] = figureBox(ref.bytes);
         const w = x1 - x0;
         const h = y1 - y0;

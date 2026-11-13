@@ -1260,6 +1260,7 @@ export async function lookDev(
   // Markings: each identity marking in the lit after renders against the matching turnaround view.
   const markingMeasures: MarkingMeasure[] = [];
   const unmeasured: string[] = [];
+  const unreadable: string[] = [];
   const subjectName = subjectOf(spec);
   for (const [v, view] of TURNTABLE_VIEWS.entries()) {
     const ref = references.find((r) => r.view === view.name);
@@ -1292,7 +1293,7 @@ export async function lookDev(
     try {
       markings = parseMarkingsReply(text, renders.length + 1);
     } catch {
-      unmeasured.push(`${view.name} (the markings reply held no JSON)`);
+      unreadable.push(`${view.name} (the markings reply held no JSON)`);
       continue;
     }
     if (markings.length === 0) unmeasured.push(`${view.name} (no marking was named)`);
@@ -1310,20 +1311,32 @@ export async function lookDev(
         const mark = boxes && measureBox(render, boxes.mark, BACKGROUND);
         const ground = boxes && measureBox(render, boxes.ground, BACKGROUND);
         const image = plan.seasons[k]!;
-        if (!mark || !ground) {
-          unmeasured.push(`${m.name} in ${view.name}, ${image} (not shown in the render)`);
+        if (!mark) {
+          // The turnaround shows this marking; a render that does not has lost it.
+          const missing = boxes ? "not measurable in the render" : "not shown in the render";
+          markingMeasures.push({
+            marking: m.name,
+            view: view.name,
+            image,
+            drifts: true,
+            missing,
+            why: missing,
+          });
           return;
         }
         markingMeasures.push({
           marking: m.name,
           view: view.name,
           image,
-          ...compareMarking({ mark: refMark, ground: refGround }, { mark, ground }),
+          ...compareMarking(
+            { mark: refMark, ground: refGround },
+            { mark, ...(ground && { ground }) },
+          ),
         });
       });
     }
   }
-  reasons.push(markingsReason(markingMeasures, { unmeasured }));
+  reasons.push(markingsReason(markingMeasures, { unmeasured, unreadable }));
 
   // 6. Identity lock on the looked-dev turntable (front and three-quarter), as for wave 0.
   let identity: IdentityScore | undefined;
@@ -1484,9 +1497,9 @@ export async function lookDev(
       furSpeckle,
       markings: markingMeasures.map((m) => ({
         ...m,
-        deltaE: round(m.deltaE, 2),
-        contrastRef: round(m.contrastRef, 2),
-        contrastRender: round(m.contrastRender, 2),
+        ...(m.deltaE !== undefined && { deltaE: round(m.deltaE, 2) }),
+        ...(m.contrastRef !== undefined && { contrastRef: round(m.contrastRef, 2) }),
+        ...(m.contrastRender !== undefined && { contrastRender: round(m.contrastRender, 2) }),
       })),
       coverage: round(projection.coverage, 4),
       costUsd: round(budget.spentUsd),
