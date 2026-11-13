@@ -143,9 +143,12 @@ test("markingsReason names drifting markings; nothing measured passes and says w
   };
   const pass = markingsReason([ok], { unmeasured: [] });
   assert.equal(pass.passed, true);
+  assert.equal(pass.shadow, true, "the check is advisory: it never filters");
+  assert.match(pass.reason, /^advisory, never filters/);
   assert.match(pass.reason, /front: mask \(summer ΔE 6\.2, contrast -41\.0→-38\.5 L\*\)/);
   const fail = markingsReason([ok, bad], { unmeasured: ["back view: no reference"] });
   assert.equal(fail.passed, false);
+  assert.equal(fail.shadow, true);
   assert.match(fail.reason, /drifting: muzzle \(front, summer: contrast 30\.0 → 9\.0 L\*\)/);
   assert.match(fail.reason, /back view: no reference/);
   const lost: MarkingMeasure = {

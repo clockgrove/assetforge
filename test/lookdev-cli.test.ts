@@ -435,31 +435,33 @@ test("an empty bare mask fails the groom check and is named", async () => {
   }
 });
 
-test("a marking that drifts from the turnaround fails the markings check and is named", async () => {
+test("a drifting marking is named and recorded, but the advisory check stages the candidate", async () => {
   const w = await world({ groom: { sizePx: 256 } });
   const input = await riggedModel(w);
   // The scripted reply boxes the middle of each figure: the synthetic references and the
   // restyled model differ there by more than the colour tolerance.
   const r = await cli(lookDevArgs(w, input), { SCRIPT_LOOKDEV_MARKINGS: "figure" });
-  assert.equal(r.code, 5, r.stdout + r.stderr);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
   const run = doc(r);
-  assert.equal(run["candidates"].length, 0);
-  const reasons: Array<{ check: string; passed: boolean; reason: string }> =
-    run["rejections"][0].reasons;
+  assert.equal(run["candidates"].length, 1);
+  const reasons: Array<{ check: string; passed: boolean; reason: string; shadow?: boolean }> =
+    run["candidates"][0].reasons;
   const check = reasons.find((x) => x.check === "lookdev-markings")!;
   assert.equal(check.passed, false);
+  assert.equal(check.shadow, true);
+  assert.match(check.reason, /^advisory, never filters/);
   assert.match(check.reason, /front: patch \(default ΔE/);
   assert.match(check.reason, /drifting: patch \(front, default: colour ΔE/);
   assert.match(check.reason, /not measured: three-quarter/);
 });
 
-test("a marking the turnaround shows and the renders lost fails the markings check", async () => {
+test("a marking the turnaround shows and the renders lost fails the advisory markings check", async () => {
   const w = await world({ groom: { sizePx: 256 } });
   const input = await riggedModel(w);
   const r = await cli(lookDevArgs(w, input), { SCRIPT_LOOKDEV_MARKINGS: "vanished" });
-  assert.equal(r.code, 5, r.stdout + r.stderr);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
   const reasons: Array<{ check: string; passed: boolean; reason: string }> =
-    doc(r)["rejections"][0].reasons;
+    doc(r)["candidates"][0].reasons;
   const check = reasons.find((x) => x.check === "lookdev-markings")!;
   assert.equal(check.passed, false);
   assert.match(check.reason, /drifting: patch \(front, default: not shown in the render\)/);

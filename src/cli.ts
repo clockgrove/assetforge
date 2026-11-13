@@ -310,12 +310,22 @@ function formatRun(run: RunRecord, runDir: string): string {
       "",
       `${c.id}  ${join(runDir, c.file)}  (${c.mediaType}, ${usd(c.provenance.costUsd)})`,
     );
-    for (const r of c.reasons) lines.push(`    ${r.check} [${r.source}]: ${r.reason}`);
+    for (const r of c.reasons) {
+      // A shadow check is recorded beside QA: its verdict is shown, but it filtered nothing.
+      const tag = r.shadow
+        ? `${r.source}; ${r.passed ? "passed" : "failed"}, not filtered`
+        : r.source;
+      lines.push(`    ${r.check} [${tag}]: ${r.reason}`);
+    }
     if (c.artifacts?.length) lines.push(`    renders: ${join(runDir, dirname(c.artifacts[0]!))}`);
   }
   for (const rejection of run.rejections ?? []) {
     for (const r of rejection.reasons.filter((reason) => !reason.passed && !reason.shadow))
       lines.push(`candidate ${rejection.candidate} filtered: ${r.check}: ${r.reason}`);
+    for (const r of rejection.reasons.filter((reason) => !reason.passed && reason.shadow))
+      lines.push(
+        `candidate ${rejection.candidate} also failed, not filtered: ${r.check}: ${r.reason}`,
+      );
     if (rejection.costUsd !== undefined)
       lines.push(`candidate ${rejection.candidate} cost ${usd(rejection.costUsd)}`);
     if (rejection.artifacts?.length)
