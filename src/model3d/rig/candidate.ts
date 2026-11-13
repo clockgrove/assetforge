@@ -49,6 +49,8 @@ export async function riggedCandidate(options: {
    * validator can resolve them and the texture budget can measure them.
    */
   resources?: Record<string, Uint8Array>;
+  /** Keep the source's `asset.extras`: `rig` re-rigging a handed-off model, never `stage`. */
+  keepAssetExtras?: boolean;
 }): Promise<RiggedCandidate> {
   const { source, settings, character, rig } = options;
   // Normalise first, so fitting sees the model facing the target's forward at its height.
@@ -64,6 +66,7 @@ export async function riggedCandidate(options: {
     rig,
     families: character.clips,
     sizePx: settings.turntablePx,
+    ...(options.keepAssetExtras && { keepAssetExtras: true }),
   });
   const written = rigged.glb;
   const measures = measure(written);

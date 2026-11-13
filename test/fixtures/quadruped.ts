@@ -5,6 +5,7 @@ import type {
   GaitProfile,
   JointLimits,
   JointRole,
+  MotionProfile,
   SkeletonTemplate,
   TemplateJoint,
 } from "../../src/model3d/rig/template.ts";
@@ -26,6 +27,8 @@ export interface QuadrupedOptions {
   splayedHindL?: number;
   /** Sides of each tube. */
   segments?: number;
+  /** `asset.extras` a provider writes into its own file. */
+  assetExtras?: Record<string, unknown>;
   /** The way the model faces: +z (default), or +x as Tripo's models do (a root node turns it). */
   facing?: "+z" | "+x";
   /**
@@ -511,7 +514,11 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
   }
 
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge-test-fixture" },
+    asset: {
+      version: "2.0",
+      generator: "assetforge-test-fixture",
+      ...(options.assetExtras && { extras: options.assetExtras }),
+    },
     scene: 0,
     scenes: [{ nodes: sceneNodes }],
     nodes,
@@ -632,3 +639,27 @@ export function walkGait(options: { digitigrade?: boolean } = {}): GaitProfile {
     swingCurlDeg: { fore: 40, hind: 15 },
   };
 }
+
+/** A quadruped's idle: head and tail sway, the back breathes. */
+export const quadrupedIdle = (): MotionProfile => ({
+  loop: true,
+  durationS: 2.5,
+  keys: [
+    { at: 0, pose: { headPitchDeg: 0, tailPitchDeg: 0 } },
+    { at: 0.5, pose: { backArchDeg: 3, headPitchDeg: 6, tailPitchDeg: 8, tailYawDeg: 6 } },
+  ],
+});
+
+/** A quadruped's one-shot: a fore paw lifted, the head lowered, then back to the idle. */
+export const quadrupedPaw = (): MotionProfile => ({
+  loop: false,
+  idle: "idle",
+  entryS: 0.3,
+  exitS: 0.3,
+  durationS: 1,
+  keys: [
+    { at: 0, pose: {} },
+    { at: 0.5, pose: { headPitchDeg: 10, feet: { fore_l: { liftBodyLengths: 0.04 } } } },
+    { at: 1, pose: {} },
+  ],
+});

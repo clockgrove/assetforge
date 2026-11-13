@@ -61,8 +61,8 @@ function blend(a: Flat, b: Flat, w: number): Flat {
   return out;
 }
 
-/** The motion's keys on its clip's timeline, in seconds, and the clip's length. */
-function timeline(
+/** The motion's keys on its clip's timeline, in seconds, and the clip's length. Exported for tests. */
+export function timeline(
   motion: MotionProfile,
   idle: MotionPose,
 ): { keys: Array<{ t: number; pose: Flat }>; durationS: number } {
@@ -80,6 +80,10 @@ function timeline(
   }));
   const durationS = entry + motion.durationS + exit;
   if (entry > 0) keys.unshift({ t: 0, pose: flatten(idle) });
+  // The last key holds to the end of `durationS`; only then does the exit blend back to the idle.
+  const last = keys.at(-1)!;
+  if (last.t < entry + motion.durationS)
+    keys.push({ t: entry + motion.durationS, pose: last.pose });
   if (exit > 0) keys.push({ t: durationS, pose: flatten(idle) });
   return { keys, durationS };
 }

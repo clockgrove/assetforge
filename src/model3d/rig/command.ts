@@ -70,6 +70,8 @@ export async function rerig(
     settings,
     character,
     rig,
+    // A re-rig keeps the handed-off model's own record (look-dev's groom, say).
+    keepAssetExtras: true,
   });
 
   const now = options.now ?? (() => new Date());

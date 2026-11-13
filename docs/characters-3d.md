@@ -277,7 +277,7 @@ The field names below are added to the shared contract (clockgrove/raccoon-world
   - `loop`: `true` for a looping family (an idle), `false` for a one-shot (a gesture or an interaction).
   - `durationS`: the seconds the keys span.
   - `keys`: key poses in ascending order. `at` is a fraction of `durationS`, and the first key is at 0. The pose is eased (cosine) from one key to the next. A looping motion wraps from its last key back to its first.
-  - `idle`, one-shots only: a looping motion. The one-shot starts on the idle's first pose and blends into its first key over `entryS` seconds. After its last key, it blends back to the idle's first pose over `exitS` seconds. Both default to 0. The clip lasts `entryS + durationS + exitS`. Without `idle`, a one-shot starts and ends on the neutral stance (the pose with every field 0).
+  - `idle`, one-shots only: a looping motion. The one-shot starts on the idle's first pose and blends into its first key over `entryS` seconds. Its last key's pose holds until `durationS` ends; then it blends back to the idle's first pose over `exitS` seconds. Both default to 0. The clip lasts `entryS + durationS + exitS`. Without `idle`, a one-shot starts and ends on the neutral stance (the pose with every field 0).
 - A pose's fields are all optional and default to 0. They are measured from the neutral stance:
   - `body`: the root's offset and turn.
     - `raiseBodyLengths`, `forwardBodyLengths` and `sideBodyLengths` (toward the character's left).

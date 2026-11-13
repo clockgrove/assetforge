@@ -10,6 +10,7 @@ import { InputError } from "../src/errors.ts";
 import { createRaster, encodePng } from "../src/image/raster.ts";
 import { parseGlb, writeGlb } from "../src/model3d/glb.ts";
 import { riggedCandidate } from "../src/model3d/rig/candidate.ts";
+import { timeline } from "../src/model3d/rig/motion.ts";
 import type { RiggedCandidate } from "../src/model3d/rig/candidate.ts";
 import { model3dSettings } from "../src/model3d/profile.ts";
 import { qaPassed } from "../src/model3d/qa.ts";
@@ -23,7 +24,13 @@ import type {
 import { sha256 } from "../src/request.ts";
 import type { TargetProfile } from "../src/types.ts";
 import { bipedTemplate, syntheticBiped } from "./fixtures/biped.ts";
-import { quadrupedTemplate, syntheticQuadruped, walkGait } from "./fixtures/quadruped.ts";
+import {
+  quadrupedIdle,
+  quadrupedPaw,
+  quadrupedTemplate,
+  syntheticQuadruped,
+  walkGait,
+} from "./fixtures/quadruped.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const VALIDATOR = fileURLToPath(new URL("./fixtures/validator-3d.ts", import.meta.url));
@@ -85,29 +92,6 @@ const bipedWave = (): MotionProfile => ({
         feet: { foot_l: { liftBodyLengths: 0.06 } },
       },
     },
-    { at: 1, pose: {} },
-  ],
-});
-
-const quadrupedIdle = (): MotionProfile => ({
-  loop: true,
-  durationS: 2.5,
-  keys: [
-    { at: 0, pose: { headPitchDeg: 0, tailPitchDeg: 0 } },
-    { at: 0.5, pose: { backArchDeg: 3, headPitchDeg: 6, tailPitchDeg: 8, tailYawDeg: 6 } },
-  ],
-});
-
-/** A quadruped's one-shot: a fore paw lifted, the head lowered, then back to the idle. */
-const quadrupedPaw = (): MotionProfile => ({
-  loop: false,
-  idle: "idle",
-  entryS: 0.3,
-  exitS: 0.3,
-  durationS: 1,
-  keys: [
-    { at: 0, pose: {} },
-    { at: 0.5, pose: { headPitchDeg: 10, feet: { fore_l: { liftBodyLengths: 0.04 } } } },
     { at: 1, pose: {} },
   ],
 });
@@ -631,4 +615,32 @@ test("assetforge rig resolves a look-dev'd model's external maps beside it and k
   const extras = written.json.asset.extras as Record<string, unknown>;
   assert.deepEqual(extras["lookdev"], { groom: { maxLengthM: 0.03 } });
   assert.ok(extras["rig"], "the rig's own record replaces only rig");
+});
+
+test("a one-shot holds its last key until durationS ends, then blends back over exitS", () => {
+  const { keys, durationS } = timeline(
+    {
+      loop: false,
+      idle: "idle",
+      entryS: 0.2,
+      exitS: 0.4,
+      durationS: 1,
+      keys: [
+        { at: 0, pose: {} },
+        { at: 0.5, pose: { headPitchDeg: 10 } },
+      ],
+    },
+    { headPitchDeg: 2 },
+  );
+  assert.equal(durationS, 1.6);
+  assert.deepEqual(
+    keys.map((k) => [Number(k.t.toFixed(6)), k.pose.get("headPitchDeg") ?? 0]),
+    [
+      [0, 2],
+      [0.2, 0],
+      [0.7, 10],
+      [1.2, 10],
+      [1.6, 2],
+    ],
+  );
 });

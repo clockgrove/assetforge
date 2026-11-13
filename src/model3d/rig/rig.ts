@@ -61,6 +61,8 @@ export async function rigCharacter(options: {
   rig: LoadedRig;
   families: string[];
   sizePx: number;
+  /** Keep the source's `asset.extras` (a re-rig only; see `buildRiggedGlb`). */
+  keepAssetExtras?: boolean;
 }): Promise<RiggedCharacter> {
   const { rig } = options;
   const mesh = bakeMesh(options.source, options.yaw);
@@ -86,10 +88,18 @@ export async function rigCharacter(options: {
     }
   }
   const bytes = writeGlb(
-    buildRiggedGlb(options.source, mesh, skeleton, skin, clips, {
-      template: rig.templatePath,
-      sha256: rig.templateSha256,
-    }),
+    buildRiggedGlb(
+      options.source,
+      mesh,
+      skeleton,
+      skin,
+      clips,
+      {
+        template: rig.templatePath,
+        sha256: rig.templateSha256,
+      },
+      options.keepAssetExtras ?? false,
+    ),
   );
   const glb = parseGlb(bytes);
 
