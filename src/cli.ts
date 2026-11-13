@@ -1532,7 +1532,7 @@ const mcpCommand: Command = {
   summary: "serve bible, plan and apply tools over MCP stdio",
   usage: `Usage: assetforge mcp [--work-item <label>] [--provider-script <module>]
 
-Serves newline-delimited MCP JSON-RPC over stdin/stdout. Model keys come from the environment.
+Serves MCP over stdio with the official MCP SDK. Model keys come from the environment.
 Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are local to this server.`,
   options: { ...workItemOption, "provider-script": { type: "string" }, help: { type: "boolean" } },
   async run(values) {
