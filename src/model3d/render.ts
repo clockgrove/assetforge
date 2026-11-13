@@ -288,6 +288,22 @@ function texelAt(map: Raster, u: number, v: number, channel: number): number {
 /** The light reaching a surface with (unnormalised) normal n, facing ±1, under the render's lighting. */
 type Shade = (nx: number, ny: number, nz: number, facing: number) => number;
 
+/** Where the preview lighting's highlight shoulder starts, as a share of full scale. */
+const SHOULDER = 0.8;
+
+/**
+ * Preview lighting's tone curve: linear up to the shoulder, then rolling smoothly toward 1, so a
+ * pale marking in the key light keeps its tone instead of clipping to white. The legacy turntable
+ * lighting clips.
+ */
+function toneFor(options: RenderOptions): (v: number) => number {
+  if (!options.lighting) return (v) => Math.min(1, v);
+  return (v) =>
+    v <= SHOULDER
+      ? v
+      : SHOULDER + (1 - SHOULDER) * (1 - Math.exp(-(v - SHOULDER) / (1 - SHOULDER)));
+}
+
 function shaderFor(options: RenderOptions, camera: ViewCamera): Shade {
   const lighting = options.lighting;
   if (!lighting) {
@@ -336,6 +352,7 @@ export function renderViewWithDepth(
   const unlit = options.unlit === true;
   const { eye, forward, right, up, focal, near } = camera;
   const shade = shaderFor(options, camera);
+  const tone = toneFor(options);
 
   const depthBuffer = new Float64Array(size * size).fill(Infinity);
   const texel: Vec = [0, 0, 0];
@@ -504,9 +521,9 @@ export function renderViewWithDepth(
             b += texel[2] * (emissiveFactor[2] ?? 0);
           }
           const o = at * 4;
-          raster.data[o] = Math.round(Math.min(1, r) * 255);
-          raster.data[o + 1] = Math.round(Math.min(1, g) * 255);
-          raster.data[o + 2] = Math.round(Math.min(1, b) * 255);
+          raster.data[o] = Math.round(tone(r) * 255);
+          raster.data[o + 1] = Math.round(tone(g) * 255);
+          raster.data[o + 2] = Math.round(tone(b) * 255);
         }
       }
     }
@@ -573,6 +590,7 @@ function drawFur(
   const clumpCells = Math.max(1, strandsPerUv / 6);
   const BEND = 0.35;
   const shade = shaderFor(options, camera);
+  const tone = toneFor(options);
   const texel: Vec = [0, 0, 0];
   // Fur behind the surface is hidden; fur behind other fur within this reach still blends, so
   // semi-transparent shells do not cut each other off at the silhouette.
@@ -729,13 +747,13 @@ function drawFur(
             }
             const o = at * 4;
             raster.data[o] = Math.round(
-              raster.data[o]! * (1 - alpha) + Math.min(1, r * light) * 255 * alpha,
+              raster.data[o]! * (1 - alpha) + tone(r * light) * 255 * alpha,
             );
             raster.data[o + 1] = Math.round(
-              raster.data[o + 1]! * (1 - alpha) + Math.min(1, g * light) * 255 * alpha,
+              raster.data[o + 1]! * (1 - alpha) + tone(g * light) * 255 * alpha,
             );
             raster.data[o + 2] = Math.round(
-              raster.data[o + 2]! * (1 - alpha) + Math.min(1, b * light) * 255 * alpha,
+              raster.data[o + 2]! * (1 - alpha) + tone(b * light) * 255 * alpha,
             );
           }
         }

@@ -287,6 +287,81 @@ function borderColour(raster: Raster): [number, number, number] {
 }
 
 /**
+ * The background an edited view left, as a mask: pixels connected to the image's border whose
+ * colour is within `tolerance` of the border colour, grown by `grow` pixels so the anti-aliased
+ * fringe of the drawn figure is left out too (one pixel by default). Only border-connected pixels count, so a pale coat
+ * inside the figure is never taken for background. With the view's flat `render`, a pixel the render
+ * itself draws in the background's colour is kept: there, the model's own surface looks like
+ * background, and the edit cannot be told apart from it.
+ */
+export function editedBackground(
+  edited: Raster,
+  render?: Raster,
+  tolerance = 24,
+  grow = 1,
+): Uint8Array {
+  const { width, height, data } = edited;
+  const bg = borderColour(edited);
+  const mask = new Uint8Array(width * height);
+  const near = (i: number) =>
+    Math.abs(data[i * 4]! - bg[0]) +
+      Math.abs(data[i * 4 + 1]! - bg[1]) +
+      Math.abs(data[i * 4 + 2]! - bg[2]) <=
+    tolerance;
+  const stack: number[] = [];
+  const seed = (i: number) => {
+    if (!mask[i] && near(i)) {
+      mask[i] = 1;
+      stack.push(i);
+    }
+  };
+  for (let x = 0; x < width; x++) {
+    seed(x);
+    seed((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    seed(y * width);
+    seed(y * width + width - 1);
+  }
+  while (stack.length > 0) {
+    const i = stack.pop()!;
+    const x = i % width;
+    if (x > 0) seed(i - 1);
+    if (x < width - 1) seed(i + 1);
+    if (i >= width) seed(i - width);
+    if (i < (height - 1) * width) seed(i + width);
+  }
+  let grown = mask;
+  for (let ring = 0; ring < grow; ring++) {
+    const next = Uint8Array.from(grown);
+    for (let i = 0; i < width * height; i++) {
+      if (grown[i]) continue;
+      const x = i % width;
+      if (
+        (x > 0 && grown[i - 1]) ||
+        (x < width - 1 && grown[i + 1]) ||
+        (i >= width && grown[i - width]) ||
+        (i < (height - 1) * width && grown[i + width])
+      )
+        next[i] = 1;
+    }
+    grown = next;
+  }
+  if (render && render.width === width && render.height === height) {
+    for (let i = 0; i < width * height; i++) {
+      if (!grown[i]) continue;
+      const o = i * 4;
+      const d =
+        Math.abs(render.data[o]! - bg[0]) +
+        Math.abs(render.data[o + 1]! - bg[1]) +
+        Math.abs(render.data[o + 2]! - bg[2]);
+      if (d <= tolerance) grown[i] = 0;
+    }
+  }
+  return grown;
+}
+
+/**
  * Registers an edited view onto its render: the edit's figure box is scaled and moved onto the
  * render's, so a model that shifted or resized the figure still projects onto the right texels.
  */
@@ -849,7 +924,7 @@ export async function lookDev(
       [{ ...png(flatPng), role: `flat-lit render, ${v.name} view` }, ...refs],
     );
     const aligned = register(decodeImage(edited.bytes), flat);
-    projected.push({ camera, image: aligned });
+    projected.push({ camera, image: aligned, background: editedBackground(aligned, flat) });
     viewArtifacts.push(
       { name: `lookdev-view-${v.name}-render.png`, bytes: flatPng },
       { name: `lookdev-view-${v.name}-restyled.png`, bytes: encodePng(aligned) },

@@ -144,6 +144,24 @@ test("preview lighting is the same for every view and scales with exposure", () 
   assert.ok(mean(renderView(glb, { ...base, baseColor: flat })) < mean(a));
 });
 
+test("preview lighting rolls pale highlights off instead of clipping them to white", () => {
+  const { glb, base } = setup();
+  const pale = solid([235, 225, 205, 255]);
+  const lighting: PreviewLighting = {
+    ambient: 0.6,
+    key: 0.4,
+    keyDirection: [-0.4, 0.5, 0.75],
+    exposure: 1.3,
+  };
+  const clipped = (r: Raster) => {
+    let n = 0;
+    for (let i = 0; i < r.data.length; i += 4) if (r.data[i]! >= 254) n++;
+    return n;
+  };
+  const lit = renderView(glb, { ...base, baseColor: pale, lighting });
+  assert.equal(clipped(lit), 0, "no pale pixel reaches full white");
+});
+
 test("fur is deterministic and writes depth", () => {
   const { glb, base } = setup();
   const options = { ...base, fur: furMaps(255) };

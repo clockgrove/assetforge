@@ -14,6 +14,11 @@ export interface ProjectedView {
   camera: ViewCamera;
   /** Same size as `camera.sizePx`. */
   image: Raster;
+  /**
+   * Pixels the image left as background (1), per pixel; never projected, so a restyle whose figure
+   * is thinner than the model's (a leg drawn narrower) cannot paint background onto the texels.
+   */
+  background?: Uint8Array;
 }
 
 export interface Projection {
@@ -160,6 +165,7 @@ export function projectViews(
     const { camera, image } = view;
     const px = camera.sizePx;
     const edge = silhouetteMask(depth, px);
+    const { background } = view;
     const { eye } = camera;
     for (let i = 0; i < total; i++) {
       if (!covered[i]) continue;
@@ -178,7 +184,7 @@ export function projectViews(
       const iy = Math.floor(sy);
       if (!(d > 0) || ix < 0 || iy < 0 || ix >= px || iy >= px) continue;
       const pixel = iy * px + ix;
-      if (edge[pixel]) continue;
+      if (edge[pixel] || background?.[pixel]) continue;
       const tolerance = 0.005 * distance + 0.003 * diagonal + (1.5 * d) / camera.focal / facing;
       if (Math.abs(depth[pixel]! - d) > tolerance) continue;
       const w = facing ** FACING_POWER;
