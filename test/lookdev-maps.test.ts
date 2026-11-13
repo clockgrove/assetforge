@@ -7,6 +7,7 @@ import {
   GROOM_REGIONS,
   groomMaps,
   groomMaskCheck,
+  keepMarkingEdges,
   markerMask,
   padMask,
   texelRegions,
@@ -273,6 +274,48 @@ test("regions, markers and pads", () => {
     count(padMask(texels, [{ ankle: [0.3, top + 1, 0], toe: [0.3, top + 1, 0.2] }], 5)),
     0,
   );
+});
+
+test("fur that would lie across a marking's edge is shortened; fur inside a broad marking is not", () => {
+  const glb = parseGlb(syntheticCharacter({ triangles: 108, joints: 3 }));
+  const size = 256;
+  const texels = bakeTexels(glb, size);
+  const total = size * size;
+  // The coat is pale below y = 1.5 and dark above; every strand combs straight up, 0.3 m long.
+  const base = createRaster(size, size);
+  const combs = new Float32Array(total * 3);
+  const lengthMm = new Float32Array(total).fill(300);
+  for (let i = 0; i < total; i++) {
+    const dark = texels.covered[i] && texels.position[i * 3 + 1]! > 1.5;
+    base.data.set(dark ? [40, 35, 30, 255] : [220, 205, 180, 255], i * 4);
+    combs[i * 3 + 1] = 1;
+  }
+  const kept = keepMarkingEdges(texels, base, combs, lengthMm, new Uint8Array(total));
+  const on = (i: number) => texels.covered[i] === 1 && Math.abs(texels.normal[i * 3 + 2]!) > 0.9; // the front and back
+  const below = { near: [] as number[], far: [] as number[] };
+  for (let i = 0; i < total; i++) {
+    if (!on(i)) continue;
+    const y = texels.position[i * 3 + 1]!;
+    if (y > 1.35 && y < 1.45) below.near.push(kept[i]!);
+    if (y > 0.7 && y < 0.9) below.far.push(kept[i]!);
+  }
+  const mean = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
+  assert.ok(below.near.length > 10 && below.far.length > 10);
+  // 0.1 m below the edge, a 0.3 m strand would reach the dark marking: it is cut to about 0.1 m.
+  assert.ok(mean(below.near) < 180, `near the edge ${mean(below.near)}`);
+  assert.ok(Math.min(...below.near) >= 300 * 0.3 - 1e-3, "never under the floor");
+  // 0.6 m or more below it, the strand stays inside the pale marking and keeps its length.
+  assert.ok(mean(below.far) > 290, `far from the edge ${mean(below.far)}`);
+  // A coat of one colour keeps every length.
+  const plain = keepMarkingEdges(
+    texels,
+    uniform(size, size, [120, 110, 100]),
+    combs,
+    lengthMm.map(() => 30),
+    new Uint8Array(total),
+  );
+  for (let i = 0; i < total; i++)
+    if (on(i) && texels.position[i * 3 + 1]! < 2) assert.ok(plain[i]! > 29);
 });
 
 test("groom length is zero exactly on the bare mask; tint only with a season tint", () => {
