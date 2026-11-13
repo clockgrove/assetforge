@@ -30,7 +30,8 @@ const patch = (l: number, a = 0, b = 0): Patch => ({ lab: [l, a, b], pixels: 100
 
 test("parse tolerates prose, bad boxes and pads", () => {
   const text = `Sure! {"markings":[
-    {"name":"mask","against":"cheek","boxes":[{"mark":[0.6,0.5,0.2,0.1],"ground":[-1,0,2,0.5]},{"mark":[0.1,0.1,0.1,0.5],"ground":[0,0,1,1]}]},
+    {"name":"mask","against":"cheek","boxes":[{"mark":[500,600,100,200],"ground":[0,-1,500,2000]},{"mark":[100,100,100,500],"ground":[0,0,1000,1000]}]},
+    {"name":"mixed","against":"coat","boxes":[{"mark":[237,0.4,401,0.6],"ground":[0,0,1000,1000]}]},
     {"name":42,"boxes":[]},
     {"name":"rings","against":"tail","boxes":null},
     {"name":"rim","against":"ear","boxes":[null]}
@@ -38,12 +39,13 @@ test("parse tolerates prose, bad boxes and pads", () => {
   const out = parseMarkingsReply(text, 3);
   assert.deepEqual(
     out.map((m) => m.name),
-    ["mask", "rim"],
+    ["mask", "mixed", "rim"],
   );
   assert.deepEqual(out[0]!.boxes[0], { mark: [0.2, 0.1, 0.6, 0.5], ground: [0, 0, 1, 0.5] });
   assert.equal(out[0]!.boxes[1], null);
   assert.equal(out[0]!.boxes.length, 3);
-  assert.equal(out[1]!.boxes.length, 3);
+  assert.equal(out[1]!.boxes[0], null, "a box mixing fractions and 0..1000 values is dropped");
+  assert.equal(out[2]!.boxes.length, 3);
 });
 
 test("parse throws only without any JSON object", () => {

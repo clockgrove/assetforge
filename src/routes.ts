@@ -278,9 +278,12 @@ export const defaultRoutes: Routes = {
   },
   // Look-dev (#122): where each identity marking and the coat beside it are, in a turnaround view
   // and the lit renders of the same view, for the deterministic markings check.
+  // Low thinking (assetforge#122): boxing markings needs no long reasoning, and at the default
+  // level the call ran long enough to time out at the gateway relay in two real runs.
   [LOOKDEV_MARKINGS_OPERATION]: {
     model: "google/gemini-3-flash",
     estimatedCostUsd: 0.02,
+    providerOptions: { google: { thinkingConfig: { thinkingLevel: "low" } } },
     outputGrant: {
       license: "LicenseRef-google-api",
       plan: "api",

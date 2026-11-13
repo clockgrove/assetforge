@@ -3,7 +3,7 @@
  * warmed in colour (so the projected albedo visibly changes); the locate call puts both eyes and
  * the nose on the synthetic quadruped's head in the close-up (`SCRIPT_LOOKDEV_EYES` overrides the reply); groom calls
  * answer lengths per region, with a frosted tint for a season named `winter`. Markings calls name
- * no marking, unless `SCRIPT_LOOKDEV_MARKINGS` is `figure` (one marking, "patch", boxed on the middle
+ * no marking, unless `SCRIPT_LOOKDEV_MARKINGS` is `figure` (one marking, "patch", boxed, on the 0..1000 scale, on the middle
  * of each image's figure against its lower part) or a literal reply.
  */
 import type { Script } from "../../src/gateway/scripted.ts";
@@ -55,9 +55,11 @@ const script: Script = {
         const [x0, y0, x1, y1] = figureBox(ref.bytes);
         const w = x1 - x0;
         const h = y1 - y0;
+        const scale = ([bx0, by0, bx1, by1]: number[]) =>
+          [by0!, bx0!, by1!, bx1!].map((v) => Math.round(v * 1000));
         return {
-          mark: [x0 + w * 0.3, y0 + h * 0.3, x0 + w * 0.7, y0 + h * 0.6],
-          ground: [x0 + w * 0.2, y0 + h * 0.6, x0 + w * 0.8, y0 + h * 0.9],
+          mark: scale([x0 + w * 0.3, y0 + h * 0.3, x0 + w * 0.7, y0 + h * 0.6]),
+          ground: scale([x0 + w * 0.2, y0 + h * 0.6, x0 + w * 0.8, y0 + h * 0.9]),
         };
       });
       return {

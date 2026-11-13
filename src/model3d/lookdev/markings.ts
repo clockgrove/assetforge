@@ -42,8 +42,8 @@ export function markingsPrompt(options: {
     description ? `Subject: ${subject}, ${description}.` : `Subject: ${subject}.`,
     `Image 1 is the approved reference (${referenceRole}). Images 2 onward are lit renders of the character's 3D model in the ${view} view, ${coats}.`,
     "List every identity marking that the subject description names or the reference shows: distinct coloured patches, masks, rims, bands, rings, stripes, spots.",
-    'For each marking, give in every image the tight box of the marking and a box of the neighbouring region it contrasts with ("against" names that region). Boxes are [x0, y0, x1, y1] as fractions of the image width and height, 0 to 1, origin top left. Use null for an image that does not show the marking.',
-    'Reply with JSON only: {"markings":[{"name": string, "against": string, "boxes": [{"mark":[x0,y0,x1,y1],"ground":[x0,y0,x1,y1]} | null, ...]}]}',
+    'For each marking, give in every image the tight box of the marking and a box of the neighbouring region it contrasts with ("against" names that region). Boxes are [ymin, xmin, ymax, xmax], integers from 0 to 1000 down the image height (y) and across its width (x), origin top left. Use null for an image that does not show the marking.',
+    'Reply with JSON only: {"markings":[{"name": string, "against": string, "boxes": [{"mark":[ymin,xmin,ymax,xmax],"ground":[ymin,xmin,ymax,xmax]} | null, ...]}]}',
     "The boxes array has one entry per image, in image order, reference first.",
   ];
   return lines.join("\n");
@@ -72,11 +72,20 @@ function firstObject(text: string): unknown {
   return undefined;
 }
 
+/** The reply's box scale: integers 0..1000 of the image's height and width. */
+export const BOX_SCALE = 1000;
+
+/**
+ * A reply box, `[y0, x0, y1, x1]` on the 0..1000 scale (the order vision models most often box
+ * in), as an `[x0, y0, x1, y1]` fraction box. A box that mixes fractions under 1 with values
+ * above 1 mixes two scales, so it is dropped rather than guessed at.
+ */
 function parseBox(value: unknown): Box | undefined {
   if (!Array.isArray(value) || value.length !== 4) return undefined;
   const n = value.map((v) => (typeof v === "number" && Number.isFinite(v) ? v : NaN));
   if (n.some(Number.isNaN)) return undefined;
-  const c = n.map((v) => Math.min(1, Math.max(0, v!)));
+  if (n.some((v) => v! > 1) && n.some((v) => v! > 0 && v! < 1)) return undefined;
+  const c = [n[1]!, n[0]!, n[3]!, n[2]!].map((v) => Math.min(1, Math.max(0, v / BOX_SCALE)));
   const x0 = Math.min(c[0]!, c[2]!);
   const x1 = Math.max(c[0]!, c[2]!);
   const y0 = Math.min(c[1]!, c[3]!);

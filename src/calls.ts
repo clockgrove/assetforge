@@ -213,6 +213,7 @@ export class Caller {
         model: r.model,
         prompt,
         images: images.map((ref) => ({ mediaType: ref.mediaType, bytes: ref.bytes })),
+        ...(r.providerOptions !== undefined && { providerOptions: r.providerOptions }),
       }),
     );
     return result.text;

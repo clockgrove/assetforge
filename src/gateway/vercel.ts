@@ -116,6 +116,9 @@ export class VercelGateway implements GenerationProvider {
           ],
         },
       ],
+      ...(req.providerOptions !== undefined && {
+        providerOptions: req.providerOptions as Record<string, never>,
+      }),
     });
     const gw = gatewayMeta(result.providerMetadata as Metadata);
     const cost = toNumber(gw["cost"]);
