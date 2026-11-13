@@ -362,6 +362,93 @@ Whatever the shape, `pick` measures each clip's `durationMs` (the last key time)
 
 Clockgrove's model validator (`packages/contracts/src/model-asset.ts`) takes the declaration above. `test/clockgrove-model-validator.test.ts` hands a `rig` and a `look-dev` result to it, vendored in `test/fixtures/clockgrove/`.
 
+## Detail levels and tiers
+
+A target profile can declare a chain of detail levels and quality tiers (assetforge#136). `assetforge lod` makes them from any `.glb`: a staged candidate of `stage`, `rig` or `look-dev`, or a model that has been handed off, with its side maps beside it. It checks each level against the full model and stages the result as a one-candidate run for `pick`. It calls no model and spends nothing. It exits 5 when the chain fails QA, and the renders are still written.
+
+```sh
+assetforge lod --run .assetforge/runs/<run> --candidate c1
+assetforge lod --model stevie.glb --provenance stevie.glb.provenance.json --spec stevie-3d.json --profile profile.json
+```
+
+`--profile` on a `--run` replaces the run's profile. For a given model, the clip fields come from the file: each animation's name, length and `extras.loop` and `extras.generated`. `rig` and `missingClips` come from `asset.extras.rig` and the provenance.
+
+### Declaration
+
+```json
+"model3d": {
+  "lods": [
+    { "level": 0, "triangleRatio": 1, "minScreenHeight": 0.15 },
+    { "level": 1, "triangleRatio": 0.33, "minScreenHeight": 0.05 },
+    { "level": 2, "triangleRatio": 0.1, "minScreenHeight": 0 }
+  ],
+  "tiers": {
+    "desktop": { "character": { "triangles": 60000, "textureMaxPx": 2048 } },
+    "phone": { "character": { "triangles": 20000, "textureMaxPx": 1024, "fur": false } }
+  },
+  "lodQa": { "silhouette": 0.06 },
+  "handoff": { "lods": "files" }
+}
+```
+
+- `lods` lists the levels in order, with `level` 0, 1 and so on.
+  - Level 0 is the full model, at `triangleRatio` 1. Each lower level has a smaller ratio of the full model's triangles.
+  - `minScreenHeight` is the screen height, as a fraction, down to which a level shows. It must not increase down the chain.
+  - `budgets.lods` still caps the count measured in the main file.
+- `tiers.<name>` holds the tier's budgets: `triangles` and `textureMaxPx`, and, when present, `materials`, `bones` and `lods`.
+  - The budgets go either on the tier itself or under a class (`character`, `prop`). A class is chosen by the spec's `tierClass`.
+  - `fur: false` (added) marks a tier that draws no fur. Its rendition leaves out every external side map that look-dev writes (groom, tint and eye mask). The embedded textures stay.
+  - Other keys, such as `status`, are ignored.
+- `lodQa.silhouette` (optional, default 0.06) is the largest share of the full model's silhouette that a level may cover differently.
+- `handoff.lods` is `embedded` (the default) or `files`; see Packaging below.
+- A malformed declaration is refused with exit 2. So is a nested tier when the spec names no class it declares.
+
+### What it does
+
+1. **Levels.** Each lower level is made with meshoptimizer's attribute-aware simplifier, with normals and UVs weighted and UV seams kept. It is run on each primitive's index list, so a level only drops triangles and the vertices nothing uses.
+   - Every kept vertex's attributes are copied byte for byte: position, normal, UVs, joints, weights, colours and morph targets.
+   - The skeleton, inverse bind matrices, skins, clips, materials and textures are those of the full model. So a level deforms with the same weights, plays the same clips, and lines up with the base colour and every side map.
+   - Each primitive gets its ratio's share of the triangles, but a small part such as the eyes keeps at least 16, taken from the largest part, so it does not vanish.
+2. **QA per level**, against the full model:
+   - `lod-<n>-triangles`: at most `triangleRatio` × the full model's triangles.
+   - `lod-<n>-rig`: the same skins, joints, inverse binds, nodes, materials and clips. Every kept vertex's position, joints, weights and UVs equal its source vertex's.
+   - `lod-<n>-clips`: every clip of the full model is there, with the same length, and samples.
+   - `lod-<n>-silhouette`: the level's silhouette against the full model's, at the turntable size. It is compared in the four turntable views and in each clip's four three-quarter frames, posed by the clip. The worst share that differs must be within `lodQa.silhouette`. The reason gives the worst view and the mean.
+
+   A level that fails is filtered from the chain, not the candidate. Its checks are recorded beside QA (`shadow`), with a `lod-<n>` reason saying it was left out, and none of its files is written.
+
+3. **Tiers.** Each tier uses the passing levels within its `triangles`, at most its `lods` of them. Raccoon World's phone tier starts at level 1.
+   - Every image over the tier's `textureMaxPx` is area-averaged down to fit, aspect kept, and written as PNG. That covers the embedded textures and look-dev's side maps. A tier without `fur` drops its side maps instead. An image over the size that cannot be decoded here (WebP, or bytes of no known type) fails the tier, its reason naming the image and its type.
+   - `tier-<name>` checks the tier's triangles, texture size, materials and bones. It fails, and filters the candidate, when no level fits. That gives exit 5.
+   - A tier that the main file already serves unchanged gets no files of its own: the same levels, textures already within its size, and fur drawn. The main file is still measured against the tier's `materials` and `bones`.
+4. **Checks of the files.** The main file gets every check a 3D candidate gets: the validator, the hierarchy and `budget-*`. Every other `.glb` passes the Khronos validator (`gltf-validator-<file>`).
+5. **Renders.** They go in `<run>/c1-lod/`:
+   - `lod<n>-<view>.png` for each level;
+   - `lods-<view>.png`, the levels side by side;
+   - `lods-clips.png`, one row per level with every clip at its middle frame;
+   - `tier-<name>.png`, a tier's first level with its own textures, in the four views.
+6. **Provenance.** The run keeps the source's provenance. It adds an `lod-chain` step, whose input is the source's hash and whose outputs are every file's hash. It also adds `parameters.lod`: the source file name and hash, the method, the packaging, the tolerance, each level's triangles and verdict, and the tiers.
+
+### Packaging
+
+`model3d.handoff.lods` declares the shape the target takes:
+
+- `embedded` (the default) puts the levels in one file per tier with `MSFT_lod`. Each mesh node shows its first level and lists a node per lower level in `extensions.MSFT_lod.ids`, with each level's `minScreenHeight` in `extras.MSFT_screencoverage`. The lower-level nodes sit outside the scene, so the scene's bounds and triangles are the first level's. The main file holds the default chain. A tier's own file is `<assetId>.<tier>.glb`, whose field is `output.tiers.<tier>.model` with `{ path, sha256, levels, triangles, lods, textureMaxPx }`.
+- `files` writes one `.glb` per level.
+  - The main file is level 0, and each lower level is `<assetId>.lod<n>.glb`, with field `output.levels.lod<n>`.
+  - A tier's levels are `<assetId>.<tier>.lod<n>.glb`, with field `output.tiers.<tier>.levels.lod<n>`.
+  - Each field holds `{ path, sha256, level, triangles, triangleRatio, minScreenHeight }`, plus `textureMaxPx` for a tier's level.
+  - Each file's own triangles and `lods` (1) are what a validator measures in it.
+- A tier's side maps go beside it as `<assetId>.<tier>.<rest of the name>`, for example `stevie.phone.groom.winter.length.png`. Their fields are `output.tiers.<tier>.<field>`. A tier's `.glb` refers to them by `uri`.
+- `output.chain` gives `{ packaging, levels, tiers }`: each level's ratio, screen height, triangles and verdict, and each tier's levels and texture size. `output.lods` stays the count measured in the main file.
+- With `sideImages: "embedded"`, every `.glb` of the chain gets its own side images embedded, and no image is written beside it.
+
+A target's manifest reads these fields as it reads any other: for example `"levels": "{{output.levels?}}"` and `"tiers": "{{output.tiers?}}"`.
+
+Clockgrove's model validator sums triangles over every mesh in a file (clockgrove/clockgrove#304). That is Clockgrove's fix to make. Until it lands, a Clockgrove target declares `files`. Texture encoding (KTX2) and mesh compression (meshopt) stay the target's build step.
+
+Stevie's chain, made from the picked model with every clip, is in [examples/lod/stevie/](examples/lod/stevie/).
+
 ## Providers
 
 3D calls go through the provider contract in `src/gateway/provider.ts` (`generateModel`, `rigModel`, `animateModel`); Tripo's HTTP types stay in `src/gateway/tripo.ts`. The routes, prices and the probed clip library are in [models.md](models.md#3d-routes-tripo-not-the-gateway). Meshy is not wired yet: its API account has no credits.

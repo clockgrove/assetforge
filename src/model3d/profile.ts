@@ -48,6 +48,12 @@ export interface Model3dProfile {
   lookdev?: import("./lookdev/settings.ts").LookdevProfile;
   /** How the hand-off carries clips and side images (assetforge#137; docs/characters-3d.md). */
   handoff?: import("./handoff.ts").Model3dHandoffProfile;
+  /** The detail-level chain, level 0 first (assetforge#136). `budgets.lods` stays the count. */
+  lods?: Array<{ level: number; triangleRatio: number; minScreenHeight: number }>;
+  /** Texture and budget tiers, flat or nested by tier class (assetforge#136). */
+  tiers?: Record<string, unknown>;
+  /** Detail-level QA tolerances (assetforge#136). */
+  lodQa?: { silhouette?: number };
 }
 
 export interface ResolvedModel3d {

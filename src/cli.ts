@@ -64,6 +64,7 @@ import { SliceError } from "./sheet/slice.ts";
 import type { Grouping, SliceOptions } from "./sheet/types.ts";
 import type { AssetSpec, StyleBible, TargetProfile } from "./types.ts";
 import { readProvenance, rerig } from "./model3d/rig/command.ts";
+import { lodChain } from "./model3d/lod/command.ts";
 import {
   DEFAULT_FIX_CAP_USD,
   importTargets,
@@ -1745,6 +1746,75 @@ and nothing is spent (docs/characters-3d.md).`,
   },
 };
 
+const lodCommand: Command = {
+  name: "lod",
+  summary: "make a 3D model's detail levels and texture tiers within the target's budgets",
+  usage: `Usage: assetforge lod --run <run dir> --candidate <id> [--profile <profile.json>]
+                     [--runs .assetforge/runs] [--json]
+       assetforge lod --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+                     --profile <profile.json> [--runs .assetforge/runs] [--json]
+
+Makes the detail-level chain the target profile declares (model3d.lods) from a staged candidate
+or a given .glb: each lower level simplifies the index lists only, so the skeleton, skin weights,
+clips and UVs stay as they are. Then, per quality tier (model3d.tiers), a rendition with the levels
+within its triangle budget, its textures and look-dev side maps within its size, or those maps
+dropped where the tier draws no fur. Each level is checked against the full model (silhouette in
+the turntable views and clip frames, skin, UVs, clips) and left out, with the reason, when it
+fails. The levels are packaged as model3d.handoff.lods declares (embedded or files) and staged as
+a one-candidate run that pick hands off. No model is called and nothing is spent
+(docs/characters-3d.md).`,
+  options: {
+    run: { type: "string" },
+    candidate: { type: "string" },
+    model: { type: "string" },
+    provenance: { type: "string" },
+    spec: { type: "string" },
+    profile: { type: "string" },
+    runs: { type: "string" },
+    json: { type: "boolean" },
+    help: { type: "boolean" },
+  },
+  async run(values) {
+    const runsDir = resolve((values["runs"] as string | undefined) ?? ".assetforge/runs");
+    const profile =
+      typeof values["profile"] === "string"
+        ? await readJson<TargetProfile>(values["profile"])
+        : undefined;
+    let result;
+    if (typeof values["run"] === "string") {
+      const files = required(values, ["run", "candidate"]);
+      result = await lodChain({
+        run: { dir: resolve(files["run"] as string), candidate: files["candidate"] as string },
+        ...(profile && { profile: profile.value }),
+        runsDir,
+      });
+    } else {
+      const files = required(values, ["model", "provenance", "spec", "profile"]);
+      const modelPath = files["model"] as string;
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await readFile(modelPath));
+      } catch {
+        throw new InputError(`cannot read the model ${modelPath}`);
+      }
+      const spec = await readJson<AssetSpec>(files["spec"] as string);
+      result = await lodChain({
+        model: { bytes, path: modelPath },
+        provenance: await readProvenance(files["provenance"] as string),
+        spec: spec.value,
+        specDir: spec.dir,
+        profile: profile!.value,
+        runsDir,
+      });
+    }
+    const { run, runDir, passed } = result;
+    const fields = { runDir, ...run };
+    const human = formatRun(run, runDir);
+    if (passed) return { exitCode: 0, fields, human };
+    return refusal("qa_found_nothing", "the detail-level chain did not pass QA", fields, human);
+  },
+};
+
 const lookDevCommand: Command = {
   name: "look-dev",
   summary: "give a picked 3D character its look: base colour, fur groom maps and eyes",
@@ -1844,6 +1914,7 @@ const commands: Command[] = [
   stageCommand,
   pickCommand,
   rigCommand,
+  lodCommand,
   lookDevCommand,
   importCommand,
   generateSheetCommand,

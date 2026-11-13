@@ -17,6 +17,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 ```
 
 - `kind` selects the generator: `sprite-strip` (frame edits of an approved key pose), `still` (one image) or `character-3d` (a rigged, animated `.glb`; its fields `gait`, `clips` and `heightM` and the profile's `model3d` section are in [characters-3d.md](characters-3d.md), including `model3d.handoff`, the clip fields and side images a target's validator takes). A new kind is a new generator.
+- `tierClass` (optional, 3D models) names the class whose limits apply in a profile whose `model3d.tiers` are nested by class, for example `character` or `prop` ([characters-3d.md](characters-3d.md#detail-levels-and-tiers)).
 - `subject` names the bible subject; it defaults to `assetId`.
 - `look` (optional) names one of the bible's `looks`, such as `character` or `environment`. The asset gets that look's notes and references on top of the shared ones. An unknown look is refused before any spend.
 - `frames.width` and `frames.height` default to the profile's frame size; `frames.count` defaults to 1.
@@ -110,6 +111,7 @@ This example follows the public manifest shape in Clockgrove's `packages/assets/
 - **Review.** Assetforge always sets the field at `review.path` to `review.pending` and never writes another value there.
 - **Validator.** Run in the target directory after the pick is written, with `{{manifest}}` and `{{media}}` replaced by the written paths. A non-zero exit is reported as a rejection.
 - **Media.** Each output declares its own media type and extension; `.gitattributes` in the target decides what Git LFS stores.
+- **3D detail levels and tiers.** `model3d.lods` declares the detail-level chain: each level's `triangleRatio` of the full model and the `minScreenHeight` it shows down to. `model3d.tiers` declares each quality tier's budgets (`triangles`, `textureMaxPx` and, optionally, `materials`, `bones` and `lods`), either directly or nested by class. A tier may also set `fur: false`. `model3d.lodQa.silhouette` sets the level QA tolerance, and `model3d.handoff.lods` (`embedded` or `files`) sets how the levels are packaged. `assetforge lod` makes the chain and the tier renditions within these budgets ([characters-3d.md](characters-3d.md#detail-levels-and-tiers)).
 - **Spend.** An optional `spend` object, `{ "dailyLimitUsd": 10, "workItemLimitUsd": 5 }`, sets the cross-run spend limits below. Each is a non-negative USD amount.
 
 ## Spend limits across runs
