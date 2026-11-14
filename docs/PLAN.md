@@ -1,130 +1,65 @@
-# Assetgrove implementation plan
+# Assetgrove plan
 
-This plan breaks [the PRD](PRD.md) into waves. Each wave has:
-- an outcome;
-- an **exit**, measured on real output, that gates the next wave;
-- the Objectives that deliver it.
+This plan delivers [the 1.0 PRD](PRD.md) in four phases, taken from its [Scope of 1.0](PRD.md#scope-of-10). Each phase ends at a gate that checks everything in it, and the next phase builds on what the gate proved. Every phase ships its skills with its code: a feature isn't done until the skill that teaches an agent to use it is. Each work area states what, not how; the PRD section linked holds the detail.
 
-There are no dates; a wave starts when the one before has met its exit. Objectives are filed as GitHub issues and run through Factory. Each states a goal, outcomes and context, and leaves the implementation to the worker. Each wave's target-side work is an Objective in the target's repository.
+## Phase 1: safe core
 
-## Wave 0: the first loop, in 3D
+**Outcome:** a core that is safe to share and complete enough that later phases only add. Every operation runs through the official SDKs, a person confirms picks and spend in every supported harness, shared files can't run code or steer keys, and the core is on npm. See [Phase 1: safe core](PRD.md#phase-1-safe-core) and [What the controls stop, and what they don't](PRD.md#what-the-controls-stop-and-what-they-dont).
 
-The target game's characters are real-time 3D (see [decisions.md](decisions.md)), so the first loop is a character model, not a sprite strip.
+**Work areas:**
 
-**Outcome:** one character end to end in real-time 3D. A character's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against its identity lock. A person picks one, and the pick, rigged and with a walk clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
+- Every CLI operation as an MCP tool on the official MCP SDK, with progress for long generations and runs that survive a dropped connection.
+- Confirmation per harness, proven in Claude Code locally, in a remote session, and in one more harness; a headless mode for unattended runs, set by the operator outside the repository.
+- Spend: a limit at the provider required at `init`, caps in the developer's own settings that only a person raises, the ledger compared with the provider's usage, and cost decided by the provider's adapter.
+- Shared files: no commands or endpoints taken from shared files; developer-written commands run only after an approval tied to that exact command.
+- Keys and licences: a recipe per harness for where the key goes, redacted provider errors, and no hand-off for a route without a declared grant.
+- The prompt policy, best-effort, before spend.
+- Generic settings in place of those named after a CI product.
+- The rest of the core: the extension contract, core routes (Vercel AI Gateway, Anthropic, OpenAI and any OpenAI-compatible endpoint), generic sprite-atlas hand-off, runs that resume and never pay twice, versioned shared files, `init` with the style bible, and the skills in the Agent Skills format. See [What we build on](PRD.md#what-we-build-on) and [Trust, safety and legal](PRD.md#trust-safety-and-legal).
+- Linux, macOS and Windows in CI.
+- A trademark check on the name.
 
-**Objectives:**
-- Assetgrove: image-to-3D characters. Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance.
-- The target game: a target profile that declares 3D characters, and the character's spec.
-- The target's platform: the live renderer shows a world's rigged characters through its world-content extension point.
+**Gate:** everything above checked, the data-dependent bars in [Success measures and the 1.0 exit](PRD.md#success-measures-and-the-10-exit) set, and a release candidate, version 0.1.0, ready to publish to npm.
 
-**Exit:** a rigged character `.glb` with a walk clip, made by Assetgrove:
-- the target validator accepts it on the first try;
-- it costs at most $5 for 4 candidates;
-- it has complete provenance, including the provider's output grant;
-- the person picked it from QA-passing candidates only;
-- it shows in the target's live renderer.
+## Phase 2: asset management and search
 
-## Wave 1: animation families and the cast
+**Outcome:** everything Assetgrove makes becomes a library a developer and their agent can browse, review, change and search. See [Phase 2](PRD.md#phase-2-asset-management-and-search) and the [Assetgrove Search PRD](PRD-search.md).
 
-**Outcome:** animation that holds together on one rig, and the target's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
+**Work areas:**
 
-**Objectives:**
-- A shared quadruped rig and generated gait: one skeleton template fitted to every four-legged character, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom: generated from the target's declared motions (docs/characters-3d.md, "Motions besides walking").
-- The identity lock on turntables: v1's references and threshold, scored on rendered views.
-- Character look-dev: an albedo in the target's character look, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier.
-- The rest of the cast as rigged models from their approved references.
-- The target game: the cast approved and committed to its repository.
+- Asset cards in the Open Knowledge Format, with an index and a log per folder.
+- The `asset://` tree as MCP resources, walked by `assetgrove ls` and `cat`.
+- Review and changes: a version stack per asset, `request_change` by region, compare contact sheets, and review records as W3C Web Annotation.
+- Locks and drift reports when the style bible changes.
+- Storage: picks committed with media in Git LFS, set up and checked by `init`.
+- The optional search add-on, with its own skill.
+- The set-level audit.
 
-**Exit:**
-- The first character's six families approved and showing in the target's live renderer.
-- At least 70% of requests end in a pick.
-- Cost per approved asset and author minutes per approved asset recorded.
+**Gate:** on a labelled test library, every asset has a card, reviews and change requests round-trip through new versions, and search meets the bars set for it before the run. Published as 0.2, with search as its own package; outside developers are invited from here.
 
-The 2D path stays: sheet generation and import, the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them.
+## Phase 3: extensions
 
-## Wave 2: consistency and context
+**Outcome:** engines, asset kinds and routes as their own packages on the Phase 1 contract, each with its own skill, landing in the order feedback asks for. See [Phase 3](PRD.md#phase-3-extensions).
 
-**Outcome:** a world that stays consistent as it grows, with each pick made in the game's own scene. PRD §5.3 and §5.4.
+**Work areas:**
 
-**Objectives:**
-- Style distance on every candidate, and a set-level colour and lighting audit.
-- An asset lock per approved asset, and a drift report when the style bible changes version.
-- In-context preview through the target's preview command. The first target's golden renderer is the first.
+- The Godot pack, checked in CI by a headless Godot import on a pinned version.
+- Asset-kind packs: tile sets, UI icon families, and pixel art proven first by a spike with its pass numbers set in advance.
+- Route packs: ComfyUI, one specialist pixel-art vendor, image-to-3D through fal, and a free local pre-check for vision QA.
 
-**Exit:**
-- The set-level audit runs on the first target's whole set.
-- A test change to the bible version yields a correct drift report.
-- Picks happen on in-context renders, and first-pass validator acceptance stays at or above Wave 1's.
+**Gate:** the required packs (the Godot pack, and the pixel-art, tile and icon kinds) are on npm and pass their checks.
 
-## Wave 3: campaigns, PR picking and agents
+## Phase 4: product marketing and developer relations
 
-**Outcome:** whole sets, picked where review already happens, and usable from inside a Factory Objective. PRD §5.6 and §5.7.
+**Outcome:** Assetgrove in front of developers, and their unaided success. See [Phase 4](PRD.md#phase-4-product-marketing-and-developer-relations).
 
-**Objectives:**
-- Variant matrices and campaigns with a cost forecast, ordering, progress and resume.
-- A GitHub Action that opens the pick PR in the target repository: a gallery comment, picks by checkbox or reply, rejected candidates removed.
-- An agent interface (JSON CLI and MCP server) that can stage candidates and open the pick PR, but never pick or approve.
+**Work areas:**
 
-**Exit:**
-- One campaign of at least 30 assets, picked entirely in PRs.
-- Its actual cost within 20% of the forecast.
-- One Factory Objective in the target repository that stages assets through the agent interface.
+- Positioning and launch, with listings in skills and MCP directories.
+- Learning material: a quick start, walkthrough videos and skills, built on a small example project.
+- Outside developers recruited with a time box, and their feedback and run reports collected.
+- Community: issue templates and one place for feedback.
 
-## Wave 4: the full 2D set
+**Gate:** the [1.0 exit](PRD.md#success-measures-and-the-10-exit): outside developers reach a committed asset set on their own and the measures hold. 1.0 is tagged on npm.
 
-**Outcome:** everything the target needs in 2D (props, terrain, effects, icons and portraits; characters are 3D from wave 0), as lit materials. PRD §5.5 and the 2D generators of §5.8.
-
-**Objectives:**
-- Material maps by default: normal and height/depth, emissive and roughness/wetness, wind/flow; 1× and 2× renditions, and KTX2 for targets without their own texture build; temporal stability bounds; lit-preview QA against the target's light rig.
-- Generators for effects, tiles and terrain, icon families, and portraits with expressions.
-- The target: night and rain lighting use the maps.
-
-**Exit:**
-- The target's 2D asset list is produced and approved.
-- The target's scene is lit from the maps by its chosen renderer, with no per-lighting-state sprites, and maps are stable across animation frames.
-- The icon families pass the contrast and colour-blind checks.
-
-## Wave 5: audio
-
-**Outcome:** the soundscape the target asks for. PRD §5.8, audio.
-
-**Objectives:**
-- Audio transforms (PRD §5.11): trim, split, merge, fades, loop points, resample, loudness normalization and format conversion.
-- An audio generator: ambient loops at several rain intensities, birds, rustling, water and cues. Seamless loop points, loudness normalization, and level groups and sensory-safe defaults from the target profile.
-
-**Exit:**
-- The target's audio set approved: the loops play seamlessly and the levels stay in range.
-- Every sound has provenance and license values the target accepts.
-
-## Wave 6: video and 3D
-
-**Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D props (3D characters are in waves 0 and 1).
-
-**Objectives:**
-- Video transforms (PRD §5.11): trim, split, concatenate, frame extraction into the sheet import, frames to video, and format conversion.
-- Video: short UI and effect loops, and video-to-frames as a second animation route, compared against sheet generation on identity and loop scores.
-- 3D: image-to-3D props as `.glb`, with turntable renders for QA and the pick, and polygon and texture budgets from the target profile.
-
-**Exit:**
-- One `.glb` prop picked from turntables and accepted by a target profile that declares 3D.
-- Video-to-frames compared with sheet generation on a character's walk, and the better route recorded.
-
-## Wave 7: 1.0, a second adopter
-
-**Outcome:** proof that Assetgrove is generic. PRD principle 1 and §3.
-
-**Objectives:**
-- A second target with no code change and a different style profile (flat cartoon or pixel art).
-- Documentation for adopters: writing a target profile and a style bible, and running campaigns.
-
-**Exit:**
-- The second target's first set approved with no Assetgrove code changes.
-- Five campaigns in a row with no failed hand-off.
-
-## Cadence and rules
-
-- Exact tags and releases. A target pins Assetgrove only for development tooling; the game never depends on it at runtime.
-- Each Objective's tests run offline with the scripted provider. Real-provider checks are opt-in, and they are how a wave's exit is measured.
-- Spend: a per-run cap, a per-campaign budget and Factory's daily cap for the repository. Raising any of them is the owner's call.
-- Measures (PRD §8) are recorded per campaign in the repository. The exits read them.
+Work outside these phases is listed in [After 1.0](PRD.md#after-10).

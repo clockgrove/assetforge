@@ -1,6 +1,6 @@
 # Animation that holds together
 
-PRD §5.2. A strip, whether imported from a sheet ([sheet-import.md](sheet-import.md)) or generated, is checked against its family's motion template and by loop and continuity QA. The person picking sees an onion-skin sheet and a looping preview. A single bad frame is repaired by a per-frame fix. Assetgrove never approves a strip; it measures, reports and shows.
+A strip, whether imported from a sheet ([sheet-import.md](sheet-import.md)) or generated, is checked against its family's motion template and by loop and continuity QA. The person picking sees an onion-skin sheet and a looping preview. A single bad frame is repaired by a per-frame fix. Assetgrove never approves a strip; it measures, reports and shows.
 
 ## The commands
 

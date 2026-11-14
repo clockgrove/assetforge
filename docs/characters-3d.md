@@ -1,6 +1,6 @@
 # Real-time 3D characters
 
-Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md)) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
+Real-time 3D characters are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
 
 ```sh
 assetgrove stage --spec fern-3d.json --bible bible.json --profile profile.json --dry-run
@@ -107,7 +107,7 @@ A candidate that fails a filtering check is not staged. It is listed in the run'
 
 ## Shared rig and generated gait
 
-A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip, and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as a wave 0 pick:
+A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip, and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as an earlier pick:
 
 ```sh
 assetgrove rig --model c3.glb --provenance c3/provenance.json --spec fern-3d.json --profile profile.json
