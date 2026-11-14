@@ -16,13 +16,13 @@ concurrency:
 permissions:
   contents: read
 
-# Until the first code (assetgrove#1) adds package.json, the steps after checkout are skipped so the
-# base branch is not red; once package.json exists they always run.
+# check: format, lint and types, on Linux. test: the offline suite on Linux, macOS and Windows; the macOS
+# and Windows legs are finders until the suite is portable, so the roll-up `ci` (the one required check)
+# needs check and the Linux leg only.
 jobs:
-  ci:
+  check:
     runs-on: ubuntu-26.04
-    # Decision: the offline suite is expected to take minutes; 20 bounds a hung run.
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,27 +30,67 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
-        if: hashFiles('package.json') != ''
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.21.0
           package-manager-cache: false
 
       - name: Enable pnpm from packageManager
-        if: hashFiles('package.json') != ''
         run: corepack enable
 
       - name: Install the locked dependencies
-        if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Check
-        if: hashFiles('package.json') != ''
         run: pnpm check
 
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, macos-26, windows-2025]
+    runs-on: ${{ matrix.os }}
+    # The macOS and Windows legs report but don't fail the run until the suite is portable.
+    continue-on-error: ${{ matrix.os != 'ubuntu-26.04' }}
+    # Decision: the offline suite is expected to take minutes; 20 bounds a hung run.
+    timeout-minutes: 20
+    steps:
+      - name: Keep line endings as committed
+        run: git config --global core.autocrlf false
+
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      - name: Enable pnpm from packageManager
+        run: corepack enable
+
+      - name: Install the locked dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
       - name: Test
-        if: hashFiles('package.json') != ''
         run: pnpm test
+
+  ci:
+    needs: [check, test]
+    if: always()
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Require check and the Linux test leg
+        env:
+          CHECK: ${{ needs.check.result }}
+          TEST: ${{ needs.test.result }}
+        run: |
+          echo "check: $CHECK, test: $TEST"
+          test "$CHECK" = success && test "$TEST" = success
 
   # Licence metadata: every file must have a licence and copyright under REUSE 3.3, which the root
   # REUSE.toml assigns by path. A separate job, so the required `ci` check is unchanged.
