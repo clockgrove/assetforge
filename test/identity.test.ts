@@ -10,7 +10,9 @@ import { ProviderError } from "../src/errors.ts";
 import { ScriptedProvider } from "../src/gateway/scripted.ts";
 import type { Script } from "../src/gateway/scripted.ts";
 import {
+  DEFAULT_CAST_IDENTITY_THRESHOLD,
   DEFAULT_IDENTITY_THRESHOLD,
+  IDENTITY_3D_SHADOW_REASON,
   IDENTITY_LEVELS,
   MIN_DECISION_EDGE,
   IDENTITY_CAST_OPERATION,
@@ -22,6 +24,7 @@ import {
   forDecision,
   identityReason,
   identitySettings,
+  identitySettings3d,
   loadCast,
   loadIdentity,
   parseCastAnswer,
@@ -132,6 +135,75 @@ test("identity settings default to shadow mode and the recorded threshold; bad v
   assert.equal(identitySettings(configured, "shadow").mode, "shadow");
   assert.throws(() => identitySettings(profile, "loud"), /identity mode/);
   assert.throws(() => identitySettings({ ...profile, identity: { threshold: 2 } }), /threshold/);
+});
+
+test("with no threshold set, the cast question uses 0.5 and score and boolean keep 0.68; an explicit threshold wins", () => {
+  assert.equal(DEFAULT_IDENTITY_THRESHOLD, 0.68);
+  assert.equal(DEFAULT_CAST_IDENTITY_THRESHOLD, 0.5);
+  assert.deepEqual(identitySettings({ identity: { question: "cast" } }), {
+    mode: "shadow",
+    threshold: 0.5,
+    question: "cast",
+  });
+  assert.equal(identitySettings({ identity: { question: "cast" } }, "enforce").threshold, 0.5);
+  assert.equal(identitySettings({ identity: { question: "score" } }).threshold, 0.68);
+  assert.equal(identitySettings({ identity: { question: "boolean" } }).threshold, 0.68);
+  assert.equal(identitySettings({}).threshold, 0.68);
+  assert.equal(identitySettings({ identity: { question: "cast", threshold: 0.7 } }).threshold, 0.7);
+  assert.equal(identitySettings({ identity: { question: "cast", threshold: 0 } }).threshold, 0);
+  assert.equal(
+    identitySettings({ identity: { question: "score", threshold: 0.4 } }).threshold,
+    0.4,
+  );
+  assert.throws(
+    () => identitySettings({ identity: { question: "cast", threshold: 1.5 } }),
+    /threshold/,
+  );
+});
+
+test("3D identity settings run enforce in shadow with the reason; other modes are unchanged", () => {
+  assert.deepEqual(identitySettings3d({ identity: { mode: "enforce", question: "cast" } }), {
+    mode: "shadow",
+    threshold: 0.5,
+    question: "cast",
+    shadowReason: IDENTITY_3D_SHADOW_REASON,
+  });
+  assert.equal(identitySettings3d({}, "enforce").mode, "shadow");
+  assert.deepEqual(identitySettings3d({}), identitySettings({}));
+  assert.equal(identitySettings3d({ identity: { mode: "off" } }).mode, "off");
+  assert.match(IDENTITY_3D_SHADOW_REASON, /lit renders of the right character from their drift/);
+});
+
+test("a 3D score below the threshold with enforce asked for is not filtered, runs no record check and says why", async () => {
+  const f = await lockedBible();
+  const loaded = (await loadIdentity(await loadBible(f.biblePath), "fox"))!;
+  const call = caller(
+    scripted(() => ({
+      answer: { type: "score", score: 0 },
+      confidence: 0.6,
+      costUsd: 0.0001,
+    })),
+  );
+  const score = await scoreIdentity({
+    caller: call,
+    ...loaded,
+    candidate: candidate(),
+    describe: "turntable renders of a 3D character model",
+    settings: identitySettings3d({ identity: { mode: "enforce" } }),
+  });
+  assert.equal(score.passed, false);
+  assert.equal(score.filtered, false);
+  assert.equal(score.mode, "shadow");
+  assert.equal(score.shadowReason, IDENTITY_3D_SHADOW_REASON);
+  assert.equal(identityReason(score).shadow, true);
+  assert.match(
+    score.reason,
+    /< threshold 0\.68 .*; shadow mode, not filtered: enforce does not filter 3D characters: no identity question separates lit renders/,
+  );
+  assert.deepEqual(
+    call.records.map((r) => r.operation),
+    ["identity"],
+  );
 });
 
 test("the identity record holds the approved references and fingerprint, versioned with the lock", async () => {
@@ -478,7 +550,7 @@ test("the cast question is one vision call over the whole cast's references", as
   assert.equal(score.costUsd, 0.001);
   assert.match(
     score.reason,
-    /^identity 0\.20 < threshold 0\.68 against "fox" lock fox-1: kit \(confidence 0\.70\); looks like "kit": blue scarf; shadow mode/,
+    /^identity 0\.20 < threshold 0\.5 against "fox" lock fox-1: kit \(confidence 0\.70\); looks like "kit": blue scarf; shadow mode/,
   );
   // Without the cast, the subject stands alone.
   const alone = visionScript('{"choice": "fox"}', CONSISTENT);

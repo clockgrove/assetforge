@@ -18,11 +18,20 @@ export type IdentityMode = "off" | "shadow" | "enforce";
 export const IDENTITY_MODES: readonly IdentityMode[] = ["off", "shadow", "enforce"];
 export const DEFAULT_IDENTITY_MODE: IdentityMode = "shadow";
 /**
- * Chosen by the owner from `assetgrove identity-eval` on #27's identity set (44 cases): at 0.68
- * pplx-decider-v1.2 accepts no wrong character and rejects 4 of 19 same-character crops. See
- * docs/decisions.md. Shadow mode, the default, filters nothing.
+ * The threshold of the `score` and `boolean` questions when the profile sets none: there, the
+ * default identity model stops passing wrong-character crops on a labelled identity set
+ * (docs/decisions.md). Shadow mode, the default, filters nothing.
  */
 export const DEFAULT_IDENTITY_THRESHOLD = 0.68;
+/**
+ * The threshold of the `cast` question when the profile sets none: the threshold that question is
+ * measured at against the identity lock bar. Its score is p(subject) × p(on-model), not a rubric
+ * level, so the `score` question's threshold does not carry over.
+ */
+export const DEFAULT_CAST_IDENTITY_THRESHOLD = 0.5;
+/** Why identity never filters a 3D character: an `enforce` request runs in shadow with this reason. */
+export const IDENTITY_3D_SHADOW_REASON =
+  "enforce does not filter 3D characters: no identity question separates lit renders of the right character from their drift";
 /** Images shorter than this on a side are upscaled first; some decision models reject small images (#27). */
 export const MIN_DECISION_EDGE = 384;
 export const IDENTITY_OPERATION = "identity";
@@ -42,6 +51,8 @@ export interface IdentitySettings {
   mode: IdentityMode;
   threshold: number;
   question: IdentityQuestionKind;
+  /** Why this runs in shadow mode though enforce was asked for; every score's reason names it. */
+  shadowReason?: string;
 }
 
 export type IdentityQuestionKind = "score" | "boolean" | "cast";
@@ -55,7 +66,13 @@ export function identitySettings(
   const chosen = mode ?? config.mode ?? DEFAULT_IDENTITY_MODE;
   if (!IDENTITY_MODES.includes(chosen as IdentityMode))
     throw new InputError(`identity mode must be one of ${IDENTITY_MODES.join(", ")}: ${chosen}`);
-  const threshold = config.threshold ?? DEFAULT_IDENTITY_THRESHOLD;
+  const question = config.question ?? "score";
+  if (question !== "score" && question !== "boolean" && question !== "cast")
+    throw new InputError(`identity.question must be "score", "boolean" or "cast": ${question}`);
+  // An explicit threshold wins; otherwise each question gets the threshold it is measured at.
+  const threshold =
+    config.threshold ??
+    (question === "cast" ? DEFAULT_CAST_IDENTITY_THRESHOLD : DEFAULT_IDENTITY_THRESHOLD);
   if (
     typeof threshold !== "number" ||
     !Number.isFinite(threshold) ||
@@ -63,10 +80,22 @@ export function identitySettings(
     threshold > 1
   )
     throw new InputError(`identity.threshold must be a number from 0 to 1: ${threshold}`);
-  const question = config.question ?? "score";
-  if (question !== "score" && question !== "boolean" && question !== "cast")
-    throw new InputError(`identity.question must be "score", "boolean" or "cast": ${question}`);
   return { mode: chosen as IdentityMode, threshold, question };
+}
+
+/**
+ * The identity settings of a 3D character: as `identitySettings`, except that `enforce` runs in
+ * shadow with `IDENTITY_3D_SHADOW_REASON`. A 3D candidate is never filtered on identity, and no
+ * record check is called or forecast for it.
+ */
+export function identitySettings3d(
+  profile: Pick<TargetProfile, "identity">,
+  mode?: string,
+): IdentitySettings {
+  const settings = identitySettings(profile, mode);
+  return settings.mode === "enforce"
+    ? { ...settings, mode: "shadow", shadowReason: IDENTITY_3D_SHADOW_REASON }
+    : settings;
 }
 
 /** A character's identity record: its approved references and fingerprint, versioned with the lock. */
@@ -187,6 +216,8 @@ export interface IdentityScore {
   passed: boolean;
   /** Whether this score filtered the candidate out (only in enforce mode). */
   filtered: boolean;
+  /** Present when enforce was asked for but the score ran in shadow mode: why. */
+  shadowReason?: string;
   reason: string;
   model: string;
   requestId?: string;
@@ -607,9 +638,13 @@ async function scoreOnce(options: Parameters<typeof scoreIdentity>[0]): Promise<
     threshold: settings.threshold,
     question: settings.question,
     model: caller.route(operation).model,
+    ...(settings.shadowReason && { shadowReason: settings.shadowReason }),
   };
   const before = caller.records.length;
-  const suffix = settings.mode === "shadow" ? "; shadow mode, not filtered" : "";
+  const suffix =
+    settings.mode === "shadow"
+      ? `; shadow mode, not filtered${settings.shadowReason ? `: ${settings.shadowReason}` : ""}`
+      : "";
   try {
     let value: number;
     let label: string;

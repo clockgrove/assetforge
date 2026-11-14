@@ -54,7 +54,9 @@ const GROOM = {
 };
 
 /** A target with a rig template, a groom declaration and a manifest that carries the look-dev fields. */
-async function world(options: { groom?: Doc | null; model3d?: boolean; motions?: boolean } = {}) {
+async function world(
+  options: { groom?: Doc | null; model3d?: boolean; motions?: boolean; identity?: Doc } = {},
+) {
   const dir = await mkdtemp(join(tmpdir(), "assetgrove-lookdev-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
@@ -96,6 +98,7 @@ async function world(options: { groom?: Doc | null; model3d?: boolean; motions?:
       name: "synthetic-grove-lookdev",
       license: "MIT",
       frames: { width: 32, height: 32 },
+      ...(options.identity && { identity: options.identity }),
       ...(options.model3d !== false && {
         model3d: {
           format: "glb",
@@ -227,6 +230,16 @@ test("look-dev forecasts its calls, refuses over the cap and needs a model3d pro
   const bare = await world({ model3d: false });
   const refused = await cli([...lookDevArgs(bare, none), "--dry-run"]);
   assert.equal(refused.code, 2, refused.stdout + refused.stderr);
+});
+
+test("look-dev with enforce asked for forecasts identity in shadow: no record check", async () => {
+  const w = await world({ identity: { mode: "enforce" } });
+  const none = { model: "x.glb", provenance: "x.json" };
+  const r = await cli([...lookDevArgs(w, none), "--dry-run"]);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const operations = doc(r)["plan"].calls.map((c: { operation: string }) => c.operation);
+  assert.equal(operations.filter((op: string) => op === "identity").length, 1);
+  assert.equal(operations.includes("identity-check"), false);
 });
 
 test("look-dev gives a rigged model its look, maps and eyes; pick hands it all off", async () => {

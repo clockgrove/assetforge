@@ -86,11 +86,11 @@ Identity scoring uses a typed decision model. Other image checks do not:
 
 ## Identity lock scoring
 
-Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route. The default model is `perplexity/pplx-decider-v1.2`, with `openai/gpt-6-luna-decisions` as the alternate; pplx is the more accurate of the two and costs a fraction as much. The default threshold is 0.68, set where wrong-character crops stop passing on a labelled identity set. The threshold applies to the score, not to the model's confidence, because decision-model confidence sits between 0.5 and 0.8 even on correct answers; confidence is logged.
+Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route. The default model is `perplexity/pplx-decider-v1.2`, with `openai/gpt-6-luna-decisions` as the alternate; pplx is the more accurate of the two and costs a fraction as much. The default threshold of the `score` and `boolean` questions is 0.68, set where wrong-character crops stop passing on a labelled identity set. The threshold applies to the score, not to the model's confidence, because decision-model confidence sits between 0.5 and 0.8 even on correct answers; confidence is logged.
 
 ## Shadow mode is the identity default
 
-Scoring runs in shadow mode by default: it records the score beside QA and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile, and the default stays shadow until a question meets the [identity lock bar](#identity-lock-bar). Scoring never approves.
+Scoring runs in shadow mode by default: it records the score beside QA and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile, and the default stays shadow until a question meets the [identity lock bar](#identity-lock-bar). Enforce never applies to 3D characters ([3D identity results are provisional](#3d-identity-results-are-provisional)). Scoring never approves.
 
 ## No enforce mode for look-alike casts
 
@@ -106,7 +106,7 @@ Enforce mode needs a measured bar: ROC AUC ≥ 0.95, false accepts ≤ 5% and fa
 
 ## Identity cast question: only what the animation implies is excused
 
-`identity.question: "cast"` is opt-in. It judges a candidate as a choice among the whole cast (every identity record in the same bible) and also asks whether it is on-model for the subject against the subject's approved references, which win where the written record disagrees. The score is p(subject) × p(on-model). The default threshold stays 0.68 for every question; use 0.5 with `cast`, the threshold it is measured at. One call sends at most 16 images (`IDENTITY_CAST_MAX_IMAGES`), so a bible with more than 15 identity records is refused.
+`identity.question: "cast"` is opt-in. It judges a candidate as a choice among the whole cast (every identity record in the same bible) and also asks whether it is on-model for the subject against the subject's approved references, which win where the written record disagrees. The score is p(subject) × p(on-model). With no threshold in the profile, `cast` uses 0.5, the threshold it is measured at, because its score is a product of probabilities, not a rubric level, and `score` and `boolean` use 0.68. A threshold in the profile applies to whichever question runs. One call sends at most 16 images (`IDENTITY_CAST_MAX_IMAGES`), so a bible with more than 15 identity records is refused.
 
 The on-model step excuses only what the pose and the named animation imply, and its wording names no species or cast:
 
@@ -134,7 +134,7 @@ Characters of one kind can share a skeleton template fitted to each model, with 
 
 ## 3D identity results are provisional
 
-`identity-eval` reports 3D cases apart and marks them provisional: no threshold or bar rests on them. Do not use enforce mode on 3D characters, because at the shipped thresholds no question separates lit renders of the right character from their drift.
+`identity-eval` reports 3D cases apart and marks them provisional: no threshold or bar rests on them. Identity never filters a 3D character (`stage` of a `character-3d` spec, `look-dev`), because no question separates lit renders of the right character from their drift. With `enforce`, a 3D character is scored in shadow mode, its reason says why, and no record check runs.
 
 ## Licence of generated output
 
