@@ -1,9 +1,9 @@
 ---
-name: world-art-direction
+name: art-direction
 description: Load when generating or reviewing art for a world using Assetgrove.
 ---
 
-# World art direction
+# Art direction
 
 Run assetgrove bible init to package a target-owned style bible. The generated skill links its target-owned BIBLE.md. Read that bible, its positive and negative anchor paths, and Do's and Don'ts before generating.
 

@@ -52,7 +52,7 @@ async function setup() {
   const paths = JSON.parse(init.stdout) as {
     biblePath: string;
     templatePath: string;
-    skillPath: string;
+    skillPaths: string[];
   };
   const spec = join(dir, "spec.json");
   const profile = join(dir, "profile.json");
@@ -104,7 +104,8 @@ export default {
 
 test("CLI initializes a skill, describes axes and compiles a plan without image generation", async () => {
   const f = await setup();
-  assert.match(await readFile(f.skillPath, "utf8"), /generating or reviewing art/i);
+  for (const skillPath of f.skillPaths)
+    assert.match(await readFile(skillPath, "utf8"), /generating or reviewing art/i);
   const described = await cli(["bible", "describe", "--bible", f.biblePath, "--json"]);
   assert.equal(described.code, 0, described.stderr);
   const data = JSON.parse(described.stdout) as Record<string, unknown>;

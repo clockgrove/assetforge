@@ -13,7 +13,7 @@ assetgrove bible describe --bible .assetgrove/art-direction/BIBLE.md --json
 
 Available presets are `cozy-storybook` (soft painterly storybook), `flat-cartoon-kids` (bold outlines and simple flat shading), and `dark-gritty-isometric` (restrained colour, worn surfaces and an isometric camera). They use plain visual descriptions, never named games, studios or artists.
 
-Initialization writes `.assetgrove/art-direction/BIBLE.md`, its adjacent `SKILL.md`, repository-owned copies under `presets/`, and `.assetgrove/prompts/default.md`. Commit these files with your target repository. The skill links the bible, anchors and presets so a harness can load them while generating or reviewing art. `stage`, `import` and `generate-sheet` take a JSON bible; `plan` and `apply` use the Markdown bible.
+Initialization writes `.assetgrove/art-direction/BIBLE.md`, repository-owned copies under `presets/`, `.assetgrove/prompts/default.md`, and an `art-direction` skill in both `.claude/skills/` and `.agents/skills/`, where Claude Code, Codex and Copilot read skills. Commit these files with your target repository. The skill links the bible, anchors and presets so a harness can load them while generating or reviewing art. `stage`, `import` and `generate-sheet` take a JSON bible; `plan` and `apply` use the Markdown bible.
 
 To switch the look of later plans without a code change:
 

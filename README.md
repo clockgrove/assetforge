@@ -47,7 +47,7 @@ pnpm exec assetgrove write-families --import .assetgrove/imports/<import> --targ
 
 ## Use from a coding agent (Claude Code, Codex, Copilot)
 
-The package ships a skill at `node_modules/@clockgrove/assetgrove/skills/assetgrove/SKILL.md`. Copy or link it where your harness reads skills, for example `.claude/skills/assetgrove/` or `.agents/skills/assetgrove/`.
+The package ships its skills under `skills/`. Install them into your harness with `npx skills add clockgrove/assetgrove`, or copy `node_modules/@clockgrove/assetgrove/skills/assetgrove/` to `.claude/skills/assetgrove/` (Claude Code, Copilot) or `.agents/skills/assetgrove/` (Codex, Copilot).
 
 - Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetgrove never prompts.
 - Run `stage --dry-run` first. It spends nothing and needs no key.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { test } from "node:test";
 import {
   BIBLE_PRESETS,
@@ -35,10 +35,15 @@ test("bible initializes all three repository-owned preset constitutions and skil
       assert.equal(document.data.world, "Synthetic world");
       assert.equal(document.hash.length, 64);
       assert.deepEqual(biblePalette(document.data), ["#292433", "#c49b70", "#7c93a8"]);
-      assert.match(
-        await readFile(paths.skillPath, "utf8"),
-        /generating or reviewing art for Synthetic world/,
+      assert.deepEqual(
+        paths.skillPaths.map((p) => relative(root, p)),
+        [".claude/skills/art-direction/SKILL.md", ".agents/skills/art-direction/SKILL.md"],
       );
+      for (const skillPath of paths.skillPaths)
+        assert.match(
+          await readFile(skillPath, "utf8"),
+          /generating or reviewing art for Synthetic world/,
+        );
       assert.match(await readFile(paths.templatePath, "utf8"), /\{\{constitution\}\}/);
       assert.match(
         await readFile(join(document.dir, "presets/flat-cartoon-kids.md"), "utf8"),
