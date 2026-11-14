@@ -59,7 +59,7 @@ fixes its text or its references. See docs/generation-knobs.md.`,
     required: ["bible"],
     additionalProperties: false,
   },
-  effect: { readOnly: true, spends: "always", writes: "none" },
+  effect: { readOnly: false, spends: "always", writes: "none" },
   async run(args, ctx) {
     const doc = await loadBible(args.bible);
     const named = args.subject ?? [];

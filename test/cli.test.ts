@@ -72,6 +72,10 @@ test("--help lists every command and exits 0; a command's --help prints its usag
   const r = await cli(["stage", "--help"]);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /--dry-run/);
+  // --help wins over an option it would otherwise refuse, as it did before the registry.
+  const bad = await cli(["stage", "--cap", "abc", "--help"]);
+  assert.equal(bad.code, 0);
+  assert.match(bad.stdout, /--dry-run/);
   const v = await cli(["--version"]);
   assert.match(v.stdout, /^\d+\.\d+\.\d+/);
 });

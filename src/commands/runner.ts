@@ -65,7 +65,10 @@ export function parseCommandLine(spec: CommandSpec, argv: string[]): { args: Arg
     strict: true,
     allowPositionals: positionals.length > 0,
   });
+  const help = parsed.values["help"] === true;
   const args: Args = {};
+  // With --help the command only prints its usage, as before: no option is coerced or checked.
+  if (help) return { args, help };
   for (const [name, property] of flagProperties(spec)) {
     const value = parsed.values[flagName(name)];
     if (value !== undefined)
@@ -77,7 +80,7 @@ export function parseCommandLine(spec: CommandSpec, argv: string[]): { args: Arg
     args[p.name] = p.variadic ? rest.splice(0) : rest.shift();
   }
   if (rest.length > 0) throw new InputError(`unexpected argument "${rest[0]}"`);
-  return { args, help: parsed.values["help"] === true };
+  return { args, help };
 }
 
 /**
