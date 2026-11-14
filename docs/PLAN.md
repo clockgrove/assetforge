@@ -9,12 +9,12 @@ There are no dates; a wave starts when the one before has met its exit. Objectiv
 
 ## Wave 0: the first loop, in 3D
 
-The target game's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md](decisions.md)), so the first loop is a character model, not a sprite strip.
+The target game's characters are real-time 3D (see [decisions.md](decisions.md)), so the first loop is a character model, not a sprite strip.
 
 **Outcome:** one character end to end in real-time 3D. A character's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against its identity lock. A person picks one, and the pick, rigged and with a walk clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
 
 **Objectives:**
-- Assetgrove: image-to-3D characters (assetgrove#72, merged). Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetgrove#47).
+- Assetgrove: image-to-3D characters. Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance.
 - The target game: a target profile that declares 3D characters, and the character's spec.
 - The target's platform: the live renderer shows a world's rigged characters through its world-content extension point.
 
@@ -30,9 +30,9 @@ The target game's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.
 **Outcome:** animation that holds together on one rig, and the target's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
 
 **Objectives:**
-- A shared quadruped rig and generated gait (assetgrove#84): one skeleton template fitted to every four-legged character, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom (Kirk, 2026-11-10): generated from the target's declared motions (assetgrove#135; docs/characters-3d.md, "Motions besides walking").
+- A shared quadruped rig and generated gait: one skeleton template fitted to every four-legged character, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom: generated from the target's declared motions (docs/characters-3d.md, "Motions besides walking").
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
-- Character look-dev (assetgrove#82): an albedo in the target's character look, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
+- Character look-dev: an albedo in the target's character look, fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier.
 - The rest of the cast as rigged models from their approved references.
 - The target game: the cast approved and committed to its repository.
 
@@ -41,7 +41,7 @@ The target game's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.
 - At least 70% of requests end in a pick.
 - Cost per approved asset and author minutes per approved asset recorded.
 
-The 2D path shipped first and stays: sheet generation and import (assetgrove#10), the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them.
+The 2D path stays: sheet generation and import, the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them.
 
 ## Wave 2: consistency and context
 
@@ -99,7 +99,7 @@ The 2D path shipped first and stays: sheet generation and import (assetgrove#10)
 
 ## Wave 6: video and 3D
 
-**Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D props (3D characters came first, in waves 0 and 1).
+**Outcome:** the next media types, through new generators and no core change. PRD §5.8, video and 3D props (3D characters are in waves 0 and 1).
 
 **Objectives:**
 - Video transforms (PRD §5.11): trim, split, concatenate, frame extraction into the sheet import, frames to video, and format conversion.

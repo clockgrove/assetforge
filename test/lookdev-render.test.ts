@@ -140,7 +140,7 @@ test("preview lighting is the same for every view and scales with exposure", () 
     lighting: { ...lighting, exposure: 1.2 },
   });
   assert.ok(mean(brighter) > mean(a) * 1.15);
-  // The legacy turntable light is darker than neutral preview lighting.
+  // The fixed turntable light is darker than neutral preview lighting.
   assert.ok(mean(renderView(glb, { ...base, baseColor: flat })) < mean(a));
 });
 

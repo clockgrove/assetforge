@@ -21,7 +21,7 @@ pnpm assetgrove fix-frame --strip walk-right.png --profile profile.json --family
 pnpm assetgrove fix-frame ... --frame 5 --key-pose key-pose.png
 ```
 
-Every command follows the CLI contract ([decisions.md](decisions.md#cli-contract-assetgrove21-2026-11-07)): `--json`, the exit codes, `--dry-run` (a forecast that spends nothing and needs no key) and `--provider-script`. `animation-qa` exits 5 when any check fails, after writing the report and the previews.
+Every command follows the CLI contract ([decisions.md](decisions.md#cli-contract)): `--json`, the exit codes, `--dry-run` (a forecast that spends nothing and needs no key) and `--provider-script`. `animation-qa` exits 5 when any check fails, after writing the report and the previews.
 
 ## Motion templates
 

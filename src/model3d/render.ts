@@ -360,7 +360,7 @@ const SHOULDER = 0.8;
 
 /**
  * Preview lighting's tone curve: linear up to the shoulder, then rolling smoothly toward 1, so a
- * pale marking in the key light keeps its tone instead of clipping to white. The legacy turntable
+ * pale marking in the key light keeps its tone instead of clipping to white. The fixed turntable
  * lighting clips.
  */
 function toneFor(options: RenderOptions): (v: number) => number {
