@@ -1,0 +1,351 @@
+{
+  "kind": "quadruped",
+  "joints": [
+    {
+      "name": "pelvis",
+      "parent": null,
+      "rest": [0, 0.26, -0.08],
+      "role": "pelvis",
+      "limits": {
+        "x": [-25, 25],
+        "y": [-25, 25],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "spine_1",
+      "parent": "pelvis",
+      "rest": [0, 0.27, 0.01],
+      "role": "spine",
+      "limits": {
+        "x": [-25, 35],
+        "y": [-20, 20],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "spine_2",
+      "parent": "spine_1",
+      "rest": [0, 0.265, 0.1],
+      "role": "spine",
+      "limits": {
+        "x": [-25, 35],
+        "y": [-20, 20],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "chest",
+      "parent": "spine_2",
+      "rest": [0, 0.255, 0.19],
+      "role": "spine",
+      "limits": {
+        "x": [-25, 35],
+        "y": [-20, 20],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "neck",
+      "parent": "chest",
+      "rest": [0, 0.25, 0.28],
+      "role": "neck",
+      "limits": {
+        "x": [-40, 50],
+        "y": [-45, 45],
+        "z": [-25, 25]
+      }
+    },
+    {
+      "name": "head",
+      "parent": "neck",
+      "rest": [0, 0.235, 0.38],
+      "role": "head",
+      "limits": {
+        "x": [-40, 50],
+        "y": [-45, 45],
+        "z": [-25, 25]
+      }
+    },
+    {
+      "name": "nose",
+      "parent": "head",
+      "rest": [0, 0.2, 0.5]
+    },
+    {
+      "name": "tail_1",
+      "parent": "pelvis",
+      "rest": [0, 0.23, -0.15],
+      "role": "tail",
+      "limits": {
+        "x": [-40, 40],
+        "y": [-35, 35],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "tail_2",
+      "parent": "tail_1",
+      "rest": [0, 0.2, -0.26],
+      "role": "tail",
+      "limits": {
+        "x": [-40, 40],
+        "y": [-35, 35],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "tail_3",
+      "parent": "tail_2",
+      "rest": [0, 0.17, -0.37],
+      "role": "tail",
+      "limits": {
+        "x": [-40, 40],
+        "y": [-35, 35],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "tail_4",
+      "parent": "tail_3",
+      "rest": [0, 0.14, -0.45],
+      "role": "tail",
+      "limits": {
+        "x": [-40, 40],
+        "y": [-35, 35],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "tail_tip",
+      "parent": "tail_4",
+      "rest": [0, 0.12, -0.5]
+    },
+    {
+      "name": "hip_l",
+      "parent": "pelvis",
+      "rest": [0.05, 0.25, -0.08],
+      "limits": {
+        "x": [-50, 50],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "knee_l",
+      "parent": "hip_l",
+      "rest": [0.055, 0.15, -0.04],
+      "limits": {
+        "x": [-120, 120],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "ankle_l",
+      "parent": "knee_l",
+      "rest": [0.055, 0.025, -0.1],
+      "limits": {
+        "x": [-45, 60],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      },
+      "stanceLimits": {
+        "x": [-40, 35],
+        "y": [-15, 15],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "toe_l",
+      "parent": "ankle_l",
+      "rest": [0.055, 0.005, -0.04],
+      "limits": {
+        "x": [-30, 40],
+        "y": [-10, 10],
+        "z": [-10, 10]
+      }
+    },
+    {
+      "name": "shoulder_l",
+      "parent": "chest",
+      "rest": [0.05, 0.22, 0.19],
+      "limits": {
+        "x": [-65, 65],
+        "y": [-25, 25],
+        "z": [-25, 25]
+      }
+    },
+    {
+      "name": "elbow_l",
+      "parent": "shoulder_l",
+      "rest": [0.05, 0.12, 0.15],
+      "limits": {
+        "x": [-120, 120],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "wrist_l",
+      "parent": "elbow_l",
+      "rest": [0.05, 0.025, 0.21],
+      "limits": {
+        "x": [-60, 80],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      },
+      "stanceLimits": {
+        "x": [-55, 30],
+        "y": [-15, 15],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "paw_l",
+      "parent": "wrist_l",
+      "rest": [0.05, 0.005, 0.27],
+      "limits": {
+        "x": [-30, 40],
+        "y": [-10, 10],
+        "z": [-10, 10]
+      }
+    },
+    {
+      "name": "hip_r",
+      "parent": "pelvis",
+      "rest": [-0.05, 0.25, -0.08],
+      "limits": {
+        "x": [-50, 50],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "knee_r",
+      "parent": "hip_r",
+      "rest": [-0.055, 0.15, -0.04],
+      "limits": {
+        "x": [-120, 120],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "ankle_r",
+      "parent": "knee_r",
+      "rest": [-0.055, 0.025, -0.1],
+      "limits": {
+        "x": [-45, 60],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      },
+      "stanceLimits": {
+        "x": [-40, 35],
+        "y": [-15, 15],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "toe_r",
+      "parent": "ankle_r",
+      "rest": [-0.055, 0.005, -0.04],
+      "limits": {
+        "x": [-30, 40],
+        "y": [-10, 10],
+        "z": [-10, 10]
+      }
+    },
+    {
+      "name": "shoulder_r",
+      "parent": "chest",
+      "rest": [-0.05, 0.22, 0.19],
+      "limits": {
+        "x": [-65, 65],
+        "y": [-25, 25],
+        "z": [-25, 25]
+      }
+    },
+    {
+      "name": "elbow_r",
+      "parent": "shoulder_r",
+      "rest": [-0.05, 0.12, 0.15],
+      "limits": {
+        "x": [-120, 120],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      }
+    },
+    {
+      "name": "wrist_r",
+      "parent": "elbow_r",
+      "rest": [-0.05, 0.025, 0.21],
+      "limits": {
+        "x": [-60, 80],
+        "y": [-20, 20],
+        "z": [-20, 20]
+      },
+      "stanceLimits": {
+        "x": [-55, 30],
+        "y": [-15, 15],
+        "z": [-15, 15]
+      }
+    },
+    {
+      "name": "paw_r",
+      "parent": "wrist_r",
+      "rest": [-0.05, 0.005, 0.27],
+      "limits": {
+        "x": [-30, 40],
+        "y": [-10, 10],
+        "z": [-10, 10]
+      }
+    },
+    {
+      "name": "ear_l",
+      "parent": "head",
+      "rest": [0.045, 0.305, 0.36],
+      "limits": {
+        "x": [-5, 5],
+        "y": [-5, 5],
+        "z": [-5, 5]
+      }
+    },
+    {
+      "name": "ear_r",
+      "parent": "head",
+      "rest": [-0.045, 0.305, 0.36],
+      "limits": {
+        "x": [-5, 5],
+        "y": [-5, 5],
+        "z": [-5, 5]
+      }
+    }
+  ],
+  "feet": [
+    {
+      "name": "fore_l",
+      "joints": ["shoulder_l", "elbow_l", "wrist_l", "paw_l"],
+      "plantigrade": true,
+      "pair": "fore"
+    },
+    {
+      "name": "hind_l",
+      "joints": ["hip_l", "knee_l", "ankle_l", "toe_l"],
+      "plantigrade": true,
+      "pair": "hind"
+    },
+    {
+      "name": "fore_r",
+      "joints": ["shoulder_r", "elbow_r", "wrist_r", "paw_r"],
+      "plantigrade": true,
+      "pair": "fore"
+    },
+    {
+      "name": "hind_r",
+      "joints": ["hip_r", "knee_r", "ankle_r", "toe_r"],
+      "plantigrade": true,
+      "pair": "hind"
+    }
+  ]
+}

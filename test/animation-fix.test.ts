@@ -74,7 +74,7 @@ function base(call: Caller, over: Partial<FixFrameOptions> = {}): FixFrameOption
     frame,
     anchor,
     family: "walk",
-    subject: "raccoon",
+    subject: "fox",
     index: 3,
     from: { neighbour: 2 },
     style: resolveStyle(undefined),
@@ -88,7 +88,7 @@ test("plans one edit call and builds a prompt with the note", () => {
   assert.equal(plan.length, 1);
   assert.equal(plan[0]?.operation, "edit");
   const prompt = buildFixPrompt({
-    subject: "raccoon",
+    subject: "fox",
     family: "walk",
     frame: 3,
     count: 4,

@@ -156,7 +156,7 @@ test("templatesFor rejects an invalid template", () => {
 });
 
 /**
- * A strip shaped like Jimothy's real walk (#38): a body over the anchor and two paws, one planted
+ * A strip shaped like Bram's real walk (#38): a body over the anchor and two paws, one planted
  * on the ground line and one lifted, the planted paw jumping 40–60 px between frames as the legs
  * alternate. `planted[k]` is the planted paw's left x in frame k + 1.
  */
@@ -243,7 +243,7 @@ test("footprint drift: a walk that slides over the cycle fails each slid frame a
 });
 
 /**
- * An asymmetric hop like Jimothy's crouch-hop (#38): the paw crouches at one x early in the cycle
+ * An asymmetric hop like Bram's crouch-hop (#38): the paw crouches at one x early in the cycle
  * and lands at another x late, 9 frames, so the cycle does not split into two like halves.
  */
 test("footprint drift: an asymmetric 9-frame hop is held to the loop's mean, frame by frame", () => {

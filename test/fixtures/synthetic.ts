@@ -1,6 +1,6 @@
 /**
  * A synthetic world for tests: a style bible whose reference images are drawn in code, a target
- * profile modelled on the public shape of Clockgrove's asset manifest, and a scripted provider
+ * profile with a typical asset manifest, and a scripted provider
  * that "generates" opaque images of a blob on a plain background. Nothing here is private art.
  */
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
@@ -21,7 +21,7 @@ function fill(r: Raster, rgb: [number, number, number]): void {
     for (let x = 0; x < r.width; x++) setPixel(r, x, y, [...rgb, 255]);
 }
 
-/** A grey "raccoon" blob: body, a darker mask band and a light belly, offset by `dx`. */
+/** A grey "fox" blob: body, a darker mask band and a light belly, offset by `dx`. */
 export function drawSubject(
   size: number,
   dx = 0,
@@ -100,8 +100,8 @@ export async function syntheticWorld(): Promise<World> {
   const dir = await mkdtemp(join(tmpdir(), "assetgrove-"));
   const bibleDir = join(dir, "bible");
   await mkdir(join(bibleDir, "refs"), { recursive: true });
-  await writeFile(join(bibleDir, "refs/stevie-sheet.png"), encodePng(drawSubject(48)));
-  await writeFile(join(bibleDir, "refs/stevie-turnaround.png"), encodePng(drawSubject(48, 4)));
+  await writeFile(join(bibleDir, "refs/fern-sheet.png"), encodePng(drawSubject(48)));
+  await writeFile(join(bibleDir, "refs/fern-turnaround.png"), encodePng(drawSubject(48, 4)));
   await writeFile(join(bibleDir, "refs/den.png"), encodePng(drawSubject(48, -2)));
   await writeFile(
     join(bibleDir, "refs/perspective.png"),
@@ -111,15 +111,15 @@ export async function syntheticWorld(): Promise<World> {
     version: "synthetic-1",
     palette: PALETTE,
     references: [
-      { path: "refs/stevie-sheet.png", role: "character sheet", subject: "stevie" },
-      { path: "refs/stevie-turnaround.png", role: "turnaround", subject: "stevie" },
+      { path: "refs/fern-sheet.png", role: "character sheet", subject: "fern" },
+      { path: "refs/fern-turnaround.png", role: "turnaround", subject: "fern" },
       { path: "refs/den.png", role: "prop", subject: "den" },
       { path: "refs/perspective.png", role: "perspective" },
     ],
     perspective: "refs/perspective.png",
     subjects: {
-      stevie: { description: "a grey adult raccoon with a dark mask" },
-      den: { description: "a wooden raccoon den" },
+      fern: { description: "a grey adult fox with a dark mask" },
+      den: { description: "a wooden fox den" },
     },
     mood: ["quiet", "storybook realism"],
   };
@@ -139,14 +139,14 @@ export async function syntheticWorld(): Promise<World> {
 
 export const shelterSpec: AssetSpec = {
   kind: "sprite-strip",
-  assetId: "stevie",
+  assetId: "fern",
   animationFamily: "shelter",
   frames: { count: 6 },
   anchor: { x: 16, y: 30 },
   keyPose: "key-pose.png",
   fields: {
-    semantic: { role: "actor", entity: "grove.stevie" },
-    accessibilityLabel: "Stevie sheltering",
+    semantic: { role: "actor", entity: "grove.fern" },
+    accessibilityLabel: "Fern sheltering",
   },
 };
 
@@ -191,7 +191,7 @@ export function scriptedProvider(options: ScriptOptions = {}): ScriptedProvider 
                 check: "identity",
                 passed: identity,
                 reason: identity
-                  ? "same grey raccoon with a dark mask as the sheet"
+                  ? "same grey fox with a dark mask as the sheet"
                   : "a different animal",
               },
               {

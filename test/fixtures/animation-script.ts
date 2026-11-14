@@ -30,7 +30,7 @@ export default {
       text: JSON.stringify(
         flicker
           ? { label: "flicker", confidence: 0.91, reason: "the tail rings change colour" }
-          : { label: "same", confidence: 0.97, reason: "same raccoon" },
+          : { label: "same", confidence: 0.97, reason: "same fox" },
       ),
       costUsd: 0.01,
     };

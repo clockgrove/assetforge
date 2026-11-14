@@ -1,10 +1,10 @@
 /**
- * Opt-in proof on the owner's real art, which is never committed here. Set:
- * - JIMOTHY_SHEET: a local copy of Clockgrove's `docs/design/reference/jimothy-sprite-sheet.png`;
- * - JIMOTHY_GROUPING: an author-confirmed grouping.json for that sheet (status "confirmed");
- * - JIMOTHY_OUT (optional): where the QA reports, onion-skin sheets and loop previews go
+ * Opt-in proof on real art, which is never committed here. Set:
+ * - ANIMATION_SHEET: a local copy of a four-legged character's sprite sheet;
+ * - ANIMATION_GROUPING: an author-confirmed grouping.json for that sheet (status "confirmed");
+ * - ANIMATION_OUT (optional): where the QA reports, onion-skin sheets and loop previews go
  *   (default: a temporary directory, printed).
- * Without JIMOTHY_SHEET and JIMOTHY_GROUPING the test skips. With AI_GATEWAY_API_KEY as well, it
+ * Without ANIMATION_SHEET and ANIMATION_GROUPING the test skips. With AI_GATEWAY_API_KEY as well, it
  * runs the identity-flicker check on one family and one per-frame fix, within a $2 cap in total.
  * Run with `pnpm test:real`.
  */
@@ -19,9 +19,12 @@ import { defaultRoutes } from "../../src/routes.ts";
 import { importSheet, writeFamilies } from "../../src/sheet/import.ts";
 import type { TargetProfile } from "../../src/types.ts";
 
-const sheetPath = process.env["JIMOTHY_SHEET"];
-const groupingPath = process.env["JIMOTHY_GROUPING"];
-const skip = sheetPath && groupingPath ? false : "JIMOTHY_SHEET and JIMOTHY_GROUPING not both set";
+const sheetPath = process.env["ANIMATION_SHEET"];
+const groupingPath = process.env["ANIMATION_GROUPING"];
+const skip =
+  sheetPath && groupingPath ? false : "ANIMATION_SHEET and ANIMATION_GROUPING not both set";
+const ASSET_ID = "bram";
+const SUBJECT = "bram";
 const real = Boolean(process.env["AI_GATEWAY_API_KEY"]);
 const CAP_USD = 2;
 
@@ -36,8 +39,8 @@ const profile: TargetProfile = {
   },
   manifest: { review: { status: "pending" } },
   review: { path: "review.status", pending: "pending" },
-  // Jimothy walks on four legs, so the walk template's quadruped rule applies. His crouch-hop
-  // matches no built-in template; the target adds one for exactly that family, as data, whose
+  // The character walks on four legs, so the walk template's quadruped rule applies. Its
+  // crouch-hop matches no built-in template; the target adds one for exactly that family, as data, whose
   // contacts move (crouch, hop, land) once per cycle, so each planted frame's footprint is
   // checked against the loop's mean.
   animation: {
@@ -63,18 +66,18 @@ const profile: TargetProfile = {
 };
 
 test(
-  "real art: Jimothy's families through animation QA, previews and a fix",
+  "real art: a four-legged character's families through animation QA, previews and a fix",
   { skip },
   async () => {
-    const out = process.env["JIMOTHY_OUT"] ?? (await mkdtemp(join(tmpdir(), "assetgrove-anim-")));
+    const out = process.env["ANIMATION_OUT"] ?? (await mkdtemp(join(tmpdir(), "assetgrove-anim-")));
     await mkdir(out, { recursive: true });
     const { importDir } = await importSheet({
       sheet: new Uint8Array(await readFile(sheetPath as string)),
       sheetPath: sheetPath as string,
       tool: "ChatGPT image generation",
       digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-      assetId: "jimothy",
-      subject: "jimothy",
+      assetId: ASSET_ID,
+      subject: SUBJECT,
       profile,
       importsDir: join(out, "imports"),
     });

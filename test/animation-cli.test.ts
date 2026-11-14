@@ -262,7 +262,7 @@ test("write-families writes the onion skin and loop preview and reports animatio
   const imported = await cli([
     "import",
     ...["--sheet", join(root, "sheet.png"), "--profile", join(root, "profile.json")],
-    ...["--asset", "stevie", "--tool", "hand drawn", "--no-propose"],
+    ...["--asset", "fern", "--tool", "hand drawn", "--no-propose"],
     ...["--digital-source-type", "digitalCreation", "--imports", join(root, "imports"), "--json"],
   ]);
   assert.equal(imported.code, 0, imported.stderr);

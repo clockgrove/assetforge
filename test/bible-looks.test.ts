@@ -26,14 +26,14 @@ test("a spec's look adds that look's notes and references, and no other look's",
   };
   bible.references.push(
     {
-      path: "refs/stevie-sheet.png",
+      path: "refs/fern-sheet.png",
       role: "character look anchor",
-      subject: "stevie",
+      subject: "fern",
       look: "character",
     },
-    { path: "refs/den.png", role: "brushwork anchor", subject: "stevie", look: "environment" },
+    { path: "refs/den.png", role: "brushwork anchor", subject: "fern", look: "environment" },
   );
-  const spec = { kind: "still", assetId: "stevie-idle", subject: "stevie", look: "character" };
+  const spec = { kind: "still", assetId: "fern-idle", subject: "fern", look: "character" };
   const refs = await loadBibleInputs(spec, bible, world.bibleDir);
   assert.deepEqual(
     refs.subject.map((r) => r.role),
@@ -45,7 +45,7 @@ test("a spec's look adds that look's notes and references, and no other look's",
   assert.doesNotMatch(prompt, /environment: soft visible brushwork/);
 
   // Without a look, only shared notes and untagged references apply.
-  const plain = { kind: "still", assetId: "stevie-idle", subject: "stevie" };
+  const plain = { kind: "still", assetId: "fern-idle", subject: "fern" };
   const plainRefs = await loadBibleInputs(plain, bible, world.bibleDir);
   assert.deepEqual(
     plainRefs.subject.map((r) => r.role),

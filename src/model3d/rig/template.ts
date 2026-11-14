@@ -1,5 +1,5 @@
 /**
- * The shared-rig contract (assetgrove#84, shared with clockgrove/raccoon-world#39): the profile's
+ * The shared-rig contract (assetgrove#84, shared with the target game): the profile's
  * `model3d.rig`, `model3d.gaits` and `model3d.motions` (assetgrove#135), and the skeleton template
  * file a rig names. Everything here is
  * target data; nothing is specific to one animal.
@@ -159,7 +159,7 @@ export const DEFAULT_RIG_QA: RigQaTolerances = {
 export interface RigProfile {
   /** Path to the skeleton template file, relative to the profile file. */
   template: string;
-  /** The kind of character the template serves, for example `raccoon`. */
+  /** The kind of character the template serves, for example `quadruped`. */
   kind: string;
   qa?: Partial<RigQaTolerances>;
 }

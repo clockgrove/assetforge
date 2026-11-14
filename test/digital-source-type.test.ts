@@ -110,7 +110,7 @@ test("transform files retain generation lineage, combine human pixels, and leave
   }
 });
 
-test("generated Stevie strip and model-edited human prop disclose origin through staging, handoff, and profile validation", async () => {
+test("generated Fern strip and model-edited human prop disclose origin through staging, handoff, and profile validation", async () => {
   const world = await syntheticWorld();
   const validator = `import assert from 'node:assert/strict'; import {readFile} from 'node:fs/promises';
     const {readDigitalSourceType} = await import(${JSON.stringify(new URL("../src/metadata.ts", import.meta.url).href)});
@@ -141,7 +141,7 @@ test("generated Stevie strip and model-edited human prop disclose origin through
   const pose = await stage({
     ...base,
     provider: scriptedProvider(),
-    spec: { kind: "still", assetId: "stevie", frames: { width: 96, height: 96 } },
+    spec: { kind: "still", assetId: "fern", frames: { width: 96, height: 96 } },
   });
   const posePath = join(pose.runDir, pose.run.candidates[0]!.file);
   const jpegPose = join(world.dir, "human-pose.jpg");
@@ -151,7 +151,7 @@ test("generated Stevie strip and model-edited human prop disclose origin through
   await writeFile(generatedJpegPose, taggedJpeg(drawSubject(96), types.generated));
   await writeFile(compositeJpegPose, taggedJpeg(drawSubject(96), types.composite));
   for (const [assetId, keyPose, expected] of [
-    ["stevie", posePath, types.generated],
+    ["fern", posePath, types.generated],
     ["prop", join(world.dir, "key-pose.png"), types.composite],
     ["jpeg-prop", jpegPose, types.composite],
     ["jpeg-generated", generatedJpegPose, types.generated],
@@ -160,7 +160,7 @@ test("generated Stevie strip and model-edited human prop disclose origin through
     const { run, runDir } = await stage({
       ...base,
       provider: scriptedProvider(),
-      spec: { ...shelterSpec, subject: "stevie", assetId, keyPose },
+      spec: { ...shelterSpec, subject: "fern", assetId, keyPose },
     });
     const candidate = run.candidates[0]!;
     assert.equal(candidate.provenance.digitalSourceType, expected);

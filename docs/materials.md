@@ -42,7 +42,7 @@ The profile's `style.materials` object chooses channels, scales and target comma
 }
 ```
 
-Profile data is schema validated before execution. Omitted `channels` defaults to `normal`, `height`, `emissive`, `roughness`, `wind`; list only desired channels to switch others off, or use `[]` for albedo alone. Omitted `scales` defaults to `[1, 2]` and `flickerBound` to `0.03`. Unknown fields, duplicate channels/scales, malformed commands and invalid ranges are rejected. `lightRig` is a JSON object owned by the target renderer, preserved as data in the material report. No Clockgrove light rig exists yet (#66); the test profile declares a synthetic rig as an explicit stand-in.
+Profile data is schema validated before execution. Omitted `channels` defaults to `normal`, `height`, `emissive`, `roughness`, `wind`; list only desired channels to switch others off, or use `[]` for albedo alone. Omitted `scales` defaults to `[1, 2]` and `flickerBound` to `0.03`. Unknown fields, duplicate channels/scales, malformed commands and invalid ranges are rejected. `lightRig` is a JSON object owned by the target renderer, preserved as data in the material report. The test profile declares a synthetic rig as an explicit stand-in.
 
 Channels may declare an encoding, for example `"encoding": { "height": { "encoding": "unorm8", "range": [0, 1] } }`. The only supported storage encoding is `unorm8`; a narrower normalized range is enforced. `flickerBound` may instead be an object giving a bound for each requested channel.
 

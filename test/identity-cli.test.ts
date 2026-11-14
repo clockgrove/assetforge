@@ -27,14 +27,14 @@ async function fixture() {
   await mkdir(art, { recursive: true });
   const ref = createRaster(24, 24);
   setPixel(ref, 3, 3, [180, 90, 40, 255]);
-  await writeFile(join(art, "stevie-turnaround.png"), encodePng(ref));
+  await writeFile(join(art, "bram-turnaround.png"), encodePng(ref));
   const data = structuredClone(BIBLE_PRESETS["cozy-storybook"]!);
   data.world = "Synthetic";
   data.identities = {
-    stevie: {
-      version: "stevie-3",
+    bram: {
+      version: "bram-3",
       approved: true,
-      turnaround: "stevie-turnaround.png",
+      turnaround: "bram-turnaround.png",
       signatureFeatures: ["striped tail"],
       proportions: "round body",
       palette: ["#b45a28"],
@@ -80,11 +80,11 @@ test("import scores a locked character's sheet; enforce mode makes write-familie
   const f = await fixture();
   const imported = await exec(
     process.execPath,
-    importArgs(f.root, "stevie", ["--lock-bible", f.bible, "--identity-mode", "enforce"]),
+    importArgs(f.root, "bram", ["--lock-bible", f.bible, "--identity-mode", "enforce"]),
     { env: env("1") },
   );
   const out = JSON.parse(imported.stdout);
-  assert.equal(out.identity.lockVersion, "stevie-3");
+  assert.equal(out.identity.lockVersion, "bram-3");
   assert.equal(out.identity.score, 0.25);
   assert.equal(out.identity.filtered, true);
   // Every decision call logs its label, confidence, latency and cost on stderr.
@@ -111,7 +111,7 @@ test("import scores a locked character's sheet; enforce mode makes write-familie
       ],
       { env: env("1") },
     ),
-    /identity lock filtered this sheet: identity 0\.25 < threshold 0\.68 against "stevie" lock stevie-3/,
+    /identity lock filtered this sheet: identity 0\.25 < threshold 0\.68 against "bram" lock bram-3/,
   );
 });
 
@@ -119,7 +119,7 @@ test("import in the default shadow mode records the score and filters nothing; u
   const f = await fixture();
   const shadow = JSON.parse(
     (
-      await exec(process.execPath, importArgs(f.root, "stevie", ["--lock-bible", f.bible]), {
+      await exec(process.execPath, importArgs(f.root, "bram", ["--lock-bible", f.bible]), {
         env: env("1"),
       })
     ).stdout,
@@ -137,7 +137,7 @@ test("import in the default shadow mode records the score and filters nothing; u
   assert.equal(unlocked.identity, undefined);
   assert.deepEqual(unlocked.calls, []);
   await assert.rejects(
-    exec(process.execPath, importArgs(f.root, "stevie", ["--identity-mode", "enforce"]), {
+    exec(process.execPath, importArgs(f.root, "bram", ["--identity-mode", "enforce"]), {
       env: env("1"),
     }),
     /--identity-mode needs --lock-bible/,
@@ -147,10 +147,10 @@ test("import in the default shadow mode records the score and filters nothing; u
 test("identity-eval reports accuracy per threshold, the recommendation and agreement with QA", async () => {
   const f = await fixture();
   const cases = [
-    { image: "sheet.png", subject: "stevie", same: true, qa: true },
-    { image: "sheet.png", subject: "stevie", same: true, qa: true },
-    { image: "sheet.png", subject: "stevie", same: false, qa: true },
-    { image: "sheet.png", subject: "stevie", same: false, qa: false },
+    { image: "sheet.png", subject: "bram", same: true, qa: true },
+    { image: "sheet.png", subject: "bram", same: true, qa: true },
+    { image: "sheet.png", subject: "bram", same: false, qa: true },
+    { image: "sheet.png", subject: "bram", same: false, qa: false },
   ];
   await writeFile(join(f.root, "cases.json"), JSON.stringify(cases));
   const log = join(f.root, "eval.jsonl");
@@ -206,8 +206,8 @@ export default {
     spec,
     JSON.stringify({
       kind: "sprite-strip",
-      assetId: "stevie-idle",
-      subject: "stevie",
+      assetId: "bram-idle",
+      subject: "bram",
       animationFamily: "idle",
       keyPose: "key.png",
       frames: { count: 2, width: 16, height: 16 },
@@ -262,12 +262,12 @@ export default {
   );
   assert.match(
     applied.stdout,
-    /candidate 1 filtered: identity-lock: identity 0\.25 < threshold 0\.68 against "stevie" lock stevie-3/,
+    /candidate 1 filtered: identity-lock: identity 0\.25 < threshold 0\.68 against "bram" lock bram-3/,
   );
   assert.match(applied.stdout, /identity-lock \[decision\]: identity 1\.00 >= threshold 0\.68/);
   assert.match(
     applied.stdout,
-    /identity enforce against "stevie" lock stevie-3 \(threshold 0\.68\): 2 scored, agrees with QA on 1 of 2/,
+    /identity enforce against "bram" lock bram-3 \(threshold 0\.68\): 2 scored, agrees with QA on 1 of 2/,
   );
   assert.match(applied.stderr, /identity perplexity\/pplx-decider-v1\.2: .*confidence 0\.70/);
 });
@@ -278,12 +278,12 @@ test("identity-check exits 0 when every record agrees with its references and 1 
   const ok = await exec(process.execPath, args, { env: env("") });
   const agreed = JSON.parse(ok.stdout);
   assert.equal(agreed.ok, true);
-  assert.equal(agreed.checks[0].subject, "stevie");
-  assert.match(agreed.checks[0].reason, /record "stevie" lock stevie-3 agrees with its references/);
+  assert.equal(agreed.checks[0].subject, "bram");
+  assert.match(agreed.checks[0].reason, /record "bram" lock bram-3 agrees with its references/);
 
   const conflicted =
     '{"consistent": false, "conflicts": [{"field": "proportions", "text": "round body", "observed": "long and thin"}]}';
-  const bad = await exec(process.execPath, [...args, "--subject", "stevie"], {
+  const bad = await exec(process.execPath, [...args, "--subject", "bram"], {
     env: env("", conflicted),
   }).then(
     () => assert.fail("expected exit 1"),
@@ -318,10 +318,10 @@ test("identity-eval prints the per-medium breakdown, the bar and the record chec
   await writeFile(
     join(f.root, "cases.json"),
     JSON.stringify([
-      { image: "a.png", subject: "stevie", same: true, bible: "art/BIBLE.md" },
+      { image: "a.png", subject: "bram", same: true, bible: "art/BIBLE.md" },
       {
         image: "b.png",
-        subject: "stevie",
+        subject: "bram",
         same: false,
         kind: "drift",
         bible: "art/BIBLE.md",
@@ -347,5 +347,5 @@ test("identity-eval prints the per-medium breakdown, the bar and the record chec
     /enforce bar \(provisional\): not met: overall: not measured \(no negatives\); cast Synthetic: not measured \(no negatives\)/,
   );
   assert.match(result.stdout, /enforce bar: not judged on provisional 3D/);
-  assert.match(result.stdout, /record check: record "stevie" lock stevie-3 agrees/);
+  assert.match(result.stdout, /record check: record "bram" lock bram-3 agrees/);
 });

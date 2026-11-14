@@ -16,7 +16,7 @@ test("the budget reserves against the cap and refuses what would exceed it", () 
 });
 
 test("templates insert whole values, interpolate text, omit optional holes and refuse required ones", () => {
-  const context = { spec: { id: "stevie", frames: { count: 6 } } };
+  const context = { spec: { id: "fern", frames: { count: 6 } } };
   assert.deepEqual(
     render(
       {
@@ -28,7 +28,7 @@ test("templates insert whole values, interpolate text, omit optional holes and r
       },
       context,
     ),
-    { id: "stevie", frames: { count: 6 }, label: "x-stevie", list: [1] },
+    { id: "fern", frames: { count: 6 }, label: "x-fern", list: [1] },
   );
   assert.equal(renderString("a/{{spec.frames.count}}.png", context), "a/6.png");
   assert.throws(() => render({ x: "{{spec.none}}" }, context), /"spec.none" is undefined/);

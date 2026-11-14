@@ -7,12 +7,12 @@ Assetgrove reads three JSON files. All three are data owned by the game; none of
 ```json
 {
   "kind": "sprite-strip",
-  "assetId": "stevie",
+  "assetId": "fern",
   "animationFamily": "shelter",
   "frames": { "count": 6 },
   "anchor": { "x": 16, "y": 30 },
-  "keyPose": "poses/stevie-shelter-key.png",
-  "fields": { "semantic": { "role": "actor", "entity": "grove.stevie" } }
+  "keyPose": "poses/fern-shelter-key.png",
+  "fields": { "semantic": { "role": "actor", "entity": "grove.fern" } }
 }
 ```
 
@@ -32,12 +32,12 @@ Assetgrove reads three JSON files. All three are data owned by the game; none of
   "version": "2026-11-07",
   "palette": ["#26242c", "#5f6470", "#8d939e", "#c4c9d2"],
   "references": [
-    { "path": "refs/stevie-sheet.png", "role": "character sheet", "subject": "stevie" },
+    { "path": "refs/fern-sheet.png", "role": "character sheet", "subject": "fern" },
     { "path": "refs/yard-perspective.png", "role": "perspective" }
   ],
   "perspective": "refs/yard-perspective.png",
   "perspectiveDescription": "isometric, three-quarter view from above",
-  "subjects": { "stevie": { "description": "a grey adult raccoon with a dark mask" } },
+  "subjects": { "fern": { "description": "a grey adult four-legged character with a dark mask" } },
   "mood": ["quiet", "mature", "storybook realism"],
   "notes": ["warm lantern light against cool dusk rain"]
 }
@@ -59,11 +59,11 @@ Assetgrove reads three JSON files. All three are data owned by the game; none of
 
 ```json
 {
-  "name": "clockgrove",
+  "name": "my-game",
   "license": "MIT",
   "acceptedLicenses": ["CC-BY-4.0"],
   "style": { "alpha": { "mode": "soft" }, "color": { "rule": "full" } },
-  "values": { "creator": "Clockgrove" },
+  "values": { "creator": "My Studio" },
   "frames": { "width": 64, "height": 64, "maxEdge": 256, "durationMs": 250 },
   "layout": {
     "media": "assets/source/{{spec.assetId}}/{{spec.animationFamily}}.{{output.extension}}",
@@ -94,14 +94,14 @@ Assetgrove reads three JSON files. All three are data owned by the game; none of
   },
   "review": { "path": "review.status", "pending": "pending" },
   "validator": {
-    "command": ["pnpm", "--filter", "@clockgrove/assets", "run", "validate", "{{manifest}}"]
+    "command": ["pnpm", "--filter", "@my-game/assets", "run", "validate", "{{manifest}}"]
   }
 }
 ```
 
 An optional `identity` object configures identity lock scoring: `mode` (`shadow`, the default, scores without filtering; `enforce` filters candidates below the threshold; `off`), `threshold` (0 to 1, default 0.68, chosen from eval data; see [decisions.md](decisions.md)) and `question` (`score`, `boolean`, or `cast`, which judges a candidate as a choice among every identity record in its bible and whether it is on-model for its subject). See [generation-knobs.md](generation-knobs.md#identity-lock-scoring).
 
-This example follows the public manifest shape in Clockgrove's `packages/assets/docs/pipeline.md`; The paths are illustrative. Raccoon World's real profile and layout live in clockgrove/raccoon-world (raccoon-world#2); Clockgrove's validator support for external worlds is clockgrove/clockgrove#61.
+The paths are illustrative.
 
 - **Style.** `style` is the world's style profile: alpha mode (`soft` or `binary`, with a `threshold`), colour rule (`full` or `palette`) and edges (`antialiased` or `crisp`). The sheet import path follows it ([sheet-import.md](sheet-import.md#style-profile)). It is optional, and templates can read it as `{{profile.style}}`.
 - **Templates.** `"{{a.b}}"` as a whole string inserts the value of any JSON type; `"{{a.b?}}"` drops the key when the value is undefined; `{{a.b}}` inside a longer string interpolates text. An undefined required value is an error.

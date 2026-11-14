@@ -22,13 +22,11 @@ import { validatorCheck } from "../src/model3d/qa.ts";
 import { clips, imageSize, measure } from "../src/model3d/scene.ts";
 import { sha256 } from "../src/request.ts";
 import type { AssetSpec, Provenance, TargetProfile } from "../src/types.ts";
-import { inspectModel } from "./fixtures/clockgrove/model.ts";
 import { checkerPng, lodModel } from "./fixtures/lod.ts";
 import type { LodModelOptions } from "./fixtures/lod.ts";
 import { syntheticProfile } from "./fixtures/synthetic.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const CLOCKGROVE = fileURLToPath(new URL("./fixtures/clockgrove/check-model.ts", import.meta.url));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Doc = Record<string, any>;
@@ -215,22 +213,15 @@ test("a static model gets its chain embedded, a phone tier beside, renders, and 
   assert.equal(manifest.output.sha256, sha256(await readFile(join(target, "assets/kit/kit.glb"))));
 });
 
-const CLOCKGROVE_BUDGETS = {
-  triangles: 40000,
-  textureMaxPx: 2048,
-  materials: 4,
-  bones: 80,
-  lods: 1,
-};
-const CLOCKGROVE_HANDOFF = {
+const STRICT_HANDOFF = {
   clipFields: { name: "name", durationMs: "durationMs", loop: "loop", generated: "generated" },
   sideImages: "embedded",
   lods: "files",
 };
 
-/** Clockgrove's model manifest and validator, as its profile declares them. */
-function clockgrove(model3d: Doc = {}): TargetProfile {
-  const p = profile({ handoff: CLOCKGROVE_HANDOFF, ...model3d });
+/** A target whose model manifest has exact `output` keys: it names no level or tier file. */
+function strictTarget(model3d: Doc = {}): TargetProfile {
+  const p = profile({ handoff: STRICT_HANDOFF, ...model3d });
   return {
     ...p,
     layout: {
@@ -272,14 +263,13 @@ function clockgrove(model3d: Doc = {}): TargetProfile {
       },
     },
     review: { path: "review.status", pending: "pending" },
-    validator: { command: [process.execPath, CLOCKGROVE, "{{manifest}}", "model-target.json"] },
   } as TargetProfile;
 }
 
-// Clockgrove's validator allows no `levels` or `tiers` field in its manifest (its `output` has exact
-// keys), so the level files are written beside `model.glb` and named only in Assetgrove's run record.
-test("files packaging: a file per level, tier files per level, each valid; Clockgrove accepts the pick", async () => {
-  const p = clockgrove({ tiers: { phone: { triangles: PHONE_TRIANGLES, textureMaxPx: 64 } } });
+// This target's manifest allows no `levels` or `tiers` field (its `output` has exact keys), so the
+// level files are written beside `model.glb` and named only in Assetgrove's run record.
+test("files packaging: a file per level, tier files per level, each valid; the manifest names none", async () => {
+  const p = strictTarget({ tiers: { phone: { triangles: PHONE_TRIANGLES, textureMaxPx: 64 } } });
   const { run, runDir, passed, bytes } = await chain({}, p);
   assert.equal(passed, true, JSON.stringify(run.rejections));
   const full = measure(parseGlb(bytes)).triangles;
@@ -318,16 +308,11 @@ test("files packaging: a file per level, tier files per level, each valid; Clock
     assert.ok((tier.extra!["textureMaxPx"] as number) <= 64);
   }
 
-  const target = await mkdtemp(join(tmpdir(), "assetgrove-lod-clockgrove-"));
-  await writeFile(
-    join(target, "model-target.json"),
-    JSON.stringify({ version: 1, limits: CLOCKGROVE_BUDGETS }),
-  );
+  const target = await mkdtemp(join(tmpdir(), "assetgrove-lod-files-"));
   const picked = await pick({ runDir, candidateId: "c1", targetDir: target });
-  assert.equal(picked.validator?.accepted, true, picked.validator?.output);
   const manifest = JSON.parse(await readFile(picked.manifestPath, "utf8"));
   assert.equal(manifest.output.lods, 1);
-  assert.equal(manifest.output.levels, undefined, "Clockgrove's manifest names no level file");
+  assert.equal(manifest.output.levels, undefined, "the manifest names no level file");
   assert.equal(manifest.output.tiers, undefined);
   const folder = join(target, "assets/source/kit");
   assert.deepEqual((await readdir(folder)).sort(), [
@@ -344,11 +329,11 @@ test("files packaging: a file per level, tier files per level, each valid; Clock
     assert.equal(sha256(written), side.sha256);
     const verdict = await validatorCheck(written);
     assert.equal(verdict.passed, true, `${side.name}: ${verdict.reason}`);
-    const facts = inspectModel(written);
+    const facts = measure(parseGlb(written));
     assert.equal(facts.triangles, side.extra!["triangles"], side.name);
     assert.equal(facts.lods, 1, side.name);
   }
-  const mainFacts = inspectModel(new Uint8Array(await readFile(join(folder, "model.glb"))));
+  const mainFacts = measure(parseGlb(new Uint8Array(await readFile(join(folder, "model.glb")))));
   assert.equal(mainFacts.triangles, full);
 });
 

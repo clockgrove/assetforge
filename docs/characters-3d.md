@@ -3,26 +3,26 @@
 Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md); assetgrove#72) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
 
 ```sh
-assetgrove stage --spec stevie-3d.json --bible bible.json --profile profile.json --dry-run
-assetgrove stage --spec stevie-3d.json --bible bible.json --profile profile.json   # TRIPO_API_KEY
-assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../raccoon-world
+assetgrove stage --spec fern-3d.json --bible bible.json --profile profile.json --dry-run
+assetgrove stage --spec fern-3d.json --bible bible.json --profile profile.json   # TRIPO_API_KEY
+assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../my-game
 ```
 
 ## Contract
 
-The field names below are shared with clockgrove/raccoon-world#39. Fields may be added, but not renamed without recording the change on both issues.
+Targets read the field names below. Fields may be added, but not renamed.
 
 **Spec**
 
 ```json
 {
   "kind": "character-3d",
-  "assetId": "stevie",
-  "subject": "stevie",
+  "assetId": "fern",
+  "subject": "fern",
   "gait": "quadruped",
   "clips": ["idle"],
   "heightM": 0.45,
-  "fields": { "semantic": { "role": "actor", "entity": "grove.stevie" } }
+  "fields": { "semantic": { "role": "actor", "entity": "grove.fern" } }
 }
 ```
 
@@ -83,7 +83,7 @@ Also available:
 2. **Rig** (`rig3d` route): the provider's auto-rig for the gait. The route's `rigTypes` maps a gait to the provider's rig type.
 3. **Clips** (`clips3d` route): the provider's library clips, retargeted onto the rig. The route's `library` maps gait → family → `{ clip, loop }`. A family with no library entry is reported as missing for the candidate. It is never faked, and the candidate is not refused for it. Each returned animation is renamed after its family. For a looping family, the last key of every channel is set to its first, which closes the loop.
 4. **Normalise.** The scene gets a single root node that:
-   - turns the model from the route's `forward` (the provider's facing, `+z` by default; Tripo's models face `+x`, as measured on the real Stevie run) to the profile's `forward`;
+   - turns the model from the route's `forward` (the provider's facing, `+z` by default; Tripo's models face `+x`, as measured on one four-legged character) to the profile's `forward`;
    - scales it to `heightM`;
    - stands it on y = 0 and centres it on x and z.
 5. **QA**, recorded per candidate. All before the pick:
@@ -110,21 +110,21 @@ A candidate that fails a filtering check is not staged. It is listed in the run'
 A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetgrove#84; Kirk, 2026-11-10), and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as a wave 0 pick:
 
 ```sh
-assetgrove rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
-assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../raccoon-world
+assetgrove rig --model c3.glb --provenance c3/provenance.json --spec fern-3d.json --profile profile.json
+assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../my-game
 ```
 
-`rig` stages a one-candidate run, `c1`, with the same renders, reasons and provenance as a `stage` candidate. It calls no model and spends nothing. It exits 5 when the re-rigged model fails QA, and the renders are still written. A draft raccoon template and walk are in [examples/raccoon-rig/](examples/raccoon-rig/).
+`rig` stages a one-candidate run, `c1`, with the same renders, reasons and provenance as a `stage` candidate. It calls no model and spends nothing. It exits 5 when the re-rigged model fails QA, and the renders are still written. A draft template and walk for a four-legged character are in [examples/rig/](examples/rig/).
 
 ### Contract
 
-The field names below are shared with clockgrove/raccoon-world#39. Names may be added, but none may be renamed without recording it on both issues.
+Targets read the field names below. Names may be added, but none may be renamed.
 
 **Profile**
 
 ```json
 "model3d": {
-  "rig": { "template": "rig/raccoon.json", "kind": "raccoon" },
+  "rig": { "template": "rig/quadruped-template.json", "kind": "quadruped" },
   "gaits": {
     "walk": {
       "footfall": ["hind_l", "fore_l", "hind_r", "fore_r"],
@@ -138,7 +138,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
       "tailSwayDeg": 8,
       "speedBodyLengthsPerSecond": 0.35,
       "swingCurlDeg": { "fore": 55, "hind": 12 },
-      "reference": "references/stevie/gait-reference"
+      "reference": "references/fern/gait-reference"
     }
   }
 }
@@ -171,7 +171,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 ```json
 {
-  "kind": "raccoon",
+  "kind": "quadruped",
   "joints": [
     { "name": "pelvis", "parent": null, "rest": [0, 0.26, -0.08], "role": "pelvis" },
     {
@@ -240,11 +240,11 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 ## Motions besides walking
 
-A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetgrove#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`. A draft for Stevie's idle, sniff, eat, play and shelter is in [examples/raccoon-motions/](examples/raccoon-motions/).
+A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetgrove#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`.
 
 ### Declaration
 
-The field names below are added to the shared contract (clockgrove/raccoon-world#39).
+The field names below are added to the contract.
 
 ```json
 "model3d": {
@@ -358,9 +358,7 @@ A target's validator may take fewer clip fields than Assetgrove produces, or onl
 - `sideImages` is `beside` (the default) or `embedded`. `embedded` moves look-dev's groom maps, tints and eye mask into the `.glb`'s binary chunk and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set. `asset.extras.lookdev.images` still maps each field to its image index.
 - A malformed `handoff` field is refused before any spend (exit 2). Fields Assetgrove doesn't read are the target's own notes and are left alone, like the rest of `model3d`.
 
-Whatever the shape, `pick` measures each clip's `durationMs` (the last key time) and `output.bounds` (the rest-pose bounds) on the `.glb` it hands off, unrounded, so they match what a validator reads from the file. Staging rounds bounds to the micrometre, which alone could put them 0.5 µm off the file, half of Clockgrove's 1 µm tolerance.
-
-Clockgrove's model validator (`packages/contracts/src/model-asset.ts`) takes the declaration above. `test/clockgrove-model-validator.test.ts` hands a `rig` and a `look-dev` result to it, vendored in `test/fixtures/clockgrove/`.
+Whatever the shape, `pick` measures each clip's `durationMs` (the last key time) and `output.bounds` (the rest-pose bounds) on the `.glb` it hands off, unrounded, so they match what a validator reads from the file. Staging rounds bounds to the micrometre, which alone could put them 0.5 µm off the file.
 
 ## Detail levels and tiers
 
@@ -368,7 +366,7 @@ A target profile can declare a chain of detail levels and quality tiers (assetgr
 
 ```sh
 assetgrove lod --run .assetgrove/runs/<run> --candidate c1
-assetgrove lod --model stevie.glb --provenance stevie.glb.provenance.json --spec stevie-3d.json --profile profile.json
+assetgrove lod --model fern.glb --provenance fern.glb.provenance.json --spec fern-3d.json --profile profile.json
 ```
 
 `--profile` on a `--run` replaces the run's profile. For a given model, the clip fields come from the file: each animation's name, length and `extras.loop` and `extras.generated`. `rig` and `missingClips` come from `asset.extras.rig` and the provenance.
@@ -417,7 +415,7 @@ assetgrove lod --model stevie.glb --provenance stevie.glb.provenance.json --spec
 
    A level that fails is filtered from the chain, not the candidate. Its checks are recorded beside QA (`shadow`), with a `lod-<n>` reason saying it was left out, and none of its files is written.
 
-3. **Tiers.** Each tier uses the passing levels within its `triangles`, at most its `lods` of them. Raccoon World's phone tier starts at level 1.
+3. **Tiers.** Each tier uses the passing levels within its `triangles`, at most its `lods` of them.
    - Every image over the tier's `textureMaxPx` is area-averaged down to fit, aspect kept, and written as PNG. That covers the embedded textures and look-dev's side maps. A tier without `fur` drops its side maps instead. An image over the size that cannot be decoded here (WebP, or bytes of no known type) fails the tier, its reason naming the image and its type.
    - `tier-<name>` checks the tier's triangles, texture size, materials and bones. It fails, and filters the candidate, when no level fits. That gives exit 5.
    - A tier that the main file already serves unchanged gets no files of its own: the same levels, textures already within its size, and fur drawn. The main file is still measured against the tier's `materials` and `bones`.
@@ -439,15 +437,13 @@ assetgrove lod --model stevie.glb --provenance stevie.glb.provenance.json --spec
   - A tier's levels are `<assetId>.<tier>.lod<n>.glb`, with field `output.tiers.<tier>.levels.lod<n>`.
   - Each field holds `{ path, sha256, level, triangles, triangleRatio, minScreenHeight }`, plus `textureMaxPx` for a tier's level.
   - Each file's own triangles and `lods` (1) are what a validator measures in it.
-- A tier's side maps go beside it as `<assetId>.<tier>.<rest of the name>`, for example `stevie.phone.groom.winter.length.png`. Their fields are `output.tiers.<tier>.<field>`. A tier's `.glb` refers to them by `uri`.
+- A tier's side maps go beside it as `<assetId>.<tier>.<rest of the name>`, for example `fern.phone.groom.winter.length.png`. Their fields are `output.tiers.<tier>.<field>`. A tier's `.glb` refers to them by `uri`.
 - `output.chain` gives `{ packaging, levels, tiers }`: each level's ratio, screen height, triangles and verdict, and each tier's levels and texture size. `output.lods` stays the count measured in the main file.
 - With `sideImages: "embedded"`, every `.glb` of the chain gets its own side images embedded, and no image is written beside it.
 
 A target's manifest reads these fields as it reads any other: for example `"levels": "{{output.levels?}}"` and `"tiers": "{{output.tiers?}}"`.
 
-Clockgrove's model validator sums triangles over every mesh in a file (clockgrove/clockgrove#304). That is Clockgrove's fix to make. Until it lands, a Clockgrove target declares `files`. Texture encoding (KTX2) and mesh compression (meshopt) stay the target's build step.
-
-Stevie's chain, made from the picked model with every clip, is in [examples/lod/stevie/](examples/lod/stevie/).
+A target whose validator sums triangles over every mesh in a file declares `files`. Texture encoding (KTX2) and mesh compression (meshopt) stay the target's build step.
 
 ## Providers
 

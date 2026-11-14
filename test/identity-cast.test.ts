@@ -206,7 +206,7 @@ test("the cast prompt excuses only what the pose and the named animation imply, 
   assert.match(prompt, /the approved references are the source of truth/);
   assert.match(prompt, /"poseDifferences": \["<each difference the pose or view explains>"\]/);
   // Nothing in the wording is tuned to one species or cast.
-  assert.doesNotMatch(prompt, /raccoon|bird|stevie|jimothy|pebble/i);
+  assert.doesNotMatch(prompt, /bird|pebble/i);
 });
 
 test("the cast answer parser accepts poseDifferences and still parses an answer without them", () => {

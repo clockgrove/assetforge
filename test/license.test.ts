@@ -84,7 +84,7 @@ test("an output made on routes that give ownership is declared under the target'
   }
   await pick({ runDir, candidateId: candidate.id, targetDir: world.targetDir });
   const manifest = JSON.parse(
-    await readFile(join(world.targetDir, "assets/manifests/stevie/shelter.json"), "utf8"),
+    await readFile(join(world.targetDir, "assets/manifests/fern/shelter.json"), "utf8"),
   );
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.provenance.generated.license, "MIT");
@@ -124,7 +124,7 @@ test("a target that accepts CC BY on purpose takes a CC BY output declared as CC
   assert.equal(run.candidates[0]!.provenance.license, "CC-BY-4.0");
   await pick({ runDir, candidateId: "c1", targetDir: world.targetDir });
   const manifest = JSON.parse(
-    await readFile(join(world.targetDir, "assets/manifests/stevie/shelter.json"), "utf8"),
+    await readFile(join(world.targetDir, "assets/manifests/fern/shelter.json"), "utf8"),
   );
   // The template reads {{profile.license}}: at hand-off it is the declared licence.
   assert.equal(manifest.license, "CC-BY-4.0");

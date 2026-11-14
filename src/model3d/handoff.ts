@@ -46,7 +46,7 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
     throw new InputError("model3d.handoff must be an object");
   }
   // Only Assetgrove's own fields are read and checked. Any other field is the target's own note
-  // (raccoon-world, for example, describes its container and compression here) and is left alone,
+  // (a game may describe its container and compression here, for example) and is left alone,
   // as the rest of the profile's model3d section is.
   const { clipFields, sideImages = "beside", lods } = section as Record<string, unknown>;
   if (!SIDE_IMAGE_MODES.includes(sideImages as SideImageMode)) {

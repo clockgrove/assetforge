@@ -173,13 +173,13 @@ test("markingsReason names drifting markings; nothing measured passes and says w
 
 test("prompt is generic and carries the description", () => {
   const p = markingsPrompt({
-    subject: "Stevie",
+    subject: "Fern",
     description: "dark mask, cream brows",
     view: "front",
     referenceRole: "turnaround front",
     seasons: ["summer", "winter"],
   });
-  assert.match(p, /Subject: Stevie, dark mask, cream brows\./);
+  assert.match(p, /Subject: Fern, dark mask, cream brows\./);
   assert.match(p, /summer, winter/);
   assert.doesNotMatch(p, /raccoon|fur|cat|dog|animal/i);
   const single = markingsPrompt({

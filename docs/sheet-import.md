@@ -6,16 +6,16 @@ Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model 
 
 ```sh
 # A sheet made elsewhere: slice, clean, and stage a grouping proposal.
-pnpm assetgrove import --sheet jimothy-sprite-sheet.png --profile profile.json --bible bible.json \
-  --asset jimothy --tool "ChatGPT image generation" \
+pnpm assetgrove import --sheet bram-sprite-sheet.png --profile profile.json --bible bible.json \
+  --asset bram --tool "ChatGPT image generation" \
   --digital-source-type trainedAlgorithmicMedia --frames 57 \
   --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
 
 # Or have the model draw the cycle as one sheet (spec: assetId, animationFamily, frames.count).
-pnpm assetgrove generate-sheet --spec stevie-walk.json --bible bible.json --profile profile.json
+pnpm assetgrove generate-sheet --spec fern-walk.json --bible bible.json --profile profile.json
 
 # After reviewing and confirming grouping.json:
-pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
+pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../my-game
 ```
 
 ## What each step does
@@ -51,7 +51,7 @@ The import runs on the media transformation core ([transform.md](transform.md)).
 
 ## Style profile
 
-The target profile's optional `style` decides post-processing. Each world declares its own (clockgrove/clockgrove#61); nothing assumes one style.
+The target profile's optional `style` decides post-processing. Each world declares its own; nothing assumes one style.
 
 | Field                   | Values                                          | Default                                |
 | ----------------------- | ----------------------------------------------- | -------------------------------------- |
@@ -87,7 +87,3 @@ Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model
 The sheet prompt states the family's motion template: its description and beats, a held pose when the template allows only a small silhouette change (`shelter`, `idle`), and the loop. `--brief <brief.json>` adds the author's brief (purpose, where it appears, what happens), checked as `plan` checks a brief, so the model draws the motion the author asked for rather than its own idea of the family.
 
 `generate-sheet` makes one `sheet` call (default `openai/gpt-image-2` at 1536x1024, estimated at $0.30) and one `vision` call for the grouping ($0.02). Both are reserved against the cap (default $5) before either is made. `import` makes the one grouping call, unless `--no-propose` is given. With `--lock-bible` and a locked character, either command adds one `identity` decision call (estimated at $0.001), reserved with the rest. That call is made in the default shadow mode too, so `import --no-propose --lock-bible` on a locked character needs a gateway key; add `--identity-mode off` to import it without one.
-
-## The real Jimothy sheet
-
-The owner's sheet is never committed here. To run the opt-in example, point `JIMOTHY_SHEET` at a local copy of Clockgrove's `docs/design/reference/jimothy-sprite-sheet.png` (Jimothy, the short-spine raccoon) and run `pnpm test:real`. It checks that the sheet slices into 57 clean frames. With `AI_GATEWAY_API_KEY` set, it also asks for a grouping proposal.

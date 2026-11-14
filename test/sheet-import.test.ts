@@ -101,9 +101,9 @@ test("an imported sheet is sliced, cleaned to soft alpha, grouped by proposal, a
   const { record, importDir, grouping } = await importSheet({
     digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
     sheet: sheet.png,
-    sheetPath: "sheets/jimothy-like.png",
+    sheetPath: "sheets/bram-like.png",
     tool: "ChatGPT image generation",
-    assetId: "stevie",
+    assetId: "fern",
     profile,
     importsDir,
     importId: "imp1",
@@ -252,7 +252,7 @@ test("a family over the jitter bound is refused, and nothing is written", async 
     sheet: sheet.png,
     sheetPath: "sheet.png",
     tool: "hand drawn",
-    assetId: "stevie",
+    assetId: "fern",
     profile: painterlyProfile(),
     importsDir,
   });
@@ -276,7 +276,7 @@ test("a gridless sheet imports by connected components, and a pixel-art profile 
     sheet: sheet.png,
     sheetPath: "scatter.png",
     tool: "hand drawn",
-    assetId: "stevie",
+    assetId: "fern",
     profile: pixelArtProfile(),
     importsDir,
   });
@@ -307,13 +307,13 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   });
   const spec: AssetSpec = {
     kind: "sprite-sheet",
-    assetId: "stevie",
+    assetId: "fern",
     animationFamily: "walk",
     frames: { count: 6 },
     // Target fields the spec carries for its family; write-families must hand them to the templates.
     fields: {
-      semantic: { role: "actor", entity: "grove.stevie" },
-      accessibilityLabel: "Stevie walking",
+      semantic: { role: "actor", entity: "grove.fern" },
+      accessibilityLabel: "Fern walking",
     },
   };
   const options = {
@@ -355,7 +355,7 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   // The family's motion template is stated; a walk moves, so no held-pose line.
   assert.match(request.prompt, /Motion: a walk cycle/);
   assert.doesNotMatch(request.prompt, /Hold the pose/);
-  assert.match(request.prompt, /grey adult raccoon/);
+  assert.match(request.prompt, /grey adult fox/);
   for (const hex of PALETTE) assert.ok(request.prompt.includes(hex));
   // The bible's subject references, perspective sample and palette swatch, exactly and in order.
   const inputs = await loadBibleInputs(options.spec, world.bible, world.bibleDir);
@@ -382,8 +382,8 @@ test("sheet generation: one request for the whole cycle within the cap, then the
   assert.equal(provenance.costUsd, 0.22);
   assert.equal(provenance.frames[0].tool, defaultRoutes.sheet.model);
   // The spec's fields reach the family it asked for, not a generic default.
-  assert.equal(manifest.accessibilityLabel, "Stevie walking");
-  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.stevie" });
+  assert.equal(manifest.accessibilityLabel, "Fern walking");
+  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.fern" });
 });
 
 test("sheet generation refuses a sheet with another frame count and keeps it", async () => {
@@ -399,7 +399,7 @@ test("sheet generation refuses a sheet with another frame count and keeps it", a
     generateSheet({
       spec: {
         kind: "sprite-sheet",
-        assetId: "stevie",
+        assetId: "fern",
         animationFamily: "walk",
         frames: { count: 8 },
       },
@@ -442,7 +442,7 @@ test("the sheet prompt states a held family's motion and the author's brief", ()
     purpose: "animation strip: the shelter family, one looping cycle",
     appearsIn: "the yard at dusk in the rain",
     context:
-      "Rain has started; the raccoon hunkers down, hunched low, a small shiver, tail wrapped close.",
+      "Rain has started; the fox hunkers down, hunched low, a small shiver, tail wrapped close.",
   });
   const lines = motionLines(shelter, brief).join("\n");
   assert.match(

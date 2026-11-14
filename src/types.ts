@@ -88,7 +88,7 @@ export interface LoadedReference {
 }
 
 /**
- * The world's style profile, read as part of the target profile (clockgrove/clockgrove#61). It
+ * The world's style profile, read as part of the target profile. It
  * decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha,
  * crisp edges or a fixed palette for a flat-cartoon or pixel-art one. Every field is optional.
  */
@@ -107,15 +107,15 @@ export interface TargetProfile {
   name: string;
   /** The world's style profile; post-processing of imported sheets follows it. */
   style?: StyleProfile;
-  /** The license value the target accepts for generated output (Clockgrove: `MIT`). */
+  /** The license value the target accepts for generated output (for example `MIT`). */
   license: string;
   /**
    * Licences the target accepts on purpose beyond its own, for outputs whose provider grant does
-   * not let the target relabel them (Raccoon World: `["CC-BY-4.0"]`). Non-commercial grants are
+   * not let the target relabel them (for example `["CC-BY-4.0"]`). Non-commercial grants are
    * refused whatever this lists (docs/target-profile.md).
    */
   acceptedLicenses?: string[];
-  /** Free values for the manifest template, for example `{ "creator": "Clockgrove" }`. */
+  /** Free values for the manifest template, for example `{ "creator": "My Studio" }`. */
   values?: Record<string, unknown>;
   frames: { width: number; height: number; maxEdge?: number; durationMs?: number };
   /**
@@ -193,7 +193,7 @@ export interface CallRecord {
 
 /**
  * What a provider grants for an output, on the plan or route it was made on. Field names are a
- * contract shared with Clockgrove's asset manifest (clockgrove/clockgrove#61).
+ * contract shared with the target's asset manifest.
  */
 export interface OutputGrant {
   /** An SPDX ID (`CC-BY-4.0`), or `LicenseRef-<provider>-<plan>` when the terms are not one. */
