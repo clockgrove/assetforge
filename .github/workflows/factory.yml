@@ -30,7 +30,8 @@ env:
   FACTORY_REVIEWER_MODEL: claude-fable-5-2
   FACTORY_CREDENTIAL: plan # api; plan only for your own repository
   FACTORY_MAX_CONCURRENT: 2
-  FACTORY_DAILY_USD: 25
+  FACTORY_LOCAL_MAX_CONCURRENT: 3 # local runs on the 24-thread box
+  FACTORY_DAILY_USD: 500 # Phase 1 build (owner, 2026-11-14): the daily cap is not the limit; each Objective stays under FACTORY_MAX_USD
   FACTORY_MAX_USD: 25
   FACTORY_TIMEOUT_MINUTES: 240 # under 360 on hosted runners; mirrored in timeout-minutes below
   FACTORY_AUTO_MERGE: "true"
