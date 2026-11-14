@@ -1,13 +1,13 @@
 ---
-name: assetforge
+name: assetgrove
 description: Use when you need to generate candidate game assets within a cost cap and stage them, with QA and provenance, for a human to pick.
 ---
 
-# Assetforge
+# Assetgrove
 
-Assetforge generates game assets through generation models and stages the ones that pass QA, with provenance, for a human to review.
+Assetgrove generates game assets through generation models and stages the ones that pass QA, with provenance, for a human to review.
 
-Run it as `npx @clockgrove/assetforge@<version> <command>`, or as `assetforge` (`pnpm exec assetforge`) when the game pins it as a dev dependency.
+Run it as `npx @clockgrove/assetgrove@<version> <command>`, or as `assetgrove` (`pnpm exec assetgrove`) when the game pins it as a dev dependency.
 
 ## Contract
 
@@ -31,18 +31,18 @@ an unattended campaign uses `--auto-approve` to authorize generation spend.
 This approval never approves an asset. Apply refuses stale bible, template,
 identity and reference inputs. `mcp` exposes the same flow over stdio.
 
-See [generation knobs](https://github.com/clockgrove/assetforge/blob/main/docs/generation-knobs.md) in the source repository
+See [generation knobs](https://github.com/clockgrove/assetgrove/blob/main/docs/generation-knobs.md) in the source repository
 for the brief, run settings and versioned target template formats.
 
 ## Commands
 
-- `stage --spec <spec.json> --bible <bible.json> --profile <profile.json> [--candidates 4] [--cap 5] [--routes <routes.json>] [--runs .assetforge/runs] [--provider-script <module.js>] [--dry-run] [--json]`
+- `stage --spec <spec.json> --bible <bible.json> --profile <profile.json> [--candidates 4] [--cap 5] [--routes <routes.json>] [--runs .assetgrove/runs] [--provider-script <module.js>] [--dry-run] [--json]`
   Generates candidates within the USD cost cap and stages only those passing QA, with reasons and provenance, in a run directory. `--dry-run` reports the planned calls and cost forecast and spends nothing (needs no key).
 - `pick --run <dir> --candidate <id> --target <dir> [--json]`
   Writes the chosen candidate and manifest into the target with review pending.
-- `rig --model <model.glb> --provenance <provenance.json> --spec <spec.json> --profile <profile.json> [--runs .assetforge/runs] [--json]`
+- `rig --model <model.glb> --provenance <provenance.json> --spec <spec.json> --profile <profile.json> [--runs .assetgrove/runs] [--json]`
   Re-rigs an existing 3D character on the target's shared rig with generated gaits, checks every clip, and stages it as a one-candidate run for a human to pick. Calls no model and spends nothing.
-- `look-dev --model <model.glb> --provenance <provenance.json> --spec <spec.json> --bible <bible.json> --profile <profile.json> [--cap 3] [--routes <routes.json>] [--runs .assetforge/runs] [--work-item <label>] [--dry-run] [--json]`
+- `look-dev --model <model.glb> --provenance <provenance.json> --spec <spec.json> --bible <bible.json> --profile <profile.json> [--cap 3] [--routes <routes.json>] [--runs .assetgrove/runs] [--work-item <label>] [--dry-run] [--json]`
   Repaints a picked 3D character's base colour in the bible's character look on its own UVs, writes fur groom maps (and tints) per season the profile declares, gives the eyes a glossy material and mask, checks them, and stages a one-candidate run with before-and-after renders for a human to pick. Never approves.
 - `import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name> [--bible <bible.json>] [--hints idle,walk-right] [--frames <count>] [--grid <columns>] [--components] [--no-propose] [--cap 5] [--provider-script <module.js>] [--json]`
   Slices a contact sheet into frames and has a vision model propose animation families in `<import>/grouping.json` with status `proposed` (`--no-propose` calls no model). With `--frames`, a sheet that does not slice into exactly that many figures is refused (exit 2), naming the cells behind it.
@@ -51,7 +51,7 @@ for the brief, run settings and versioned target template formats.
 - `write-families --import <dir> --target <dir> [--grouping <file>] [--json]`
   Writes the strips of a grouping a human set to `confirmed` into the target with review pending.
 - `op <operation> <input...> --out <path> [--params <json>] [--profile <profile.json>] [--json]`
-  Runs one image operation (`assetforge ops` lists them with their parameter schemas) on any image and writes the output and a provenance record. Local, with no model call and no spend.
+  Runs one image operation (`assetgrove ops` lists them with their parameter schemas) on any image and writes the output and a provenance record. Local, with no model call and no spend.
 - `recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--json]`
   Runs a recipe of operations deterministically. Same input, recipe and engine versions, same bytes.
 - `ops [--json]`
@@ -74,12 +74,12 @@ for the brief, run settings and versioned target template formats.
 ## Environment and network
 
 - Reads `AI_GATEWAY_API_KEY` (Vercel AI Gateway key), from the environment only. Not needed for `--dry-run` or `--provider-script`.
-- Records every paid call in a spend ledger shared across runs (`ASSETFORGE_SPEND_LEDGER`, default `~/.local/state/assetforge/spend.jsonl`) and refuses a call (exit 3) that would cross the daily limit (`ASSETFORGE_DAILY_LIMIT_USD`, default $10) or the work item's limit (`ASSETFORGE_WORK_ITEM_LIMIT_USD`, default $5). Name your work item with `ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective; in a Factory worker it defaults to the Objective from `FACTORY_ISSUE`. `--dry-run` shows the spend left under each. Scripted runs (`--provider-script`) are not counted or refused by these limits; their `--cap` still applies. Never raise a limit yourself; ask the human.
+- Records every paid call in a spend ledger shared across runs (`ASSETGROVE_SPEND_LEDGER`, default `~/.local/state/assetgrove/spend.jsonl`) and refuses a call (exit 3) that would cross the daily limit (`ASSETGROVE_DAILY_LIMIT_USD`, default $10) or the work item's limit (`ASSETGROVE_WORK_ITEM_LIMIT_USD`, default $5). Name your work item with `ASSETGROVE_WORK_ITEM` or `--work-item`, for example the Objective; in a Factory worker it defaults to the Objective from `FACTORY_ISSUE`. `--dry-run` shows the spend left under each. Scripted runs (`--provider-script`) are not counted or refused by these limits; their `--cap` still applies. Never raise a limit yourself; ask the human.
 - Reaches only `ai-gateway.vercel.sh` (HTTPS), and only for `plan`, `apply`, `stage`, `generate-sheet` and `import` (without `--no-propose`), or their MCP equivalents, never with `--dry-run` or `--provider-script`. `pick` and `write-families` run the target profile's own validator command locally. A sandbox can allow just that host.
 
 ## The rule (PRD section 5.7)
 
-**Agents may plan, apply authorized generation plans, stage candidates, generate and import sheets (and dry-run first to check cost). Agents never run `pick`, never confirm a grouping or run `write-families`, and never approve. A human picks, and Assetforge never marks anything approved.** Report the staged run or import directory and the candidate IDs to the human instead.
+**Agents may plan, apply authorized generation plans, stage candidates, generate and import sheets (and dry-run first to check cost). Agents never run `pick`, never confirm a grouping or run `write-families`, and never approve. A human picks, and Assetgrove never marks anything approved.** Report the staged run or import directory and the candidate IDs to the human instead.
 
 ## Suggested flow
 

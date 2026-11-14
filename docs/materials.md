@@ -1,10 +1,10 @@
 # Relightable materials
 
-`assetforge materials` derives materials from a painted albedo, stages native-resolution renditions, runs the target's renderer, and sends flat and lit images to vision QA. It never approves an asset. The optional `style.materials` profile section chooses channels. When `materials` runs without that section, it defaults to all five standard channels and 1×/2× renditions; ordinary generation commands do not start materials implicitly.
+`assetgrove materials` derives materials from a painted albedo, stages native-resolution renditions, runs the target's renderer, and sends flat and lit images to vision QA. It never approves an asset. The optional `style.materials` profile section chooses channels. When `materials` runs without that section, it defaults to all five standard channels and 1×/2× renditions; ordinary generation commands do not start materials implicitly.
 
 ```sh
-assetforge materials --albedo painted.png --spec asset.json --profile target.json \
-  --derivation derivation.json --out .assetforge/materials/asset --cap 2 --json
+assetgrove materials --albedo painted.png --spec asset.json --profile target.json \
+  --derivation derivation.json --out .assetgrove/materials/asset --cap 2 --json
 ```
 
 Albedo generation requests use a neutral key light without baked directional shadows, highlights or emissive glow. The materials command consumes that albedo; it does not remove existing baked lighting. Derivation and lit QA records preserve provider calls and costs. Model keys come from the environment; `--provider-script` provides offline scripted calls for tests, and `--routes` selects model routes. Real models are opt-in.
@@ -48,7 +48,7 @@ Channels may declare an encoding, for example `"encoding": { "height": { "encodi
 
 The target implements its own compression and preview tools. Commands are argv arrays, run without a shell with a finite timeout; the executable must be installed. Relative command resources resolve from the profile's directory. Compression receives one PNG and must write GPU-compressed [KTX2/Basis](https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html), not a renamed PNG. Container checks cover dimensions, compressed format and indexed payload bounds; the target encoder remains responsible for codec correctness. `compression.format` is `ktx2` (default) or `basis`; both request Basis/GPU data in a KTX2 container. Omit `compression` only for a world that does not request GPU compression. The preview command receives the material report path and must write a PNG render for each `{{scene}}`: `dusk-rain` and `night`. It uses the world's own renderer and light rig. The QA input includes flat albedo and both renders, and the report provides paths for side-by-side author review.
 
-Scales include 1× and 2×; add 4× when the world needs it. The painted albedo and every supplied map must contain sufficient native pixels for the highest requested scale on the complete horizontal frame grid. For example, two 32×32 frames requested at 2× need a native 128×64 strip. Assetforge downsamples each frame separately; it refuses unsupported scales instead of silently enlarging a source. No implicit upscaler is used, and provenance records that fact.
+Scales include 1× and 2×; add 4× when the world needs it. The painted albedo and every supplied map must contain sufficient native pixels for the highest requested scale on the complete horizontal frame grid. For example, two 32×32 frames requested at 2× need a native 128×64 strip. Assetgrove downsamples each frame separately; it refuses unsupported scales instead of silently enlarging a source. No implicit upscaler is used, and provenance records that fact.
 
 ## Per-asset derivation
 
@@ -108,8 +108,8 @@ Material outputs carry the [Digital Source Type disclosure](transform.md#digital
 
 ## Planning and CLI contract
 
-`assetforge materials ... --dry-run --json` validates the material profile and forecasts the required model-assisted derivations plus one lit vision QA call, including a height dependency for height-derived normals. It writes no files, calls no model or target command, and needs no provider key. The JSON `plan` records channels, scales, each model call, estimated USD, cap and whether the forecast fits. Target command costs are not model charges and are not included. A forecast over `--cap` exits 3.
+`assetgrove materials ... --dry-run --json` validates the material profile and forecasts the required model-assisted derivations plus one lit vision QA call, including a height dependency for height-derived normals. It writes no files, calls no model or target command, and needs no provider key. The JSON `plan` records channels, scales, each model call, estimated USD, cap and whether the forecast fits. Target command costs are not model charges and are not included. A forecast over `--cap` exits 3.
 
 The command never prompts. `--json` emits one JSON document. Exit codes follow the common CLI contract: 0 success, 1 internal failure, 2 invalid input, 3 cost cap refusal, 4 provider failure, 5 rejected QA, and 6 target validator rejection where applicable.
 
-Material derivations, native renditions and encoding are registered transformation operations with parameter schemas and individual provenance steps. `materials` runs those operations as recipes; `assetforge ops --json` exposes their schemas for reusable recipes. Target compression and preview commands execute argv arrays without a shell, under finite timeouts; provenance records their arguments, output and exit status. Synthetic analytic shapes and a declared synthetic light rig prove geometry and lit response. The production target renderer, GPU codec and real model judgement remain opt-in integration checks.
+Material derivations, native renditions and encoding are registered transformation operations with parameter schemas and individual provenance steps. `materials` runs those operations as recipes; `assetgrove ops --json` exposes their schemas for reusable recipes. Target compression and preview commands execute argv arrays without a shell, under finite timeouts; provenance records their arguments, output and exit status. Synthetic analytic shapes and a declared synthetic light rig prove geometry and lit response. The production target renderer, GPU codec and real model judgement remain opt-in integration checks.

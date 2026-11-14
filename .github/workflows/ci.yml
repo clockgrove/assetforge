@@ -16,7 +16,7 @@ concurrency:
 permissions:
   contents: read
 
-# Until the first code (assetforge#1) adds package.json, the steps after checkout are skipped so the
+# Until the first code (assetgrove#1) adds package.json, the steps after checkout are skipped so the
 # base branch is not red; once package.json exists they always run.
 jobs:
   ci:

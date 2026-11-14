@@ -1,4 +1,4 @@
-# Assetforge implementation plan
+# Assetgrove implementation plan
 
 This plan breaks [the PRD](PRD.md) into waves. Each wave has:
 - an outcome;
@@ -14,11 +14,11 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Outcome:** one character end to end in real-time 3D. Stevie's approved turnaround and the style bible go in. Candidate models come out of the gateway and are QA-filtered on turntable renders against his identity lock. A person picks one, and the pick, rigged and with a walk clip, is written to the target as glTF with its provenance. PRD §5.8 (3D), brought forward.
 
 **Objectives:**
-- Assetforge: image-to-3D characters (assetforge#72, merged). Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetforge#47).
+- Assetgrove: image-to-3D characters (assetgrove#72, merged). Generation from the approved turnaround, a rig, library clips, turntable renders for QA and the pick, polygon and texture budgets from the target profile, and the provider's output grant in provenance (assetgrove#47).
 - clockgrove/raccoon-world: a target profile that declares 3D characters, and Stevie's spec.
 - clockgrove/clockgrove: the live renderer shows a world's rigged characters through its world-content extension point (clockgrove/clockgrove#112).
 
-**Exit:** a rigged Stevie `.glb` with a walk clip, made by Assetforge:
+**Exit:** a rigged Stevie `.glb` with a walk clip, made by Assetgrove:
 - the target validator accepts it on the first try;
 - it costs at most $5 for 4 candidates;
 - it has complete provenance, including the provider's output grant;
@@ -30,9 +30,9 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 **Outcome:** animation that holds together on one rig, and Raccoon World's cast. PRD §5.2 and the identity lock from §5.3, in 3D.
 
 **Objectives:**
-- A shared raccoon rig and generated gait (assetforge#84): one skeleton template fitted to every raccoon, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom (Kirk, 2026-11-10): generated from the target's declared motions (assetforge#135; docs/characters-3d.md, "Motions besides walking").
+- A shared raccoon rig and generated gait (assetgrove#84): one skeleton template fitted to every raccoon, with locomotion generated from a gait profile tuned to real footage, and foot-contact, joint-limit and skinning QA. Then clips for idle, sniff, eat, play and shelter on the same rig, generated or custom (Kirk, 2026-11-10): generated from the target's declared motions (assetgrove#135; docs/characters-3d.md, "Motions besides walking").
 - The identity lock on turntables: v1's references and threshold, scored on rendered views.
-- Character look-dev (assetforge#82): an albedo in the target's character look (for Raccoon World, Stevie's approved turnaround: naturalistic illustrated fur, not photographic and not heavily painterly; Kirk, 2026-11-11), fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
+- Character look-dev (assetgrove#82): an albedo in the target's character look (for Raccoon World, Stevie's approved turnaround: naturalistic illustrated fur, not photographic and not heavily painterly; Kirk, 2026-11-11), fur groom maps for the target's fur material, and eyes that catch light. Desktop quality first; phones may run a lighter tier (Kirk, 2026-11-10).
 - Gracie, Juniper, a kit and Jimothy as rigged models from their approved references. Gracie joined on 2026-11-10 (Kirk); her signature is the lighter, greyer, longer fur on her lower body (clockgrove/raccoon-world `references/gracie/`).
 - Raccoon World: the cast approved and committed to clockgrove/raccoon-world.
 
@@ -41,7 +41,7 @@ Raccoon World's characters are real-time 3D (Kirk, 2026-11-10; see [decisions.md
 - At least 70% of requests end in a pick.
 - Cost per approved asset and author minutes per approved asset recorded.
 
-The 2D path shipped first and stays: sheet generation and import (assetforge#10), the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them. Raccoon World's first 2D shelter run is recorded in clockgrove/raccoon-world PR #21.
+The 2D path shipped first and stays: sheet generation and import (assetgrove#10), the media transformation core (PRD §5.11), loop and continuity QA, and identity lock v1. It serves props, terrain, effects and UI, and targets that use sprites; wave 4 covers them. Raccoon World's first 2D shelter run is recorded in clockgrove/raccoon-world PR #21.
 
 ## Wave 2: consistency and context
 
@@ -112,19 +112,19 @@ The 2D path shipped first and stays: sheet generation and import (assetforge#10)
 
 ## Wave 7: 1.0, a second adopter
 
-**Outcome:** proof that Assetforge is generic. PRD principle 1 and §3.
+**Outcome:** proof that Assetgrove is generic. PRD principle 1 and §3.
 
 **Objectives:**
 - A second target with no code change and a different style profile (flat cartoon or pixel art). Clockgrove's fixture world (`worlds/fixture`) is the first candidate.
 - Documentation for adopters: writing a target profile and a style bible, and running campaigns.
 
 **Exit:**
-- The second target's first set approved with no Assetforge code changes.
+- The second target's first set approved with no Assetgrove code changes.
 - Five campaigns in a row with no failed hand-off.
 
 ## Cadence and rules
 
-- Exact tags and releases. Clockgrove pins Assetforge only for development tooling; the game never depends on it at runtime.
+- Exact tags and releases. Clockgrove pins Assetgrove only for development tooling; the game never depends on it at runtime.
 - Each Objective's tests run offline with the scripted provider. Real-provider checks are opt-in, and they are how a wave's exit is measured.
 - Spend: a per-run cap, a per-campaign budget and Factory's daily cap for the repository. Raising any of them is the owner's call.
 - Measures (PRD §8) are recorded per campaign in the repository. The exits read them.

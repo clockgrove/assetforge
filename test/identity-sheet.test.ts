@@ -66,7 +66,7 @@ async function run(
   score: number,
   spec?: { animationFamily: string; fields: Record<string, unknown> },
 ) {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-identity-sheet-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-identity-sheet-"));
   const targetDir = join(root, "target");
   await mkdir(targetDir);
   const { provider, caller } = setup(score);

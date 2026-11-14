@@ -516,7 +516,7 @@ export function syntheticQuadruped(options: QuadrupedOptions = {}): Uint8Array {
   const json: GltfDocument = {
     asset: {
       version: "2.0",
-      generator: "assetforge-test-fixture",
+      generator: "assetgrove-test-fixture",
       ...(options.assetExtras && { extras: options.assetExtras }),
     },
     scene: 0,

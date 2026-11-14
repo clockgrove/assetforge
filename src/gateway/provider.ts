@@ -1,5 +1,5 @@
 /**
- * The generation provider interface Assetforge owns. The gateway adapter implements it; the
+ * The generation provider interface Assetgrove owns. The gateway adapter implements it; the
  * scripted provider implements it for tests. No provider SDK type appears here.
  */
 

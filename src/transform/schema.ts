@@ -1,6 +1,6 @@
 /**
  * A small JSON-Schema subset for operation parameters: enough to validate recipes, list the
- * schemas for agents (`assetforge ops`) and fill defaults, with no dependency. Objects reject
+ * schemas for agents (`assetgrove ops`) and fill defaults, with no dependency. Objects reject
  * unknown keys.
  */
 import { InputError } from "../errors.ts";

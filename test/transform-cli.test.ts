@@ -27,7 +27,7 @@ async function cli(...args: string[]): Promise<Run> {
   }
 }
 
-const workdir = () => mkdtemp(join(tmpdir(), "assetforge-transform-cli-"));
+const workdir = () => mkdtemp(join(tmpdir(), "assetgrove-transform-cli-"));
 
 /** A dark filled ellipse on an opaque pale background. */
 function ellipsePng(): Uint8Array {
@@ -66,7 +66,7 @@ test("op matte makes the background transparent and records one raster-engine st
   };
   assert.equal(prov.steps.length, 2);
   assert.equal(prov.steps[1]?.op, "embed-digital-source-type");
-  assert.equal(prov.steps[0]?.engine.name, "assetforge-raster");
+  assert.equal(prov.steps[0]?.engine.name, "assetgrove-raster");
 });
 
 test("recipe runs trim, pad, renditions and convert to webp, byte-identically twice", async () => {

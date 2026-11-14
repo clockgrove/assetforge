@@ -72,7 +72,7 @@ test("each operation appends one provenance step: op, parameters with defaults, 
   const { items, step } = runOperation([src], { op: "pad", params: { left: 2 } });
   assert.equal(items.length, 1);
   assert.deepEqual(step.params, { top: 0, right: 0, bottom: 0, left: 2 });
-  assert.deepEqual(step.engine, { name: "assetforge-raster", version: rasterEngine.version });
+  assert.deepEqual(step.engine, { name: "assetgrove-raster", version: rasterEngine.version });
   assert.deepEqual(step.inputs, [pixelHash(src.raster)]);
   assert.deepEqual(step.outputs, [pixelHash((items[0] as ImageItem).raster)]);
   assert.equal((items[0] as ImageItem).raster.width, 12);
@@ -285,7 +285,7 @@ test("another engine plugs in behind the adapter without touching the recipe", (
   const swapped = runRecipe(recipe, src, { engines: [other, rasterEngine] });
   assert.deepEqual(
     swapped.steps.map((s) => s.engine.name),
-    ["test-engine", "assetforge-raster"],
+    ["test-engine", "assetgrove-raster"],
   );
   assert.equal(swapped.steps[0]?.engine.version, "9.9.9");
   assert.deepEqual(swapped.steps.at(-1)?.outputs, inHouse.steps.at(-1)?.outputs);
@@ -307,14 +307,14 @@ async function listFiles(dir: string): Promise<Map<string, Buffer>> {
 }
 
 test("the full chain on a sheet is deterministic: same input, recipe and engines give the same bytes", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-transform-"));
   const sheetPath = join(root, "walk.png");
   await writeFile(
     sheetPath,
     syntheticSheet({ families: [{ name: "walk", count: 4, facing: 1, walk: true }] }).png,
   );
   const recipe = parseRecipe({
-    format: "assetforge-recipe/1",
+    format: "assetgrove-recipe/1",
     name: "sheet-to-renditions",
     steps: [
       { op: "slice" },
@@ -352,7 +352,7 @@ test("the full chain on a sheet is deterministic: same input, recipe and engines
   for (const s of a.record.steps) {
     assert.equal(
       s.engine.name,
-      s.op === "embed-digital-source-type" ? "assetforge-xmp" : "assetforge-raster",
+      s.op === "embed-digital-source-type" ? "assetgrove-xmp" : "assetgrove-raster",
     );
     assert.ok(s.inputs.length > 0 && s.outputs.length > 0);
   }
@@ -378,7 +378,7 @@ test("the full chain on a sheet is deterministic: same input, recipe and engines
 });
 
 test("a single output goes to the named file with its provenance beside it; sources are never overwritten", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-transform-"));
   const input = join(root, "in.png");
   await writeFile(input, encodePng(blockImage(8, 8, 2, 2, 3, 3)));
   const recipe = parseRecipe({ steps: [{ op: "trim" }] });
@@ -399,7 +399,7 @@ test("a single output goes to the named file with its provenance beside it; sour
 });
 
 test("a single output's file extension always matches the bytes written", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-transform-"));
   const input = join(root, "in.png");
   await writeFile(input, encodePng(blockImage(8, 8, 2, 2, 3, 3)));
   await assert.rejects(
@@ -429,7 +429,7 @@ test("a single output's file extension always matches the bytes written", async 
 test("the sheet import records its transformation steps, and each strip's provenance carries them", async () => {
   const { importSheet, writeFamilies } = await import("../src/sheet/import.ts");
   const { syntheticProfile } = await import("./fixtures/synthetic.ts");
-  const root = await mkdtemp(join(tmpdir(), "assetforge-transform-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-transform-"));
   const sheet = syntheticSheet();
   const { record, importDir } = await importSheet({
     digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",

@@ -1,5 +1,5 @@
 /**
- * The 3D hand-off passes Clockgrove's real model validator (assetforge#137). The validator is
+ * The 3D hand-off passes Clockgrove's real model validator (assetgrove#137). The validator is
  * vendored, unchanged but for import paths, in test/fixtures/clockgrove (see its README.md for the
  * source commit). The target profile declares Clockgrove's shape: the clip fields its contract
  * takes, and side images embedded in the `.glb`.
@@ -79,7 +79,7 @@ const CLOCKGROVE_TARGET = {
       kind: "generated",
       path: "{{output.path}}",
       creator: "{{profile.creator}}",
-      tool: "assetforge",
+      tool: "assetgrove",
     },
     license: "{{profile.license}}",
     provenance: {
@@ -113,7 +113,7 @@ const CLOCKGROVE_TARGET = {
 
 /** A target whose manifest template is Clockgrove's model manifest (packages/contracts). */
 async function world() {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-clockgrove-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-clockgrove-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
   for (const [i, role] of roles.entries()) {
@@ -311,7 +311,7 @@ test("a malformed hand-off declaration is refused", () => {
 
 test("pick measures the bounds on the handed-off .glb, so rounding cannot push them past Clockgrove's 1 µm", async () => {
   // A box whose top sits one float32 step under 2.5 m, skinned to a joint 0.9 µm above its bind
-  // pose. Assetforge measures the skinned rest pose; Clockgrove measures the mesh through its node.
+  // pose. Assetgrove measures the skinned rest pose; Clockgrove measures the mesh through its node.
   // The two differ by 0.9 µm, inside Clockgrove's 1 µm. Rounded to the micrometre, as staging
   // writes them, the top's 2.50000066 m becomes 2.500001 m: 1.24 µm off Clockgrove's measure.
   const top = Math.fround(2.5 - 2 ** -22);
@@ -324,7 +324,7 @@ test("pick measures the bounds on the handed-off .glb, so rounding cannot push t
   assert.ok(Math.abs(staged.max[1]! - top) > 1e-6, `${staged.max[1]} vs ${top}`);
   assert.ok(Math.abs(measures.bounds!.max[1] - top) < 1e-6, `${measures.bounds!.max[1]}`);
 
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-clockgrove-bounds-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-clockgrove-bounds-"));
   const runDir = join(dir, "run");
   await mkdir(runDir);
   await writeFile(join(runDir, "box.glb"), bytes);

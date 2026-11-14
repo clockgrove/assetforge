@@ -173,7 +173,7 @@ export function provenanceProblems(value: unknown): string[] {
 }
 
 /**
- * The record a fix extends, from a provenance file Assetforge wrote. A strip's own provenance is
+ * The record a fix extends, from a provenance file Assetgrove wrote. A strip's own provenance is
  * kept as it is. A transform record (`recipe`, `op`) that lists this strip among its outputs
  * becomes a provenance carrying the record's sources, steps and output. Anything else is refused
  * with an InputError, so it is caught before any call is made.

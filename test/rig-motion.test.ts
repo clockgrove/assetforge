@@ -343,7 +343,7 @@ test("parseMotion refuses what it cannot generate, naming what is wrong", () => 
 });
 
 test("loadRig refuses motion declarations that conflict, before any spend", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-motion-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-motion-"));
   await writeFile(join(dir, "biped.json"), JSON.stringify(bipedTemplate()));
   const rig = { template: "biped.json", kind: "synthetic-biped" };
   const load = (extra: Record<string, unknown>) => loadRig(profileOf({ rig, ...extra }), dir);
@@ -436,7 +436,7 @@ test("QA filters a motion that does not end on its idle, slides a planted foot, 
 
 /** A target with a rig, a walk and motions, a model to re-rig, and the spec and profile files. */
 async function world() {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-motion-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-motion-cli-"));
   await mkdir(join(dir, "rig"));
   await writeFile(join(dir, "rig", "quadruped.json"), JSON.stringify(quadrupedTemplate()));
   const spec = join(dir, "spec.json");
@@ -521,7 +521,7 @@ function cli(args: string[]): Promise<{ code: number; stdout: string; stderr: st
   });
 }
 
-test("assetforge rig stages a re-rigged model with its motions, hashes and previews", async () => {
+test("assetgrove rig stages a re-rigged model with its motions, hashes and previews", async () => {
   const w = await world();
   const r = await cli([
     "rig",
@@ -585,7 +585,7 @@ test("assetforge rig stages a re-rigged model with its motions, hashes and previ
   assert.ok(isWebp(preview));
 });
 
-test("assetforge rig resolves a look-dev'd model's external maps beside it and keeps its asset extras", async () => {
+test("assetgrove rig resolves a look-dev'd model's external maps beside it and keeps its asset extras", async () => {
   const w = await world();
   // As look-dev leaves a model: an external groom map beside the .glb, and its record in extras.
   const glb = parseGlb(syntheticQuadruped());

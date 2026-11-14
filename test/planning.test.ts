@@ -50,9 +50,9 @@ function scripted(options: { score?: number; compiler?: string; failCompiler?: b
 async function fixture(preset = "cozy-storybook") {
   const root = await mkdtemp(join(tmpdir(), "planning-"));
   temporaryRoots.push(root);
-  const dir = join(root, ".assetforge/art-direction");
+  const dir = join(root, ".assetgrove/art-direction");
   await mkdir(dir, { recursive: true });
-  await mkdir(join(root, ".assetforge/prompts"), { recursive: true });
+  await mkdir(join(root, ".assetgrove/prompts"), { recursive: true });
   const biblePath = join(dir, "BIBLE.md");
   const data = structuredClone(BIBLE_PRESETS[preset]!);
   data.world = "Woodland";
@@ -63,7 +63,7 @@ async function fixture(preset = "cozy-storybook") {
       "# Rationale\n\n## Do's and Don'ts\nDo preserve readable silhouettes. Don't add text.\n\n## Unknown section\nkept intact\n",
     ),
   );
-  const templatePath = join(root, ".assetforge/prompts/default.md");
+  const templatePath = join(root, ".assetgrove/prompts/default.md");
   await writeFile(
     templatePath,
     "# Prompt template v1\nCreate original art.\n{{constitution}}\n{{spec}}\n{{brief}}\n{{settings}}\n{{family}}\n",

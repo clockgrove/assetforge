@@ -186,7 +186,7 @@ const workItemOption = { "work-item": { type: "string" } } as const;
 
 /**
  * The cross-run spend ledger of this invocation (src/spend.ts): its path and limits from the
- * environment, the work item from --work-item or ASSETFORGE_WORK_ITEM.
+ * environment, the work item from --work-item or ASSETGROVE_WORK_ITEM.
  */
 function spendLedger(values: Values): SpendLedger {
   const workItem = values["work-item"] as string | undefined;
@@ -346,7 +346,7 @@ function formatRun(run: RunRecord, runDir: string): string {
   if (run.candidates.length > 0) {
     lines.push(
       "",
-      `pick one with: assetforge pick --run ${runDir} --candidate <id> --target <dir>`,
+      `pick one with: assetgrove pick --run ${runDir} --candidate <id> --target <dir>`,
     );
   }
   return lines.join("\n");
@@ -355,9 +355,9 @@ function formatRun(run: RunRecord, runDir: string): string {
 const stageCommand: Command = {
   name: "stage",
   summary: "generate candidates within a cost cap and stage those that pass QA",
-  usage: `Usage: assetforge stage --spec <spec.json> --bible <bible.json> --profile <profile.json>
+  usage: `Usage: assetgrove stage --spec <spec.json> --bible <bible.json> --profile <profile.json>
                        [--candidates ${DEFAULT_CANDIDATES}] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
-                       [--runs .assetforge/runs] [--work-item <label>] [--provider-script <module>]
+                       [--runs .assetgrove/runs] [--work-item <label>] [--provider-script <module>]
                        [--dry-run] [--json]
 
 Generates candidates through the Vercel AI Gateway (AI_GATEWAY_API_KEY from the environment)
@@ -426,7 +426,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
         ? { provider: scripted.provider, providerName: scripted.name }
         : stageProvider(spec.value)),
       generators: stageGenerators,
-      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
+      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetgrove/runs"),
       candidates,
       capUsd,
       ledger,
@@ -451,7 +451,7 @@ of its staged candidates, and name that file as keyPose in the strip spec.`,
 const pickCommand: Command = {
   name: "pick",
   summary: "write a chosen candidate and its manifest into the target, review pending",
-  usage: `Usage: assetforge pick --run <run directory> --candidate <id> --target <target directory> [--json]
+  usage: `Usage: assetgrove pick --run <run directory> --candidate <id> --target <target directory> [--json]
 
 Writes the chosen candidate and its manifest into the target with review pending, then runs
 the target profile's validator when it declares one. A human runs pick; agents never do.`,
@@ -561,7 +561,7 @@ function formatImport(record: ImportRecord, importDir: string, grouping: Groupin
   lines.push(
     "",
     'review it, edit it, set "status": "confirmed", then run:',
-    `  assetforge write-families --import ${importDir} --target <dir>`,
+    `  assetgrove write-families --import ${importDir} --target <dir>`,
   );
   return lines.join("\n");
 }
@@ -595,11 +595,11 @@ function declarationOption(values: Values): DigitalSourceType | undefined {
 const importCommand: Command = {
   name: "import",
   summary: "slice a contact sheet into frames and propose animation families",
-  usage: `Usage: assetforge import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>
+  usage: `Usage: assetgrove import --sheet <sheet.png> --profile <profile.json> --asset <id> --tool <name>
                         [--bible <bible.json>] [--subject <name>] [--hints idle,walk-right,...]
                         [--frames <count>] [--grid <columns>] [--components] [--no-propose]
                         [--cap ${DEFAULT_CAP_USD}] [--work-item <label>]
-                        [--routes <routes.json>] [--imports .assetforge/imports]
+                        [--routes <routes.json>] [--imports .assetgrove/imports]
                         [--digital-source-type <IPTC code or URI>] [--provider-script <module>]
                         [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>] [--json]
 
@@ -698,7 +698,7 @@ below the threshold, off skips scoring.`,
       ...(subjectOption !== undefined && { subject: subjectOption }),
       profile: profile.value,
       ...(bible && { bible: { version: bible.value.version, palette: bible.value.palette } }),
-      importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
+      importsDir: resolve((values["imports"] as string | undefined) ?? ".assetgrove/imports"),
       slice,
       ...(propose !== undefined && { propose }),
       ...(lock && {
@@ -722,8 +722,8 @@ below the threshold, off skips scoring.`,
 const generateSheetCommand: Command = {
   name: "generate-sheet",
   summary: "have the model draw a whole cycle as one sheet within a cost cap, then import it",
-  usage: `Usage: assetforge generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>
-                                [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--imports .assetforge/imports]
+  usage: `Usage: assetgrove generate-sheet --spec <spec.json> --bible <bible.json> --profile <profile.json>
+                                [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--imports .assetgrove/imports]
                                 [--lock-bible <BIBLE.md>] [--identity-mode <off|shadow|enforce>]
                                 [--brief <brief.json>] [--work-item <label>] [--provider-script <module>]
                                 [--dry-run] [--json]
@@ -813,7 +813,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
         routes,
         provider,
         providerName: name,
-        importsDir: resolve((values["imports"] as string | undefined) ?? ".assetforge/imports"),
+        importsDir: resolve((values["imports"] as string | undefined) ?? ".assetgrove/imports"),
         capUsd,
         ledger,
         ...(lock && {
@@ -849,7 +849,7 @@ the author's brief (purpose, setting, what happens), checked as plan checks it.`
 const writeFamiliesCommand: Command = {
   name: "write-families",
   summary: "write the strips of a human-confirmed grouping into the target, review pending",
-  usage: `Usage: assetforge write-families --import <import directory> --target <target directory>
+  usage: `Usage: assetgrove write-families --import <import directory> --target <target directory>
                                 [--grouping <import>/grouping.json] [--jitter-bound ${DEFAULT_JITTER_BOUND_PX}] [--json]
 
 Writes one strip and manifest per family of a grouping whose status a human set to
@@ -974,9 +974,9 @@ async function specForQa(values: Values): Promise<{ subject?: string; gait?: str
 const animationQaCommand: Command = {
   name: "animation-qa",
   summary: "check strips against motion templates and for loop and continuity; write previews",
-  usage: `Usage: assetforge animation-qa (--strip <strip.png> --family <name> --profile <profile.json>
+  usage: `Usage: assetgrove animation-qa (--strip <strip.png> --family <name> --profile <profile.json>
                               | --import <import directory>)
-                              [--out .assetforge/animation] [--subject <name>] [--spec <spec.json>]
+                              [--out .assetgrove/animation] [--subject <name>] [--spec <spec.json>]
                               [--anchor x,y]
                               [--no-vision] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
                               [--work-item <label>] [--provider-script <module>] [--dry-run] [--json]
@@ -1056,7 +1056,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
       const ledger = targets.reduce((l, t) => l.forProfile(t.profile), spendLedger(values));
       return dryRunOutcome(plan, human, ledger, providerName);
     }
-    const outDir = resolve((values["out"] as string | undefined) ?? ".assetforge/animation");
+    const outDir = resolve((values["out"] as string | undefined) ?? ".assetgrove/animation");
     const { results, spentUsd } = await runAnimationQa({
       targets,
       outDir,
@@ -1099,7 +1099,7 @@ Exits 5 when any check fails; every failed check names its frame.`,
 const fixFrameCommand: Command = {
   name: "fix-frame",
   summary: "regenerate one bad frame of a strip by a reference-guided edit within a cost cap",
-  usage: `Usage: assetforge fix-frame --strip <strip.png> --family <name> --profile <profile.json>
+  usage: `Usage: assetgrove fix-frame --strip <strip.png> --family <name> --profile <profile.json>
                            --frame <n> (--from <n> | --key-pose <image>) --out <directory>
                            [--subject <name>] [--spec <spec.json>] [--note <text>]
                            [--provenance <strip>.provenance.json]
@@ -1218,12 +1218,12 @@ const opCommand: Command = {
   name: "op",
   summary: "run one media operation over images (matte, trim, scale, convert, ...)",
   positionals: true,
-  usage: `Usage: assetforge op <operation> <input...> --out <path> [--params <json object>]
+  usage: `Usage: assetgrove op <operation> <input...> --out <path> [--params <json object>]
                      [--profile <profile.json>] [--digital-source-type <IPTC code or URI>] [--json]
 
-Runs one operation (see \`assetforge ops\`) over the input images and writes the outputs and a
+Runs one operation (see \`assetgrove ops\`) over the input images and writes the outputs and a
 provenance record. --out is a file for a single output, otherwise a directory.
---profile supplies the style and frame size. Example: assetforge op matte in.png --out out.png`,
+--profile supplies the style and frame size. Example: assetgrove op matte in.png --out out.png`,
   options: {
     "digital-source-type": { type: "string" },
     out: { type: "string" },
@@ -1268,7 +1268,7 @@ const recipeCommand: Command = {
   name: "recipe",
   summary: "run a recipe file (a sequence of operations) over images",
   positionals: true,
-  usage: `Usage: assetforge recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--digital-source-type <IPTC code or URI>] [--json]
+  usage: `Usage: assetgrove recipe <recipe.json> <input...> --out <path> [--profile <profile.json>] [--digital-source-type <IPTC code or URI>] [--json]
 
 Runs the steps of a recipe file in order over the input images and writes the outputs and a
 provenance record. --out is a file for a single output, otherwise a directory.`,
@@ -1300,7 +1300,7 @@ provenance record. --out is a file for a single output, otherwise a directory.`,
 const opsCommand: Command = {
   name: "ops",
   summary: "list the media operations and the engines that implement them",
-  usage: `Usage: assetforge ops [--json]
+  usage: `Usage: assetgrove ops [--json]
 
 Lists every operation with its summary, parameters and engines.`,
   options: {
@@ -1319,7 +1319,7 @@ Lists every operation with its summary, parameters and engines.`,
 const materialsCommand: Command = {
   name: "materials",
   summary: "derive and check material maps, native renditions and target lit previews",
-  usage: `Usage: assetforge materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
+  usage: `Usage: assetgrove materials --albedo <painted.png> --spec <spec.json> --profile <profile.json>
                            --derivation <derivation.json> --out <directory>
                            [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>] [--work-item <label>]
                            [--digital-source-type <IPTC code or URI>] [--provider-script <module>] [--dry-run] [--json]
@@ -1427,9 +1427,9 @@ const bibleCommand: Command = {
   name: "bible",
   summary: "describe a world's art constitution or initialize a repository preset",
   positionals: true,
-  usage: `Usage: assetforge bible describe --bible <BIBLE.md> [--json]
-       assetforge bible init --directory <target repository> --world <name> --preset <preset> [--json]
-       assetforge bible preset --bible <BIBLE.md> --preset <preset> [--json]
+  usage: `Usage: assetgrove bible describe --bible <BIBLE.md> [--json]
+       assetgrove bible init --directory <target repository> --world <name> --preset <preset> [--json]
+       assetgrove bible preset --bible <BIBLE.md> --preset <preset> [--json]
 
 Presets: cozy-storybook, flat-cartoon-kids, dark-gritty-isometric.
 Initialization explicitly writes a bible, Agent Skill and repository-owned prompt template.`,
@@ -1452,7 +1452,7 @@ Initialization explicitly writes a bible, Agent Skill and repository-owned promp
 const planCommand: Command = {
   name: "plan",
   summary: "compile a reviewable generation plan; never generate images",
-  usage: `Usage: assetforge plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
+  usage: `Usage: assetgrove plan --spec <spec.json> --bible <BIBLE.md> --profile <profile.json>
                        --out <plan.json> [--brief <brief.json>] [--settings <settings.json>]
                        [--template <template.md>] [--routes <routes.json>]
                        [--identity-mode <off|shadow|enforce>] [--work-item <label>]
@@ -1494,7 +1494,7 @@ const applyCommand: Command = {
   name: "apply",
   summary: "generate exactly a saved plan after explicit spend approval",
   positionals: true,
-  usage: `Usage: assetforge apply <plan.json> [--auto-approve] [--out <runs directory>]
+  usage: `Usage: assetgrove apply <plan.json> [--auto-approve] [--out <runs directory>]
                         [--work-item <label>] [--provider-script <module>] [--json]
 
 Refuses stale bible, template and identity inputs before generation.
@@ -1530,7 +1530,7 @@ Approval authorizes this generation spend; resulting assets remain pending revie
 const mcpCommand: Command = {
   name: "mcp",
   summary: "serve bible, plan and apply tools over MCP stdio",
-  usage: `Usage: assetforge mcp [--work-item <label>] [--provider-script <module>]
+  usage: `Usage: assetgrove mcp [--work-item <label>] [--provider-script <module>]
 
 Serves MCP over stdio with the official MCP SDK. Model keys come from the environment.
 Tools: bible_describe, bible_init, bible_preset, plan, apply. File paths are local to this server.`,
@@ -1563,7 +1563,7 @@ function formatMedium(medium: string, m: MediumReport, threshold: number): strin
 const identityEvalCommand: Command = {
   name: "identity-eval",
   summary: "score a local labelled image set against identity locks and recommend a threshold",
-  usage: `Usage: assetforge identity-eval [--bible <BIBLE.md>] --cases <cases.json> [--profile <profile.json>]
+  usage: `Usage: assetgrove identity-eval [--bible <BIBLE.md>] --cases <cases.json> [--profile <profile.json>]
                               [--log <identity-eval.jsonl>] [--cap ${DEFAULT_CAP_USD}] [--routes <routes.json>]
                               [--work-item <label>] [--provider-script <module>] [--json]
 
@@ -1640,7 +1640,7 @@ hold a game's private art. See docs/generation-knobs.md.`,
 const identityCheckCommand: Command = {
   name: "identity-check",
   summary: "check that identity records agree with their own approved references",
-  usage: `Usage: assetforge identity-check --bible <BIBLE.md> [--subject <name>]... [--routes <routes.json>]
+  usage: `Usage: assetgrove identity-check --bible <BIBLE.md> [--subject <name>]... [--routes <routes.json>]
                               [--cap ${DEFAULT_CAP_USD}] [--work-item <label>] [--provider-script <module>] [--json]
 
 Asks the identity-check route whether each identity record's written signature features,
@@ -1700,8 +1700,8 @@ fixes its text or its references. See docs/generation-knobs.md.`,
 const rigCommand: Command = {
   name: "rig",
   summary: "re-rig a 3D character on the target's shared rig with generated gaits and motions",
-  usage: `Usage: assetforge rig --model <model.glb> --provenance <provenance.json> --spec <spec.json>
-                     --profile <profile.json> [--runs .assetforge/runs] [--json]
+  usage: `Usage: assetgrove rig --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+                     --profile <profile.json> [--runs .assetgrove/runs] [--json]
 
 Fits the target profile's skeleton template (model3d.rig) to an existing character model, such
 as a picked candidate, skins it, generates the clips its gait profiles (model3d.gaits) and
@@ -1737,7 +1737,7 @@ and nothing is spent (docs/characters-3d.md).`,
       specDir: spec.dir,
       profile: profile.value,
       profileDir: profile.dir,
-      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
+      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetgrove/runs"),
     });
     const fields = { runDir, ...run };
     const human = formatRun(run, runDir);
@@ -1749,10 +1749,10 @@ and nothing is spent (docs/characters-3d.md).`,
 const lodCommand: Command = {
   name: "lod",
   summary: "make a 3D model's detail levels and texture tiers within the target's budgets",
-  usage: `Usage: assetforge lod --run <run dir> --candidate <id> [--profile <profile.json>]
-                     [--runs .assetforge/runs] [--json]
-       assetforge lod --model <model.glb> --provenance <provenance.json> --spec <spec.json>
-                     --profile <profile.json> [--runs .assetforge/runs] [--json]
+  usage: `Usage: assetgrove lod --run <run dir> --candidate <id> [--profile <profile.json>]
+                     [--runs .assetgrove/runs] [--json]
+       assetgrove lod --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+                     --profile <profile.json> [--runs .assetgrove/runs] [--json]
 
 Makes the detail-level chain the target profile declares (model3d.lods) from a staged candidate
 or a given .glb: each lower level simplifies the index lists only, so the skeleton, skin weights,
@@ -1775,7 +1775,7 @@ a one-candidate run that pick hands off. No model is called and nothing is spent
     help: { type: "boolean" },
   },
   async run(values) {
-    const runsDir = resolve((values["runs"] as string | undefined) ?? ".assetforge/runs");
+    const runsDir = resolve((values["runs"] as string | undefined) ?? ".assetgrove/runs");
     const profile =
       typeof values["profile"] === "string"
         ? await readJson<TargetProfile>(values["profile"])
@@ -1818,9 +1818,9 @@ a one-candidate run that pick hands off. No model is called and nothing is spent
 const lookDevCommand: Command = {
   name: "look-dev",
   summary: "give a picked 3D character its look: base colour, fur groom maps and eyes",
-  usage: `Usage: assetforge look-dev --model <model.glb> --provenance <provenance.json> --spec <spec.json>
+  usage: `Usage: assetgrove look-dev --model <model.glb> --provenance <provenance.json> --spec <spec.json>
                           --bible <bible.json> --profile <profile.json> [--cap <usd>] [--routes <routes.json>]
-                          [--runs .assetforge/runs] [--work-item <label>] [--provider-script <module>]
+                          [--runs .assetgrove/runs] [--work-item <label>] [--provider-script <module>]
                           [--dry-run] [--json]
 
 Repaints a picked character's base colour on its own UVs in the look the bible's approved
@@ -1889,7 +1889,7 @@ model3d.lookdev.capUsd or $3 and is reserved before any call (docs/look-dev.md).
         ? { provider: scripted.provider, providerName: scripted.name }
         : { provider: gatewayProvider(), providerName: "vercel-ai-gateway" }),
       ledger,
-      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetforge/runs"),
+      runsDir: resolve((values["runs"] as string | undefined) ?? ".assetgrove/runs"),
       ...(capUsd !== undefined && { capUsd }),
       log: (m) => console.error(m),
     });
@@ -1931,7 +1931,7 @@ const commands: Command[] = [
 function mainUsage(): string {
   const width = Math.max(...commands.map((c) => c.name.length));
   return [
-    "Usage: assetforge <command> [options]",
+    "Usage: assetgrove <command> [options]",
     "",
     "Commands:",
     ...commands.map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`),
@@ -1949,7 +1949,7 @@ function mainUsage(): string {
     "Exit codes: 0 success, 1 internal error, 2 invalid input, 3 cap refused,",
     "4 provider error, 5 QA found nothing, 6 validator rejected the write,",
     "7 licence refused (provider grant does not allow the target's licence).",
-    "Run `assetforge <command> --help` for a command's options.",
+    "Run `assetgrove <command> --help` for a command's options.",
   ].join("\n");
 }
 

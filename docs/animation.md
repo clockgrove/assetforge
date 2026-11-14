@@ -1,31 +1,31 @@
 # Animation that holds together
 
-PRD §5.2. A strip, whether imported from a sheet ([sheet-import.md](sheet-import.md)) or generated, is checked against its family's motion template and by loop and continuity QA. The person picking sees an onion-skin sheet and a looping preview. A single bad frame is repaired by a per-frame fix. Assetforge never approves a strip; it measures, reports and shows.
+PRD §5.2. A strip, whether imported from a sheet ([sheet-import.md](sheet-import.md)) or generated, is checked against its family's motion template and by loop and continuity QA. The person picking sees an onion-skin sheet and a looping preview. A single bad frame is repaired by a per-frame fix. Assetgrove never approves a strip; it measures, reports and shows.
 
 ## The commands
 
 ```sh
 # Written families: write-families already runs the pixel checks and writes the previews.
-pnpm assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
+pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
 
 # The full QA on one strip, identity flicker and holes included (vision calls within the cap).
-pnpm assetforge animation-qa --strip walk-right.png --profile profile.json --family walk-right \
-  --out .assetforge/animation [--subject jimothy] [--spec spec.json] [--no-vision] [--cap 1] [--dry-run] [--json]
+pnpm assetgrove animation-qa --strip walk-right.png --profile profile.json --family walk-right \
+  --out .assetgrove/animation [--subject jimothy] [--spec spec.json] [--no-vision] [--cap 1] [--dry-run] [--json]
 
 # Or on every family an import wrote.
-pnpm assetforge animation-qa --import .assetforge/imports/<import> --profile profile.json
+pnpm assetgrove animation-qa --import .assetgrove/imports/<import> --profile profile.json
 
 # Fix frame 5 from its approved neighbour 4 (or from the key pose).
-pnpm assetforge fix-frame --strip walk-right.png --profile profile.json --family walk-right \
-  --frame 5 --from 4 --out .assetforge/fixes/walk-right [--cap 2] [--dry-run] [--json]
-pnpm assetforge fix-frame ... --frame 5 --key-pose key-pose.png
+pnpm assetgrove fix-frame --strip walk-right.png --profile profile.json --family walk-right \
+  --frame 5 --from 4 --out .assetgrove/fixes/walk-right [--cap 2] [--dry-run] [--json]
+pnpm assetgrove fix-frame ... --frame 5 --key-pose key-pose.png
 ```
 
-Every command follows the CLI contract ([decisions.md](decisions.md#cli-contract-assetforge21-2026-11-07)): `--json`, the exit codes, `--dry-run` (a forecast that spends nothing and needs no key) and `--provider-script`. `animation-qa` exits 5 when any check fails, after writing the report and the previews.
+Every command follows the CLI contract ([decisions.md](decisions.md#cli-contract-assetgrove21-2026-11-07)): `--json`, the exit codes, `--dry-run` (a forecast that spends nothing and needs no key) and `--provider-script`. `animation-qa` exits 5 when any check fails, after writing the report and the previews.
 
 ## Motion templates
 
-A template is data. Assetforge ships idle, walk, sniff, eat, play and shelter; a target adds its own, or replaces a built-in by name, in its target profile:
+A template is data. Assetgrove ships idle, walk, sniff, eat, play and shelter; a target adds its own, or replaces a built-in by name, in its target profile:
 
 ```json
 {

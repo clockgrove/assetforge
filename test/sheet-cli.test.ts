@@ -16,7 +16,7 @@ const exec = promisify(execFile);
 const CLI = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
 test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the confirmed families", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-cli-"));
   const target = join(root, "target");
   await mkdir(target);
   await writeFile(join(root, "sheet.png"), syntheticSheet().png);
@@ -120,7 +120,7 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
 });
 
 test("import --frames refuses a sheet that slices into another count (exit 2)", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-cli-"));
   await writeFile(join(root, "sheet.png"), syntheticSheet().png);
   await writeFile(join(root, "profile.json"), JSON.stringify(syntheticProfile()));
   const run = (frames: string) =>

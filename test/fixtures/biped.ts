@@ -153,7 +153,7 @@ export function syntheticBiped(options: BipedOptions = {}): Uint8Array {
   const image = buffer.view(encodePng(texture));
 
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge-test-fixture" },
+    asset: { version: "2.0", generator: "assetgrove-test-fixture" },
     scene: 0,
     scenes: [{ nodes: [0] }],
     nodes: [{ name: "biped", mesh: 0 }],

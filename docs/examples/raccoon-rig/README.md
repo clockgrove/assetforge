@@ -23,7 +23,7 @@ The walk is plantigrade: the whole hind foot goes down, the front paws land flat
 
 Make a copy of Raccoon World's profile, and merge in the `model3d` fragment from `profile-fragment.json`. Place `raccoon-template.json` so the template path resolves relative to that profile. Add `"reference": "<dir of frames>"` to the walk gait (relative to the profile) for the side-by-side. Then run:
 
-    assetforge rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
+    assetgrove rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
 
 ## Tuning pass (2026-11-10)
 

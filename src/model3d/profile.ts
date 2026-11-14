@@ -33,26 +33,26 @@ export interface Model3dProfile {
    */
   loopTolerance?: { rotationDeg?: number; translationFraction?: number };
   /**
-   * A skeleton template for this kind of character (assetforge#84). When set, Assetforge fits the
+   * A skeleton template for this kind of character (assetgrove#84). When set, Assetgrove fits the
    * template and generates the clips that `gaits` declares instead of the provider's auto-rig and
    * clip library.
    */
   rig?: import("./rig/template.ts").RigProfile;
-  /** Gait profiles per clip family, for example `walk` (assetforge#84). */
+  /** Gait profiles per clip family, for example `walk` (assetgrove#84). */
   gaits?: Record<string, import("./rig/template.ts").GaitProfile>;
-  /** Clip families besides locomotion: idles, gestures and interactions (assetforge#135). */
+  /** Clip families besides locomotion: idles, gestures and interactions (assetgrove#135). */
   motions?: Record<string, import("./rig/template.ts").MotionProfile>;
-  /** Fur groom maps per season (assetforge#82; docs/look-dev.md). */
+  /** Fur groom maps per season (assetgrove#82; docs/look-dev.md). */
   groom?: import("./lookdev/settings.ts").GroomProfile;
-  /** Look-dev settings (assetforge#82; docs/look-dev.md). */
+  /** Look-dev settings (assetgrove#82; docs/look-dev.md). */
   lookdev?: import("./lookdev/settings.ts").LookdevProfile;
-  /** How the hand-off carries clips and side images (assetforge#137; docs/characters-3d.md). */
+  /** How the hand-off carries clips and side images (assetgrove#137; docs/characters-3d.md). */
   handoff?: import("./handoff.ts").Model3dHandoffProfile;
-  /** The detail-level chain, level 0 first (assetforge#136). `budgets.lods` stays the count. */
+  /** The detail-level chain, level 0 first (assetgrove#136). `budgets.lods` stays the count. */
   lods?: Array<{ level: number; triangleRatio: number; minScreenHeight: number }>;
-  /** Texture and budget tiers, flat or nested by tier class (assetforge#136). */
+  /** Texture and budget tiers, flat or nested by tier class (assetgrove#136). */
   tiers?: Record<string, unknown>;
-  /** Detail-level QA tolerances (assetforge#136). */
+  /** Detail-level QA tolerances (assetgrove#136). */
   lodQa?: { silhouette?: number };
 }
 

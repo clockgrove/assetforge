@@ -95,7 +95,7 @@ export interface TargetWriteResult {
 /**
  * Writes one output into the target in the profile's format: the media, the manifest rendered from
  * the profile's template with the review field set to the profile's pending value, and the
- * provenance. Then runs the target's validator, when the profile declares one. Assetforge never
+ * provenance. Then runs the target's validator, when the profile declares one. Assetgrove never
  * writes any review value other than pending. Refuses with a LicenseError, before writing, an
  * output whose provider grant the target cannot declare (src/license.ts); `{{profile.license}}`
  * renders the licence the output is declared under.
@@ -246,7 +246,7 @@ export async function pick(options: PickOptions): Promise<PickResult> {
       ...(staged.extra !== undefined && { extra: staged.extra }),
     });
   }
-  // A 3D output takes the shape its target declares: clip fields, side images (assetforge#137).
+  // A 3D output takes the shape its target declares: clip fields, side images (assetgrove#137).
   const shaped =
     candidate.mediaType === GLB_MEDIA_TYPE && record.profile.model3d !== undefined
       ? shapeModelHandoff(record.profile, { bytes, fields: candidate.fields, sidecars })

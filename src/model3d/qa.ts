@@ -169,7 +169,7 @@ export function clipChecks(
   return reasons;
 }
 
-/** The uniform scale of the single scene root (normalize's `assetforge-root`), 1 when none. */
+/** The uniform scale of the single scene root (normalize's `assetgrove-root`), 1 when none. */
 function rootScale(glb: Glb): number {
   const roots = glb.json.scenes?.[glb.json.scene ?? 0]?.nodes ?? [];
   if (roots.length !== 1) return 1;

@@ -1,6 +1,6 @@
 # Gateway models
 
-What the Vercel AI Gateway served on **2026-11-07**, read from its public model list (`GET https://ai-gateway.vercel.sh/v1/models`, no key needed). The list changes often; rerun the query before changing a default route. Prices are as the list reported them; Assetforge records each call's actual cost when the gateway reports one.
+What the Vercel AI Gateway served on **2026-11-07**, read from its public model list (`GET https://ai-gateway.vercel.sh/v1/models`, no key needed). The list changes often; rerun the query before changing a default route. Prices are as the list reported them; Assetgrove records each call's actual cost when the gateway reports one.
 
 The gateway listed 498 models: 320 language, 39 image, 37 video, 28 embedding, 24 speech, 16 transcription, 15 evaluation, 10 realtime and 9 reranking.
 

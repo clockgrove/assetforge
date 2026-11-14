@@ -2,7 +2,7 @@
  * Motion templates: per family, the beats, timing, contact frames and silhouette variation a
  * strip is checked against. The built-in ones are plain data in the same shape a target profile
  * uses under `animation.templates`, so a target adds its own (sleep, groom, climb, converse) or
- * overrides one without an Assetforge change.
+ * overrides one without an Assetgrove change.
  */
 import { InputError } from "../errors.ts";
 import type { TargetProfile } from "../types.ts";
@@ -243,7 +243,7 @@ function gaitRule(value: Record<string, unknown>, where: string, prefix: string)
 
 /**
  * The gait animation QA uses: the asset spec's, else the profile's `animation.gait`. Undefined
- * when neither declares one; Assetforge never guesses a gait.
+ * when neither declares one; Assetgrove never guesses a gait.
  */
 export function gaitFor(
   profile?: Pick<TargetProfile, "animation">,

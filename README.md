@@ -1,8 +1,8 @@
-# Assetforge
+# Assetgrove
 
-Assetforge generates game assets — sprites, animation strips, and later video, audio and 3D — through image and video generation models, and hands them to a game's own asset pipeline with full provenance.
+Assetgrove generates game assets — sprites, animation strips, and later video, audio and 3D — through image and video generation models, and hands them to a game's own asset pipeline with full provenance.
 
-It is a development tool. A game repository never depends on it at runtime: Assetforge writes files and their manifests in the format the game declares, and the game's own validator and human review decide what enters the game.
+It is a development tool. A game repository never depends on it at runtime: Assetgrove writes files and their manifests in the format the game declares, and the game's own validator and human review decide what enters the game.
 
 ## How it works
 
@@ -17,18 +17,18 @@ Animation is generated as a whole contact sheet per cycle, sliced and registered
 
 ## Install in a game repository
 
-Assetforge is published as `@clockgrove/assetforge`. Pin an exact version as a dev dependency. The game never imports it at runtime.
+Assetgrove is not on npm yet. Its 1.0 release publishes it as `@clockgrove/assetgrove`; until then, check this repository out at a pinned commit and run `node src/cli.ts` with Node 24. The commands below show the published form. The game never imports Assetgrove at runtime.
 
 ```sh
-pnpm add -D --save-exact @clockgrove/assetforge@<version>
+pnpm add -D --save-exact @clockgrove/assetgrove@<version>
 export AI_GATEWAY_API_KEY=...   # the Vercel AI Gateway key, from the environment only
-pnpm exec assetforge stage --spec stevie-shelter.json --bible bible.json --profile profile.json
-pnpm exec assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../clockgrove
+pnpm exec assetgrove stage --spec stevie-shelter.json --bible bible.json --profile profile.json
+pnpm exec assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../clockgrove
 ```
 
-Keep the run directory out of Git by adding `.assetforge/` to `.gitignore`.
+Keep the run directory out of Git by adding `.assetgrove/` to `.gitignore`.
 
-For one-off use, with only Node 24, run `npx @clockgrove/assetforge@<version> --help`.
+For one-off use, with only Node 24, run `npx @clockgrove/assetgrove@<version> --help`.
 
 `stage` reserves the run's estimated cost against the cap (default 4 candidates and $5; `--candidates`, `--cap`) and refuses a run that would exceed it, then lists only the candidates that passed QA, each with its reasons. `pick` writes the chosen file and its manifest into the target with the review status pending and full provenance, and runs the target's validator. The input formats are in [docs/target-profile.md](docs/target-profile.md); the gateway's models and the default routes are in [docs/models.md](docs/models.md).
 
@@ -41,18 +41,18 @@ Every written strip is checked against its family's motion template (idle, walk,
 Any image, whether generated, imported or hand-made, can be transformed on its own, one operation at a time or with a recipe: `op matte in.png --out out.png`, or `recipe r.json in.png --out out/`. See [docs/transform.md](docs/transform.md).
 
 ```sh
-pnpm exec assetforge import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
-pnpm exec assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
+pnpm exec assetgrove import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
+pnpm exec assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
 ```
 
 ## Use from a coding agent (Claude Code, Codex, Copilot)
 
-The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetforge/SKILL.md`. Copy or link it where your harness reads skills, for example `.claude/skills/assetforge/` or `.agents/skills/assetforge/`.
+The package ships a skill at `node_modules/@clockgrove/assetgrove/skills/assetgrove/SKILL.md`. Copy or link it where your harness reads skills, for example `.claude/skills/assetgrove/` or `.agents/skills/assetgrove/`.
 
-- Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetforge never prompts.
+- Always pass `--json`. Stdout is one JSON document. Logs go to stderr. Assetgrove never prompts.
 - Run `stage --dry-run` first. It spends nothing and needs no key.
-- Name the work item (`ASSETFORGE_WORK_ITEM` or `--work-item`, for example the Objective; a Factory worker gets its Objective from `FACTORY_ISSUE` by default). Paid calls across runs are capped at $10 a day and $5 per work item by default; see [Spend limits](#spend-limits).
-- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetforge reaches. Inside a Factory stage, `FACTORY_GATEWAY_URL` points calls at Factory's metering relay instead, which holds the real key and counts each call against the Objective's caps.
+- Name the work item (`ASSETGROVE_WORK_ITEM` or `--work-item`, for example the Objective; a Factory worker gets its Objective from `FACTORY_ISSUE` by default). Paid calls across runs are capped at $10 a day and $5 per work item by default; see [Spend limits](#spend-limits).
+- Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetgrove reaches. Inside a Factory stage, `FACTORY_GATEWAY_URL` points calls at Factory's metering relay instead, which holds the real key and counts each call against the Objective's caps.
 - Agents stage, humans pick (PRD §5.7). Agents never run `pick` or `write-families` and never confirm a grouping.
 
 ## Commands and exit codes
@@ -89,19 +89,19 @@ The package ships a skill at `node_modules/@clockgrove/assetforge/skills/assetfo
 
 | Variable                         | Default                                                                                                                                                |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ASSETFORGE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetforge/spend.jsonl` (`~/.local/state/...`); `assetforge-spend.jsonl` in `$FACTORY_STATE_DIR` (else `$TMPDIR`) in a Factory worker |
-| `ASSETFORGE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset in a Factory worker: `<repo>#<FACTORY_ISSUE>`; otherwise daily limit only)                                |
-| `ASSETFORGE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                                                                                                             |
-| `ASSETFORGE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                                                                                                       |
+| `ASSETGROVE_SPEND_LEDGER`        | `$XDG_STATE_HOME/assetgrove/spend.jsonl` (`~/.local/state/...`); `assetgrove-spend.jsonl` in `$FACTORY_STATE_DIR` (else `$TMPDIR`) in a Factory worker |
+| `ASSETGROVE_WORK_ITEM`           | none (`--work-item <label>` overrides; unset in a Factory worker: `<repo>#<FACTORY_ISSUE>`; otherwise daily limit only)                                |
+| `ASSETGROVE_DAILY_LIMIT_USD`     | $10 over the last 24 hours                                                                                                                             |
+| `ASSETGROVE_WORK_ITEM_LIMIT_USD` | $5 per work item                                                                                                                                       |
 
 A target profile can set `spend.dailyLimitUsd` and `spend.workItemLimitUsd`; the stricter of the profile and the environment applies. See [docs/target-profile.md](docs/target-profile.md#spend-limits-across-runs).
 
 ## Develop
 
-Assetforge runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)).
+Assetgrove runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)).
 
 - `pnpm install`
-- `pnpm assetforge …` runs the TypeScript sources directly.
+- `pnpm assetgrove …` runs the TypeScript sources directly.
 - `pnpm build` compiles to `dist/` for the package.
 - `pnpm check` runs Prettier, ESLint and the type check.
 - `pnpm test` runs offline with a scripted provider. It includes a test that packs the package, installs it in a temp dir from the npm registry and runs it.
@@ -113,4 +113,4 @@ Pre-1.0 and under active design. The first adopter is [Clockgrove](https://githu
 
 ## License
 
-Assetforge is licensed under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Assetgrove is licensed under the [MIT License](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

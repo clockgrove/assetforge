@@ -1,5 +1,5 @@
 /**
- * The sheet import path: a raw contact sheet (from Assetforge's own sheet generation, another tool
+ * The sheet import path: a raw contact sheet (from Assetgrove's own sheet generation, another tool
  * or hand work) becomes cleaned frames and a grouping proposal; an author-confirmed grouping then
  * becomes one strip, manifest and provenance per family in the target, with review pending.
  */
@@ -118,7 +118,7 @@ export interface ImportRecord {
   durationMs?: number;
   slice: { mode: "grid" | "components"; grid?: unknown; background: string };
   frames: ImportedFrame[];
-  /** Set when Assetforge generated the sheet: the request that made it. */
+  /** Set when Assetgrove generated the sheet: the request that made it. */
   generation?: { prompt: string; parameters: Record<string, unknown>; calls: CallRecord[] };
   /**
    * The identity lock's score of the contact sheet, when scoring ran. `filtered` makes
@@ -889,7 +889,7 @@ export function previewHtml(
   return [
     "<!doctype html>",
     '<meta charset="utf-8">',
-    "<title>Assetforge sheet import preview</title>",
+    "<title>Assetgrove sheet import preview</title>",
     "<style>body{font-family:sans-serif;background:#888;display:flex;flex-wrap:wrap;gap:16px}.sprite{image-rendering:pixelated;background-repeat:no-repeat;background-color:#bbb}</style>",
     ...rows,
     "",

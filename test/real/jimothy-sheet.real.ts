@@ -35,7 +35,7 @@ const profile: TargetProfile = {
 };
 
 test("real sheet: the Jimothy sheet slices into 57 clean frames", { skip }, async () => {
-  const importsDir = await mkdtemp(join(tmpdir(), "assetforge-jimothy-"));
+  const importsDir = await mkdtemp(join(tmpdir(), "assetgrove-jimothy-"));
   const { record, importDir, grouping } = await importSheet({
     sheet: new Uint8Array(await readFile(sheetPath as string)),
     sheetPath: sheetPath as string,

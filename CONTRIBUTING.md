@@ -1,8 +1,8 @@
-# Contributing to Assetforge
+# Contributing to Assetgrove
 
-Until 1.0, Assetforge does not accept pull requests from outside contributors: the design is still changing quickly. Issues are welcome, and so are private security reports ([SECURITY.md](SECURITY.md)).
+Until 1.0, Assetgrove does not accept pull requests from outside contributors: the design is still changing quickly. Issues are welcome, and so are private security reports ([SECURITY.md](SECURITY.md)).
 
-Assetforge is licensed under the [MIT License](LICENSE). Contributions are accepted under the MIT License: by opening a pull request you agree that your contribution is licensed under it, and you confirm that you have the right to license it so.
+Assetgrove is licensed under the [MIT License](LICENSE). Contributions are accepted under the MIT License: by opening a pull request you agree that your contribution is licensed under it, and you confirm that you have the right to license it so.
 
 Read [AGENTS.md](AGENTS.md) for the repository rules; they apply to human and agent contributors alike.
 

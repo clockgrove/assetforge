@@ -291,7 +291,7 @@ export function syntheticCharacter(options: SyntheticCharacterOptions = {}): Uin
   }
 
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge-test-fixture" },
+    asset: { version: "2.0", generator: "assetgrove-test-fixture" },
     scene: 0,
     scenes: [{ nodes: [0, 1] }],
     nodes,

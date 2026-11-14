@@ -1,28 +1,28 @@
-# Look-dev on Stevie, winter groom: before and after (assetforge#131)
+# Look-dev on Stevie, winter groom: before and after (assetgrove#131)
 
-These are #131's renders, Kirk's approved pick (raccoon-world#107), kept for comparison with the face detail pass (assetforge#143) one directory up.
+These are #131's renders, Kirk's approved pick (raccoon-world#107), kept for comparison with the face detail pass (assetgrove#143) one directory up.
 
-This is one real `assetforge look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82, #122 and #129: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122's raccoon-world `main` at 4ef1222. #129's renders are kept in [`129/`](../129/), #122's in [`122/`](../122/) and #82's in [`82/`](../82/).
+This is one real `assetgrove look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82, #122 and #129: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122's raccoon-world `main` at 4ef1222. #129's renders are kept in [`129/`](../129/), #122's in [`122/`](../122/) and #82's in [`82/`](../82/).
 
 ```sh
-assetforge look-dev --model assets/models/stevie/stevie.glb \
+assetgrove look-dev --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
-  --profile art/target-profile-3d.json --work-item clockgrove/assetforge#131
+  --profile art/target-profile-3d.json --work-item clockgrove/assetgrove#131
 ```
 
 As in #129, the runs called `lookDev` with the options this command passes, through a provider that also saved every reply, so each run can be replayed offline.
 
 **Spend:** $0.36 of the $3.00 cap. The run made 14 calls: 7 restyles on `openai/gpt-image-2`, 1 eye and nose locate, 2 season grooms, 3 markings calls (front, three-quarter and side) and 1 identity score.
 
-**What #131 asked.** Kirk judged #129's summer coat "really good" and its winter tail "weird": the winter fur, up to 80 mm on the tail, smeared the rings into a blurred brush and spread the dark tip. Both coats share one base colour, so the cause was winter's groom. The game's fur material reads the same groom maps (clockgrove/clockgrove#242), so the fix is in the maps, not in Assetforge's preview.
+**What #131 asked.** Kirk judged #129's summer coat "really good" and its winter tail "weird": the winter fur, up to 80 mm on the tail, smeared the rings into a blurred brush and spread the dark tip. Both coats share one base colour, so the cause was winter's groom. The game's fur material reads the same groom maps (clockgrove/clockgrove#242), so the fix is in the maps, not in Assetgrove's preview.
 
 **What changed.** Fur is no longer than the marking it grows in. A strand carries its root's colour wherever it lies, so a strand that lies across a marking's edge smears the edge. Each texel's fur length is now cut where a strand lying flat along its comb would reach a marking of another lightness (18 L\* away) or run off the end of its part. The test walks the surface in 3D, on the base colour's L\* smoothed at 0.6% of the model's diagonal, so the coat's fine texture is not an edge. The cut is smoothed over about a centimetre of surface, and a strand keeps at least 30% of its length. Markings broader than the fur keep the full length, so the winter coat still reads longer and fuller. Nothing in it names a species, a part or a character.
 
 **How it got there.**
 
 - **Offline, on #129's run 3.** Replayed from its saved restyles and replies, so the base colour and the markings boxes are #129's and only the groom changes. The winter tail's rings came back crisp in the side and three-quarter views. A version that let fur run off the tail's end kept a wide dark brush at the tip, so running off a part's end now counts as an edge. A floor of 20% to 50% of the length changed little; 30% is used.
-- **Real run 1** ($0.38). All tail measurements held in both coats, and only 3 of 44 measurements drifted, all the muzzle. Its restyle, though, broke the mask's outer edge on one cheek with pale streaks in the close-up: a base-colour flaw from that run's restyle, not the groom. This run's spend was booked to the work item `clockgrove/assetforge#129` by mistake.
+- **Real run 1** ($0.38). All tail measurements held in both coats, and only 3 of 44 measurements drifted, all the muzzle. Its restyle, though, broke the mask's outer edge on one cheek with pale streaks in the close-up: a base-colour flaw from that run's restyle, not the groom. This run's spend was booked to the work item `clockgrove/assetgrove#129` by mistake.
 - **Real run 2 (this one)** ($0.36). The mask's edge holds on both cheeks in the close-up, and every tail measurement holds in both coats.
 
 This stage spent $0.74 on real runs.

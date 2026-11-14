@@ -35,7 +35,7 @@ async function cli(args: string[]) {
 }
 
 async function setup() {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-planning-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-planning-cli-"));
   temporaryRoots.push(dir);
   const init = await cli([
     "bible",

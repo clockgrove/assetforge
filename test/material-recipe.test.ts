@@ -42,7 +42,7 @@ test("registered material operations run in recipes with exact geometry and chai
     const declaration = describeOperations().operations.find(
       (op) => op.name === `material-${name}`,
     );
-    assert.ok(declaration?.engines.includes("assetforge-material"));
+    assert.ok(declaration?.engines.includes("assetgrove-material"));
     assert.equal(declaration?.params.type, "object");
   }
   await assert.rejects(

@@ -1,9 +1,9 @@
-# Stevie's idle, sniff, eat, play and shelter on the shared rig (draft, assetforge#135)
+# Stevie's idle, sniff, eat, play and shelter on the shared rig (draft, assetgrove#135)
 
-This is one real `assetforge rig` run, made on 2026-11-13, on Stevie's picked model: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `2680c2c4f6d9…0985`, checked before the run), with its look-dev maps beside it. The profile is a scratch copy of raccoon-world's `art/target-profile-3d.json` (its `rig/raccoon.json` template and walk unchanged) with `profile-fragment.json`'s `model3d.motions` merged in. The spec is raccoon-world's `art/stevie/character-3d/spec.json`, whose clips are `idle`, `walk`, `sniff`, `eat`, `play` and `shelter`.
+This is one real `assetgrove rig` run, made on 2026-11-13, on Stevie's picked model: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `2680c2c4f6d9…0985`, checked before the run), with its look-dev maps beside it. The profile is a scratch copy of raccoon-world's `art/target-profile-3d.json` (its `rig/raccoon.json` template and walk unchanged) with `profile-fragment.json`'s `model3d.motions` merged in. The spec is raccoon-world's `art/stevie/character-3d/spec.json`, whose clips are `idle`, `walk`, `sniff`, `eat`, `play` and `shelter`.
 
 ```sh
-assetforge rig --model assets/models/stevie/stevie.glb \
+assetgrove rig --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --profile art/target-profile-3d.json
 ```

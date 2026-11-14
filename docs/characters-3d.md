@@ -1,11 +1,11 @@
 # Real-time 3D characters
 
-Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md); assetforge#72) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetforge never picks.
+Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md); assetgrove#72) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
 
 ```sh
-assetforge stage --spec stevie-3d.json --bible bible.json --profile profile.json --dry-run
-assetforge stage --spec stevie-3d.json --bible bible.json --profile profile.json   # TRIPO_API_KEY
-assetforge pick --run .assetforge/runs/<run> --candidate c2 --target ../raccoon-world
+assetgrove stage --spec stevie-3d.json --bible bible.json --profile profile.json --dry-run
+assetgrove stage --spec stevie-3d.json --bible bible.json --profile profile.json   # TRIPO_API_KEY
+assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../raccoon-world
 ```
 
 ## Contract
@@ -107,11 +107,11 @@ A candidate that fails a filtering check is not staged. It is listed in the run'
 
 ## Shared rig and generated gait
 
-A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetforge#84; Kirk, 2026-11-10), and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetforge does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetforge rig` does the same for a model that already exists, such as a wave 0 pick:
+A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetgrove#84; Kirk, 2026-11-10), and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as a wave 0 pick:
 
 ```sh
-assetforge rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
-assetforge pick --run .assetforge/runs/<run> --candidate c1 --target ../raccoon-world
+assetgrove rig --model c3.glb --provenance c3/provenance.json --spec stevie-3d.json --profile profile.json
+assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../raccoon-world
 ```
 
 `rig` stages a one-candidate run, `c1`, with the same renders, reasons and provenance as a `stage` candidate. It calls no model and spends nothing. It exits 5 when the re-rigged model fails QA, and the renders are still written. A draft raccoon template and walk are in [examples/raccoon-rig/](examples/raccoon-rig/).
@@ -240,7 +240,7 @@ The field names below are shared with clockgrove/raccoon-world#39. Names may be 
 
 ## Motions besides walking
 
-A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetforge#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`. A draft for Stevie's idle, sniff, eat, play and shelter is in [examples/raccoon-motions/](examples/raccoon-motions/).
+A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetgrove#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`. A draft for Stevie's idle, sniff, eat, play and shelter is in [examples/raccoon-motions/](examples/raccoon-motions/).
 
 ### Declaration
 
@@ -293,7 +293,7 @@ The field names below are added to the shared contract (clockgrove/raccoon-world
 
     A foot that is not listed stays planted where it stands.
 
-The declaration names joints, feet and roles of the target's own template. Assetforge's code names no family, species or body part.
+The declaration names joints, feet and roles of the target's own template. Assetgrove's code names no family, species or body part.
 
 ### What a motion does
 
@@ -318,7 +318,7 @@ A model that has been through look-dev carries its groom maps, tint and eye mask
 
 ## Look-dev
 
-`assetforge look-dev` gives a picked, rigged character a base colour in the target's character look, fur groom maps per season and eyes that catch light, and stages it for `pick`: see [look-dev.md](look-dev.md).
+`assetgrove look-dev` gives a picked, rigged character a base colour in the target's character look, fur groom maps per season and eyes that catch light, and stages it for `pick`: see [look-dev.md](look-dev.md).
 
 ## Spend
 
@@ -343,7 +343,7 @@ A grant the target cannot accept is refused with exit 7 before anything is writt
 
 ### Hand-off shape
 
-A target's validator may take fewer clip fields than Assetforge produces, or only a self-contained `.glb` (assetforge#137). The profile declares the shape it takes:
+A target's validator may take fewer clip fields than Assetgrove produces, or only a self-contained `.glb` (assetgrove#137). The profile declares the shape it takes:
 
 ```json
 "model3d": {
@@ -354,9 +354,9 @@ A target's validator may take fewer clip fields than Assetforge produces, or onl
 }
 ```
 
-- `clipFields` maps each field a manifest clip carries to the Assetforge clip field it takes, so a field can also be renamed (`"speed": "speedMps"`). Fields it does not name are left out, and a named field a clip lacks (`generated` on a library clip) is left out of that clip. Without it, every clip field goes as produced.
+- `clipFields` maps each field a manifest clip carries to the Assetgrove clip field it takes, so a field can also be renamed (`"speed": "speedMps"`). Fields it does not name are left out, and a named field a clip lacks (`generated` on a library clip) is left out of that clip. Without it, every clip field goes as produced.
 - `sideImages` is `beside` (the default) or `embedded`. `embedded` moves look-dev's groom maps, tints and eye mask into the `.glb`'s binary chunk and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set. `asset.extras.lookdev.images` still maps each field to its image index.
-- A malformed `handoff` field is refused before any spend (exit 2). Fields Assetforge doesn't read are the target's own notes and are left alone, like the rest of `model3d`.
+- A malformed `handoff` field is refused before any spend (exit 2). Fields Assetgrove doesn't read are the target's own notes and are left alone, like the rest of `model3d`.
 
 Whatever the shape, `pick` measures each clip's `durationMs` (the last key time) and `output.bounds` (the rest-pose bounds) on the `.glb` it hands off, unrounded, so they match what a validator reads from the file. Staging rounds bounds to the micrometre, which alone could put them 0.5 µm off the file, half of Clockgrove's 1 µm tolerance.
 
@@ -364,11 +364,11 @@ Clockgrove's model validator (`packages/contracts/src/model-asset.ts`) takes the
 
 ## Detail levels and tiers
 
-A target profile can declare a chain of detail levels and quality tiers (assetforge#136). `assetforge lod` makes them from any `.glb`: a staged candidate of `stage`, `rig` or `look-dev`, or a model that has been handed off, with its side maps beside it. It checks each level against the full model and stages the result as a one-candidate run for `pick`. It calls no model and spends nothing. It exits 5 when the chain fails QA, and the renders are still written.
+A target profile can declare a chain of detail levels and quality tiers (assetgrove#136). `assetgrove lod` makes them from any `.glb`: a staged candidate of `stage`, `rig` or `look-dev`, or a model that has been handed off, with its side maps beside it. It checks each level against the full model and stages the result as a one-candidate run for `pick`. It calls no model and spends nothing. It exits 5 when the chain fails QA, and the renders are still written.
 
 ```sh
-assetforge lod --run .assetforge/runs/<run> --candidate c1
-assetforge lod --model stevie.glb --provenance stevie.glb.provenance.json --spec stevie-3d.json --profile profile.json
+assetgrove lod --run .assetgrove/runs/<run> --candidate c1
+assetgrove lod --model stevie.glb --provenance stevie.glb.provenance.json --spec stevie-3d.json --profile profile.json
 ```
 
 `--profile` on a `--run` replaces the run's profile. For a given model, the clip fields come from the file: each animation's name, length and `extras.loop` and `extras.generated`. `rig` and `missingClips` come from `asset.extras.rig` and the provenance.

@@ -1,7 +1,7 @@
 /**
  * A 3D character candidate on the target's shared rig: the source model normalised, re-rigged with
  * generated clips, and checked (the wave 0 checks plus contact, joint limits and skinning per clip),
- * with its turntable and walk renders. Shared by `stage` and `assetforge rig`.
+ * with its turntable and walk renders. Shared by `stage` and `assetgrove rig`.
  */
 import type { Reason } from "../../types.ts";
 import { sha256 } from "../../request.ts";

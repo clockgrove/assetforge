@@ -1,6 +1,6 @@
 /**
- * The shared-rig contract (assetforge#84, shared with clockgrove/raccoon-world#39): the profile's
- * `model3d.rig`, `model3d.gaits` and `model3d.motions` (assetforge#135), and the skeleton template
+ * The shared-rig contract (assetgrove#84, shared with clockgrove/raccoon-world#39): the profile's
+ * `model3d.rig`, `model3d.gaits` and `model3d.motions` (assetgrove#135), and the skeleton template
  * file a rig names. Everything here is
  * target data; nothing is specific to one animal.
  */
@@ -93,7 +93,7 @@ export interface MotionFoot {
   curlDeg?: number;
 }
 
-/** One key pose of a motion (added here, assetforge#135). Every field defaults to 0. */
+/** One key pose of a motion (added here, assetgrove#135). Every field defaults to 0. */
 export interface MotionPose {
   /** The root's offset and turn from the neutral stance. Positive pitch lowers the front. */
   body?: {
@@ -119,7 +119,7 @@ export interface MotionPose {
 }
 
 /**
- * A clip family besides locomotion (assetforge#135): a looping idle or a one-shot gesture or
+ * A clip family besides locomotion (assetgrove#135): a looping idle or a one-shot gesture or
  * interaction, keyed as poses on the shared rig.
  */
 export interface MotionProfile {

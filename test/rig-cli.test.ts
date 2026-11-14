@@ -51,7 +51,7 @@ const doc = (r: Result): Record<string, any> => JSON.parse(r.stdout);
 
 /** A target that declares the shared rig: the template file sits beside the profile. */
 async function world(options: { template?: string; reference?: boolean; motions?: boolean } = {}) {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-rig-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-rig-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
   for (const [i, role] of roles.entries()) {

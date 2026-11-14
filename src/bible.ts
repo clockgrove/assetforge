@@ -522,9 +522,9 @@ export async function initBible(options: { directory: string; world: string; pre
   if (!chosen) throw new InputError(`unknown preset ${options.preset}`);
   text(options.world, "world");
   const directory = resolve(options.directory);
-  const biblePath = join(directory, ".assetforge/art-direction/BIBLE.md");
+  const biblePath = join(directory, ".assetgrove/art-direction/BIBLE.md");
   const skillPath = join(dirname(biblePath), "SKILL.md");
-  const templatePath = join(directory, ".assetforge/prompts/default.md");
+  const templatePath = join(directory, ".assetgrove/prompts/default.md");
   const data = structuredClone(chosen);
   data.world = options.world;
   const prose = `# ${options.world} art direction\n\nGenerate original work using the axes and tokens above. Add rationale and reference images here.\n\n## Do's and Don'ts\n\nDo follow the positive anchors. Don't reproduce the negative anchors or violate content limits.\n`;

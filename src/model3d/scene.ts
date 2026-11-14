@@ -1,6 +1,6 @@
 /**
  * The scene of a `.glb` character: node transforms, animation sampling, skinning, the measures the
- * target profile budgets, and the edits Assetforge makes (normalisation, clip names, loop closing).
+ * target profile budgets, and the edits Assetgrove makes (normalisation, clip names, loop closing).
  */
 import { InputError } from "../errors.ts";
 import { readAccessor, writeAccessorElement } from "./glb.ts";
@@ -526,7 +526,7 @@ export function normalize(
   const roots = sceneRoots(json);
   const root = nodes.length;
   nodes.push({
-    name: "assetforge-root",
+    name: "assetgrove-root",
     children: roots,
     translation: translation.map((v) => (Math.abs(v) < 1e-12 ? 0 : v)),
     ...(Math.abs(yaw) > 1e-9 && { rotation }),

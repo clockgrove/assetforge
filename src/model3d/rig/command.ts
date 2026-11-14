@@ -1,5 +1,5 @@
 /**
- * `assetforge rig`: re-rigs an existing character model (a picked candidate such as a wave 0 pick)
+ * `assetgrove rig`: re-rigs an existing character model (a picked candidate such as a wave 0 pick)
  * on the target's shared rig with generated clips, and stages the result as a one-candidate run
  * that `pick` hands off unchanged. No provider call is made and nothing is spent.
  */
@@ -55,7 +55,7 @@ export async function rerig(
     );
   }
   if (!provenance || typeof provenance !== "object" || !Array.isArray(provenance.calls)) {
-    throw new InputError("the provenance file is not an Assetforge provenance record");
+    throw new InputError("the provenance file is not an Assetgrove provenance record");
   }
   const rig = await loadRig(profile, options.profileDir);
   const sourceSha256 = sha256(options.model.bytes);
@@ -114,7 +114,7 @@ export async function rerig(
       ...(Object.keys(rig.motionSha256).length > 0 && { motionSha256: rig.motionSha256 }),
       targetProfileSha256: profileSha256(profile),
     },
-    engine: { name: "assetforge-rig", version: "1" },
+    engine: { name: "assetgrove-rig", version: "1" },
     inputs: [sourceSha256],
     outputs: [sha256(candidate.bytes)],
   };

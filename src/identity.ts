@@ -18,7 +18,7 @@ export type IdentityMode = "off" | "shadow" | "enforce";
 export const IDENTITY_MODES: readonly IdentityMode[] = ["off", "shadow", "enforce"];
 export const DEFAULT_IDENTITY_MODE: IdentityMode = "shadow";
 /**
- * Chosen by the owner from `assetforge identity-eval` on #27's identity set (44 cases): at 0.68
+ * Chosen by the owner from `assetgrove identity-eval` on #27's identity set (44 cases): at 0.68
  * pplx-decider-v1.2 accepts no wrong character and rejects 4 of 19 same-character crops. See
  * docs/decisions.md. Shadow mode, the default, filters nothing.
  */

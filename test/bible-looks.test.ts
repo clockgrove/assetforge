@@ -62,9 +62,9 @@ test("a spec's look adds that look's notes and references, and no other look's",
 test("an art bible's look overrides axes and anchors for specs that name it", async () => {
   const root = await mkdtemp(join(tmpdir(), "looks-"));
   roots.push(root);
-  const dir = join(root, ".assetforge/art-direction");
+  const dir = join(root, ".assetgrove/art-direction");
   await mkdir(dir, { recursive: true });
-  await mkdir(join(root, ".assetforge/prompts"), { recursive: true });
+  await mkdir(join(root, ".assetgrove/prompts"), { recursive: true });
   await writeFile(join(dir, "brush.png"), encodePng(createRaster(2, 2)));
   const data = structuredClone(BIBLE_PRESETS["cozy-storybook"]!);
   data.world = "Woodland";
@@ -82,7 +82,7 @@ test("an art bible's look overrides axes and anchors for specs that name it", as
   );
   const biblePath = join(dir, "BIBLE.md");
   await writeFile(biblePath, serializeBible(data, "## Do's and Don'ts\nDo stay original.\n"));
-  const templatePath = join(root, ".assetforge/prompts/default.md");
+  const templatePath = join(root, ".assetgrove/prompts/default.md");
   await writeFile(templatePath, "{{constitution}}\n{{spec}}\n");
   const settings = { candidates: 1, capUsd: 2 };
 

@@ -1,5 +1,5 @@
 /**
- * The work behind `assetforge animation-qa` and `assetforge fix-frame`, kept apart from argument
+ * The work behind `assetgrove animation-qa` and `assetgrove fix-frame`, kept apart from argument
  * parsing so tests and the MCP surface can call it directly.
  */
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";

@@ -67,7 +67,7 @@ export async function targetCommand(
 }
 const channels = ["normal", "height", "emissive", "roughness", "wind"] as const;
 export const materialEngine: ImageEngine = {
-  name: "assetforge-material",
+  name: "assetgrove-material",
   version: "1",
   operations: {},
   encoders: {},

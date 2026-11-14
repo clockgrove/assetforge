@@ -23,9 +23,9 @@ const spec = { kind: "still", assetId: "den" };
 async function fixture(withLock = true) {
   const root = await mkdtemp(join(tmpdir(), "identity-plan-"));
   roots.push(root);
-  const dir = join(root, ".assetforge/art-direction");
+  const dir = join(root, ".assetgrove/art-direction");
   await mkdir(dir, { recursive: true });
-  await mkdir(join(root, ".assetforge/prompts"), { recursive: true });
+  await mkdir(join(root, ".assetgrove/prompts"), { recursive: true });
   const data = structuredClone(BIBLE_PRESETS["cozy-storybook"]!);
   data.world = "Woodland";
   if (withLock) {
@@ -45,7 +45,7 @@ async function fixture(withLock = true) {
     serializeBible(data, "## Do's and Don'ts\nDo preserve identity. Don't add text.\n"),
   );
   await writeFile(
-    join(root, ".assetforge/prompts/default.md"),
+    join(root, ".assetgrove/prompts/default.md"),
     "# Prompt template v1\nCreate original art.\n{{constitution}}\n{{spec}}\n{{brief}}\n{{settings}}\n{{family}}\n",
   );
   return { root, biblePath };

@@ -27,7 +27,7 @@ async function setup(
     qaGrant?: OutputGrant;
   } = {},
 ) {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-material-pipeline-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-material-pipeline-"));
   const albedo = createRaster(8, 4),
     height = createRaster(8, 4),
     zero = createRaster(8, 4);

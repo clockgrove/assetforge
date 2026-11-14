@@ -7,16 +7,16 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env["ASSETFORGE_SPEND_LEDGER"] = join(
-  mkdtempSync(join(tmpdir(), "assetforge-spend-")),
+process.env["ASSETGROVE_SPEND_LEDGER"] = join(
+  mkdtempSync(join(tmpdir(), "assetgrove-spend-")),
   "spend.jsonl",
 );
 // The caller's own work item and limits would change what the tests measure; a Factory worker's
 // FACTORY_ISSUE would name a work item too.
 for (const name of [
-  "ASSETFORGE_WORK_ITEM",
+  "ASSETGROVE_WORK_ITEM",
   "FACTORY_ISSUE",
-  "ASSETFORGE_DAILY_LIMIT_USD",
-  "ASSETFORGE_WORK_ITEM_LIMIT_USD",
+  "ASSETGROVE_DAILY_LIMIT_USD",
+  "ASSETGROVE_WORK_ITEM_LIMIT_USD",
 ])
   delete process.env[name];

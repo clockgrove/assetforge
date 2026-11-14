@@ -1,5 +1,5 @@
 /**
- * Generated motions besides locomotion (assetforge#135): a looping idle or a one-shot gesture or
+ * Generated motions besides locomotion (assetgrove#135): a looping idle or a one-shot gesture or
  * interaction, from the key poses a target declares. The body, back, head and tail follow the eased
  * keys; each leg is solved by the gait's inverse kinematics, so a planted foot stays where it stands
  * while the body moves. A one-shot starts on its idle's first pose and blends back to it.

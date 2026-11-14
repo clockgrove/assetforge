@@ -54,7 +54,7 @@ function wellFormedWebp(bytes: Uint8Array): boolean {
 
 /**
  * Why the bytes are not a usable reference image, or undefined when they are one: the signature
- * must name an image type and the image must decode (WebP, which Assetforge does not decode, must
+ * must name an image type and the image must decode (WebP, which Assetgrove does not decode, must
  * have a well-formed container).
  */
 export function referenceImageProblem(bytes: Uint8Array): string | undefined {

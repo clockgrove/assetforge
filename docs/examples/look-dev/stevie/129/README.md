@@ -1,14 +1,14 @@
-# Look-dev on Stevie, third pass: before and after (assetforge#129)
+# Look-dev on Stevie, third pass: before and after (assetgrove#129)
 
-These are #129's renders, kept for comparison with the winter-groom pass (assetforge#131, in [`131/`](../131/)) and the face detail pass (assetforge#143, one directory up).
+These are #129's renders, kept for comparison with the winter-groom pass (assetgrove#131, in [`131/`](../131/)) and the face detail pass (assetgrove#143, one directory up).
 
-This is one real `assetforge look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82 and #122: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122's raccoon-world `main` at 4ef1222. #122's renders are kept in [`122/`](../122/) and #82's in [`82/`](../82/) for comparison.
+This is one real `assetgrove look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82 and #122: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122's raccoon-world `main` at 4ef1222. #122's renders are kept in [`122/`](../122/) and #82's in [`82/`](../82/) for comparison.
 
 ```sh
-assetforge look-dev --model assets/models/stevie/stevie.glb \
+assetgrove look-dev --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
-  --profile art/target-profile-3d.json --work-item clockgrove/assetforge#129
+  --profile art/target-profile-3d.json --work-item clockgrove/assetgrove#129
 ```
 
 The runs called `lookDev` with the options this command passes, through a provider that also saved every reply, so each run can be replayed offline.

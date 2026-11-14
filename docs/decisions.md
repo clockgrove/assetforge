@@ -1,59 +1,68 @@
 # Decisions
 
-## Language and tooling (assetforge#1, 2026-11-07)
+## Language and tooling (assetgrove#1, 2026-11-07)
 
-Chosen so the first adopter, Clockgrove (Node 24, pnpm, TypeScript), runs Assetforge with no new runtime.
+Chosen so the first adopter, Clockgrove (Node 24, pnpm, TypeScript), runs Assetgrove with no new runtime.
 
 - **TypeScript on Node 24, no build step in development (the build is only for the package).** Node runs the `.ts` sources directly with its built-in type stripping, so the code uses erasable syntax only (no enums, namespaces or parameter properties) and imports name their `.ts` files. `tsc --noEmit` checks the types.
 - **pnpm**, pinned through `packageManager` and enabled with corepack. CI installs with `pnpm install --frozen-lockfile --ignore-scripts`; no dependency needs an install script.
 - **Commands:** `pnpm check` runs Prettier, ESLint (typescript-eslint) and `tsc --noEmit`. `pnpm test` runs `node:test` over `test/**/*.test.ts`, offline with the scripted provider. `pnpm test:real` runs the opt-in real-provider checks in `test/real/`, which skip without `AI_GATEWAY_API_KEY`.
 - **Runtime dependencies:** `ai` (the Vercel AI SDK, imported only by `src/gateway/vercel.ts`), `pngjs` and `jpeg-js` (pure-JavaScript image codecs). TypeScript stays on 6.0, the newest version typescript-eslint supports.
 
-## Release-age exclusion for the `ai` SDK (assetforge#1, 2026-11-07)
+## Release-age exclusion for the `ai` SDK (assetgrove#1, 2026-11-07)
 
 `pnpm-workspace.yaml` lists `ai` and its three `@ai-sdk/*` packages, at exact versions, under `minimumReleaseAgeExclude`. pnpm 12's default release-age policy refuses versions published too recently; the dependency was pinned to the newest `ai` release on the day of implementation (`ai@7.0.165`, published 2026-11-07), so the gateway adapter was written and checked against the current SDK, and that release and its matching `@ai-sdk/*` packages were still inside the window. The exclusion names exact versions only, so any other version, including a later update, still waits out the window. Remove the file once those versions are older than the window (any day after 2026-11-08) and run `pnpm install` to confirm the lockfile is unchanged.
 
-## MCP server on the official SDK (assetforge#147, 2026-11-13)
+## Renamed from Assetforge (2026-11-13)
 
-`assetforge mcp` is served by the official TypeScript MCP SDK, `@modelcontextprotocol/server` pinned to 2.4.0 (Apache-2.0), over its stdio transport. It replaces the hand-written JSON-RPC loop from #34, which was pinned to one protocol revision and would fall behind as the protocol moves. The SDK negotiates the revision, validates arguments against each tool's input schema, and is the base for resources, tool `_meta` and MCP Apps later. Its dependencies are `@modelcontextprotocol/core` 2.4.0 (Apache-2.0) and `zod` (MIT, already in the tree through `ai`); its JSON Schema validator is bundled. None of the three has an install script, so CI's `--ignore-scripts` install is unaffected, and 2.4.0 is old enough for pnpm's release-age policy without an exclusion. The tool schemas stay plain JSON Schema, wrapped with the SDK's `fromJsonSchema`, so `tools/list` advertises them unchanged.
+Owner decision: the project is Assetgrove, and it stays under the Clockgrove organization as `clockgrove/assetgrove` and `@clockgrove/assetgrove`. The old name, Assetforge, collided with Kenney's Asset Forge, a well-known tool that makes game sprites and 3D models for the same audience, and the unscoped `assetforge` name on npm belongs to someone else.
+
+- The rename is a clean cut. The command is `assetgrove`, the run directory is `.assetgrove/`, the variables are `ASSETGROVE_*`, and the plan and recipe formats are `assetgrove-plan-v1` and `assetgrove-recipe/1`. The old names are not read.
+- Issue and pull request numbers did not change: what older commits call `assetforge#N` is `assetgrove#N` here, and GitHub redirects the old links.
+- A record written before the rename keeps the engine names it was written with, such as `assetforge-raster`, because that is what made it. Nothing compares those names when a record is read.
+- Two names outside this repository keep the old word until their owners change them: the `assetforge-worker` gateway key, and the `references/jimothy/assetforge-38-proof` directory in clockgrove/raccoon-world.
+
+## MCP server on the official SDK (assetgrove#147, 2026-11-13)
+
+`assetgrove mcp` is served by the official TypeScript MCP SDK, `@modelcontextprotocol/server` pinned to 2.4.0 (Apache-2.0), over its stdio transport. It replaces the hand-written JSON-RPC loop from #34, which was pinned to one protocol revision and would fall behind as the protocol moves. The SDK negotiates the revision, validates arguments against each tool's input schema, and is the base for resources, tool `_meta` and MCP Apps later. Its dependencies are `@modelcontextprotocol/core` 2.4.0 (Apache-2.0) and `zod` (MIT, already in the tree through `ai`); its JSON Schema validator is bundled. None of the three has an install script, so CI's `--ignore-scripts` install is unaffected, and 2.4.0 is old enough for pnpm's release-age policy without an exclusion. The tool schemas stay plain JSON Schema, wrapped with the SDK's `fromJsonSchema`, so `tools/list` advertises them unchanged.
 
 ## Characters are real-time 3D (Kirk, 2026-11-10)
 
-Raccoon World's characters are rigged models in Clockgrove's live renderer, with an animation clip per family. Not 3D rendered to sprites, and not 2D sprites. Zoom, lighting and camera come from the renderer, and a new animation is a clip on the same rig rather than new art. Assetforge's waves 0 and 1 moved to 3D characters. The 2D path (sheet generation and import, transformation core, loop QA, identity lock v1) stays for props, terrain, effects, UI and targets that use sprites. The first 2D shelter run (clockgrove/raccoon-world PR #21) is kept as the record of the 2D try. A 3D asset ships only under an output grant the target accepts (assetforge#47): Meshy's free-plan CC BY 4.0 output is accepted by Raccoon World with its credit line, while non-commercial or provider-retained output is refused.
+Raccoon World's characters are rigged models in Clockgrove's live renderer, with an animation clip per family. Not 3D rendered to sprites, and not 2D sprites. Zoom, lighting and camera come from the renderer, and a new animation is a clip on the same rig rather than new art. Assetgrove's waves 0 and 1 moved to 3D characters. The 2D path (sheet generation and import, transformation core, loop QA, identity lock v1) stays for props, terrain, effects, UI and targets that use sprites. The first 2D shelter run (clockgrove/raccoon-world PR #21) is kept as the record of the 2D try. A 3D asset ships only under an output grant the target accepts (assetgrove#47): Meshy's free-plan CC BY 4.0 output is accepted by Raccoon World with its credit line, while non-commercial or provider-retained output is refused.
 
 Wave 0 proves the loop with a walk clip: Tripo's clip library has no quadruped idle, so `idle` is reported missing rather than faked. A custom quadruped idle is the first item of wave 1 (Kirk, 2026-11-10). Animation is the provider's auto-rig plus its clip library, retargeted per family; custom clips only where the library has nothing close (Kirk, 2026-11-10).
 
 ## Shared rig and generated gait (Kirk, 2026-11-10)
 
-Characters of one kind share a skeleton template fitted to each model, and their locomotion is generated from a gait profile the target declares, with foot-contact, joint-limit and skinning QA (assetforge#84). This replaces the provider's auto-rig plus clip library for any kind whose target declares a template. The trigger was Kirk's read of wave 0's picked Stevie (c3): Tripo's library walk is dog-like, with raised hind ankles, front wrists that fold and pinched ankles. Real raccoon kits, in his porch footage (clockgrove/raccoon-world `references/stevie/gait-reference/`, frames only, never the clip), walk plantigrade, with flat hand-like front paws, a hunched back and a low swaying tail.
+Characters of one kind share a skeleton template fitted to each model, and their locomotion is generated from a gait profile the target declares, with foot-contact, joint-limit and skinning QA (assetgrove#84). This replaces the provider's auto-rig plus clip library for any kind whose target declares a template. The trigger was Kirk's read of wave 0's picked Stevie (c3): Tripo's library walk is dog-like, with raised hind ankles, front wrists that fold and pinched ankles. Real raccoon kits, in his porch footage (clockgrove/raccoon-world `references/stevie/gait-reference/`, frames only, never the clip), walk plantigrade, with flat hand-like front paws, a hunched back and a low swaying tail.
 
 ## Animation (owner, 2026-11-07)
 
-Key pose first, then each frame a reference-guided edit of it. The key pose is approved by the author before any frame is edited: a sprite-strip spec must name it as `keyPose`, and Assetforge refuses a strip spec without one before any spend. The approved path is two runs: stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. Video-to-frames comes later as another generator.
+Key pose first, then each frame a reference-guided edit of it. The key pose is approved by the author before any frame is edited: a sprite-strip spec must name it as `keyPose`, and Assetgrove refuses a strip spec without one before any spend. The approved path is two runs: stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. Video-to-frames comes later as another generator.
 
-## Sheet generation first (owner, 2026-11-07; assetforge#10)
+## Sheet generation first (owner, 2026-11-07; assetgrove#10)
 
-The model generates a whole animation cycle as one contact sheet, because a whole sheet keeps identity consistent; the import path cleans it up, and a per-frame reference edit is the fallback for fixing a single frame. Sheets made by other tools (the owner's Jimothy sheet came from ChatGPT image generation) take the same path. A vision model proposes the families, order and mirror pairs; the author confirms them by setting the grouping file's status to `confirmed`, which Assetforge never does itself. Registration pins the feet baseline and centre of mass to the anchor with one common scale, and refuses a family whose measured jitter exceeds the bound (1 px by default). Details in [sheet-import.md](sheet-import.md).
+The model generates a whole animation cycle as one contact sheet, because a whole sheet keeps identity consistent; the import path cleans it up, and a per-frame reference edit is the fallback for fixing a single frame. Sheets made by other tools (the owner's Jimothy sheet came from ChatGPT image generation) take the same path. A vision model proposes the families, order and mirror pairs; the author confirms them by setting the grouping file's status to `confirmed`, which Assetgrove never does itself. Registration pins the feet baseline and centre of mass to the anchor with one common scale, and refuses a family whose measured jitter exceeds the bound (1 px by default). Details in [sheet-import.md](sheet-import.md).
 
-## Style profile (owner, 2026-11-07; assetforge#10)
+## Style profile (owner, 2026-11-07; assetgrove#10)
 
-Assetforge is not tied to one visual style. The target profile's optional `style` (alpha mode, colour rule, edges, after clockgrove/clockgrove#61) decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha, crisp edges or a palette for flat-cartoon and pixel-art worlds. Without one, the sheet import uses soft alpha and full colour. The first loop's `stage` and `pick` still post-process to binary alpha and the bible palette; moving them onto the style profile is separate work.
+Assetgrove is not tied to one visual style. The target profile's optional `style` (alpha mode, colour rule, edges, after clockgrove/clockgrove#61) decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha, crisp edges or a palette for flat-cartoon and pixel-art worlds. Without one, the sheet import uses soft alpha and full colour. The first loop's `stage` and `pick` still post-process to binary alpha and the bible palette; moving them onto the style profile is separate work.
 
 ## Picking (owner, 2026-11-07)
 
-The operator picks. `assetforge stage` stages only QA-passing candidates with their reasons; `assetforge pick` writes the chosen one with the review field at the profile's pending value. Assetforge never writes any other review value.
+The operator picks. `assetgrove stage` stages only QA-passing candidates with their reasons; `assetgrove pick` writes the chosen one with the review field at the profile's pending value. Assetgrove never writes any other review value.
 
 ## License of generated output (Kirk, 2026-11-07)
 
-Assetforge writes the license value the target profile declares (Clockgrove: MIT) and records the models, route and provider terms in provenance.
+Assetgrove writes the license value the target profile declares (Clockgrove: MIT) and records the models, route and provider terms in provenance.
 
-## Provider output grants (assetforge#47, 2026-11-09)
+## Provider output grants (assetgrove#47, 2026-11-09)
 
 Provider terms differ on who owns an output (Meshy free: CC BY 4.0 with credit; Tripo free: rights kept by Tripo, no commercial use; paid plans give ownership). Each route declares its `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`; names shared with clockgrove/clockgrove#61), every call records it, and the provenance carries the combination over its calls, the most restrictive winning. The provenance's `license` is the target's licence only when the grant allows relabelling; otherwise the granted licence, when it is commercial and the target lists it in `acceptedLicenses`. Anything else is refused at hand-off (`pick`, `write-families`) with exit 7 (`license_refused`) before a file is written. Staging is unaffected, so free-credit spikes that never reach a target still run.
 
-## Packaging (assetforge#21, 2026-11-07)
+## Packaging (assetgrove#21, 2026-11-07)
 
-Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetforge` is taken.
+Owner decision: publish under the `@clockgrove` scope, as `@clockgrove/assetgrove`.
 
 - The package ships compiled JavaScript in `dist/`, because Node refuses to strip types inside `node_modules`. `tsc -p tsconfig.build.json` builds it, with `rewriteRelativeImportExtensions` turning `.ts` imports into `.js`.
 - The repository still runs the sources directly. Development has no build step.
@@ -61,33 +70,33 @@ Owner decision: publish as `@clockgrove/assetforge`. The unscoped name `assetfor
 - The version stays `0.0.0` in the repository. The release sets it from the exact tag.
 - Publishing is left to a maintainer: the npm org, trusted publishing and the release workflow under `.github/`.
 
-## CLI contract (assetforge#21, 2026-11-07)
+## CLI contract (assetgrove#21, 2026-11-07)
 
 - With `--json`, stdout is one JSON document: `ok`, `exitCode`, `command` and, on refusal, `error` with `code` and `message`. Logs go to stderr. Nothing prompts.
-- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused: the run's cap or a cross-run spend limit (also a dry-run forecast over either; assetforge#74), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`), 7 licence refused: the provider's output grant does not let the target declare the output (`license_refused`, nothing written; assetforge#47).
+- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused: the run's cap or a cross-run spend limit (also a dry-run forecast over either; assetgrove#74), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`), 7 licence refused: the provider's output grant does not let the target declare the output (`license_refused`, nothing written; assetgrove#47).
 - `--dry-run` (on `stage` and `generate-sheet`, the commands that generate) spends nothing and needs no key.
 - `--provider-script` runs a scripted provider for offline runs.
 - Every future command follows this contract.
 
-## Media transformation core (assetforge#23, 2026-11-07)
+## Media transformation core (assetgrove#23, 2026-11-07)
 
-- Operations are declared once, by name and parameter schema, in `src/transform/operations.ts`. Engines implement them behind the `ImageEngine` adapter. The in-house engine is `assetforge-raster` 1.0.0, and its version is bumped whenever an operation's output bytes change.
-- Recipes are JSON (`format: "assetforge-recipe/1"`). YAML was left out because it would need a parser dependency. The parameter schemas use a small JSON Schema subset kept in the repository, with no new dependency.
+- Operations are declared once, by name and parameter schema, in `src/transform/operations.ts`. Engines implement them behind the `ImageEngine` adapter. The in-house engine is `assetgrove-raster` 1.0.0, and its version is bumped whenever an operation's output bytes change.
+- Recipes are JSON (`format: "assetgrove-recipe/1"`). YAML was left out because it would need a parser dependency. The parameter schemas use a small JSON Schema subset kept in the repository, with no new dependency.
 - Provenance steps are chained by pixel hashes, so intermediate images are never encoded. Sources and written files also record their file SHA-256. The record holds no time, so reruns are byte-identical.
 - WebP output is lossless VP8L from an in-house encoder, which is deterministic and needs no native dependency. KTX2 waits for the material maps (#14).
 - The sheet import runs on these operations, with byte-identical output.
 
-## Generation constitutions (owner, 2026-11-08; assetforge#28)
+## Generation constitutions (owner, 2026-11-08; assetgrove#28)
 
 Art direction lives in a target-owned Markdown bible with validated YAML front matter, prose rationale and Do's and Don'ts. The `yaml` parser is pinned to 2.9.1 because this format requires YAML; existing JSON profile, spec and recipe formats remain unchanged. Palette, outline, lighting, fog, saturation and value bounds use DTCG 2025.10 typed tokens. Art-specific axes remain in the art schema.
 
-The target-owned Agent Skill links the bible and starting presets. DESIGN.md contributes UI colour context only; Assetforge does not extend its format with art direction. Prompt templates are copied into the target repository on explicit initialization and versioned there. `plan` records compilation and model inputs; `apply` checks their hashes and authorizes generation spend without approving an asset.
+The target-owned Agent Skill links the bible and starting presets. DESIGN.md contributes UI colour context only; Assetgrove does not extend its format with art direction. Prompt templates are copied into the target repository on explicit initialization and versioned there. `plan` records compilation and model inputs; `apply` checks their hashes and authorizes generation spend without approving an asset.
 
-## Identity lock v1 (assetforge#39, 2026-11-08)
+## Identity lock v1 (assetgrove#39, 2026-11-08)
 
 Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route, default `perplexity/pplx-decider-v1.2` from #27's image eval, with `openai/gpt-6-luna-decisions` as the alternate. Scoring starts in **shadow mode**: it runs beside the current QA, records the score and the agreement with QA, and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile until shadow runs have measured agreement. Scoring never approves.
 
-**Threshold: 0.68 (owner, 2026-11-08).** The default comes from `assetforge identity-eval` run by the owner on #27's identity set, which stays local: 22 labelled crops, each judged against both locks (Stevie's approved three-quarter turnaround; Jimothy's sheet cell 3 plus his painted portrait), so 44 cases, 19 of them "same".
+**Threshold: 0.68 (owner, 2026-11-08).** The default comes from `assetgrove identity-eval` run by the owner on #27's identity set, which stays local: 22 labelled crops, each judged against both locks (Stevie's approved three-quarter turnaround; Jimothy's sheet cell 3 plus his painted portrait), so 44 cases, 19 of them "same".
 
 | Model                                  | Recommended threshold | Accuracy    | False accepts | False rejects | Cost (44 calls) | p50 latency |
 | -------------------------------------- | --------------------- | ----------- | ------------- | ------------- | --------------- | ----------- |
@@ -118,11 +127,11 @@ The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode.
 | perplexity/pplx-decider-v1.2 | 0.55    | 0 of 67               | 34 of 44              |
 | google/gemini-decision-1     | 0.49    | 26 of 67              | 21 of 44              |
 
-An AUC of 0.5 is chance. The features the cast shares satisfy every level of the Score question for any of its members. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. Keeping characters on-model is assetforge#92. It is cast-agnostic, and is measured on drift of the same character, generic members of the type and look-alike cast members, for more than one cast. Enforce mode waits for its measured bar.
+An AUC of 0.5 is chance. The features the cast shares satisfy every level of the Score question for any of its members. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only Gracie's c1 turnaround as the negative, was reverted when Gracie's c2 and c3 views scored up to 0.83 and Jimothy up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. Keeping characters on-model is assetgrove#92. It is cast-agnostic, and is measured on drift of the same character, generic members of the type and look-alike cast members, for more than one cast. Enforce mode waits for its measured bar.
 
 A follow-up the same day found a second cause: the record contradicted its references. Stevie's v1 record called him lean, upright and long-legged, but his approved turnaround is stocky and short-legged. Models that trusted the text rejected the real Stevie and accepted the lean Gracie. Raccoon World corrected the record in clockgrove/raccoon-world#65 (lock v2). A rerun on v2 showed the text was not why the lock fails. Recall of the real Stevie recovered, but the single-reference lock stayed at chance (AUC 0.49–0.55), and Gracie was still taken for Stevie. One reference cannot separate look-alikes, so the table above stands. Vision chat models (Claude Opus 5.5, GPT-6.1 Terra, Gemini 4 Argon) did no better on the same question (lock AUC 0.33–0.58). Choosing among the whole cast's references did better: 90.2% for GPT-6.1 Terra on lock v2, with a generic "any other character is neither" sentence. It still passed about half the other raccoons, so shadow mode stays. #92 now also requires catching a record whose text disagrees with its references.
 
-## Identity lock bar: measured on two casts, not met yet (2026-11-11; assetforge#92)
+## Identity lock bar: measured on two casts, not met yet (2026-11-11; assetgrove#92)
 
 **The bar for enforce mode** is ROC AUC ≥ 0.95, false accepts ≤ 5% and false rejects ≤ 10%. Every negative kind (drift, generic, look-alike) and every cast must meet it on 2D cases of trusted records (records that pass their record check), at a threshold fixed before the run. It is `IDENTITY_ENFORCE_BAR`, and `identity-eval` reports it. 3D results are provisional: no threshold or bar rests on them until look-dev (#82) renders in the bible's style.
 
@@ -198,7 +207,7 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 - **Next: posture versus identity.** Done in #104; see the next section. Whether photos belong in a 2D art set is the person approving's call.
 - **The 3D numbers:** after look-dev, below.
 
-**3D after look-dev (2026-11-12; assetforge#82, Outcome 9; provisional, no threshold set).** These are the 3D cases of the set: Stevie's 16 wave-0 renders and their 2 drift edits, plus the looked-dev renders of the real run (`docs/examples/look-dev/stevie/`) and the generic 3D renders (`docs/examples/look-dev/generic/`). The looked-dev renders are 10 same (summer and winter coats; front, three-quarter, side, back and the close-up) and 3 pixel drift (hue shift, tall stretch, colour removed). The generics are 5 renders of a second real look-dev run on Stevie's mesh with a generic subject ("an ordinary raccoon with a pale, silvery coat and a narrow eye mask") and the 2D generic `generic-silver-front` as its one reference, each a negative against Stevie and Jimothy (10 cases). They are scored against the cast's locks (Stevie's lock v3, record check passed). `node test/fixtures/identity-set/build.ts <out> --medium 3d` writes the 41 cases. Thresholds are the shipped defaults, fixed before the run. These numbers are from the run after review, on the second look-dev run's renders; the wave-0 cases were rescored with them.
+**3D after look-dev (2026-11-12; assetgrove#82, Outcome 9; provisional, no threshold set).** These are the 3D cases of the set: Stevie's 16 wave-0 renders and their 2 drift edits, plus the looked-dev renders of the real run (`docs/examples/look-dev/stevie/`) and the generic 3D renders (`docs/examples/look-dev/generic/`). The looked-dev renders are 10 same (summer and winter coats; front, three-quarter, side, back and the close-up) and 3 pixel drift (hue shift, tall stretch, colour removed). The generics are 5 renders of a second real look-dev run on Stevie's mesh with a generic subject ("an ordinary raccoon with a pale, silvery coat and a narrow eye mask") and the 2D generic `generic-silver-front` as its one reference, each a negative against Stevie and Jimothy (10 cases). They are scored against the cast's locks (Stevie's lock v3, record check passed). `node test/fixtures/identity-set/build.ts <out> --medium 3d` writes the 41 cases. Thresholds are the shipped defaults, fixed before the run. These numbers are from the run after review, on the second look-dev run's renders; the wave-0 cases were rescored with them.
 
 | Question, threshold  | Cases           | AUC   | Same FR | Drift FA | Generic FA | Mean same score | Spend  |
 | -------------------- | --------------- | ----- | ------- | -------- | ---------- | --------------- | ------ |
@@ -212,7 +221,7 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 - **Per kind:** same, drift and generic. Over all 3D cases, the drift AUC is 0.677 (`score`) and 0.662 (`cast`); the generic AUC is 0.846 (`score`, generic mean 0.45) and 0.863 (`cast`, generic mean 0.01). **3D look-alikes are missing:** no other cast member has a 3D model yet, so they wait for wave 1. The 3D generics keep Stevie's mesh and proportions; only their surface is generic.
 - **Per cast:** Raccoon World only. The birds have no 3D cases.
 - **Who is rejected.** `cast` rejects every lit 3D render of Stevie, before and after look-dev (26/26). `score` rejects every looked-dev lit render (10/10) and 12 of the 16 wave-0 renders; the other 4 wave-0 renders score 0.68 or more. No wrong render, drift or generic, is accepted by either question. `cast` names Stevie every time (confidence 0.89–0.98), then calls the render off-model. For the looked-dev renders it gives a much darker brown coat without the warm tan chest and underside, a reduced, muted cream muzzle, ear rims that are not clearly pale, muted tail bands on the back view, and a broader head than the body.
-- **The darkness is mostly the renderer's lighting.** Rendered unlit, the looked-dev model's three-quarter view averages RGB 113,92,75. Assetforge's turntable lighting (ambient 0.35 plus one key light) brings the figure to about 0.7 of that, and the shell-fur preview shades its shells darker toward the root.
+- **The darkness is mostly the renderer's lighting.** Rendered unlit, the looked-dev model's three-quarter view averages RGB 113,92,75. Assetgrove's turntable lighting (ambient 0.35 plus one key light) brings the figure to about 0.7 of that, and the shell-fur preview shades its shells darker toward the root.
 - **Diagnostic, unlit renders** (not in the set; 4 views each; $0.09):
 
   | Render                 | `score` mean (range) | `cast` mean (range) |
@@ -224,7 +233,7 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 
 - **What this means for a 3D threshold.** No question separates the lit looked-dev positives from drift and generics at the shipped thresholds: every looked-dev lit render falls below both. 3D stays provisional, and identity on 3D stays shadow-only.
 
-**3D after look-dev, second pass (2026-11-12; assetforge#122, Outcome 5; provisional, no threshold set).** This is the same 41-case 3D set, rebuilt with `node test/fixtures/identity-set/build.ts <out> --medium 3d`. It has the same cases as #82's run above. The looked-dev cases are now the renders of #122's proof run (run 8, after review; kept in `docs/examples/look-dev/stevie/122/` since assetforge#129). They are under the new preview lighting, with the views restyled in turn and blended toward the squarest view where they disagree. The generic 3D renders were remade under the same lighting earlier in this pass, before the restyle and blend changes, and are not remade. Wave 0 is unchanged. The profile is raccoon-world `main`'s `art/target-profile.json`, with its `identity` set to the shipped defaults, fixed before the run. Stevie's lock is v3, and its record check passed. #82's numbers are in brackets.
+**3D after look-dev, second pass (2026-11-12; assetgrove#122, Outcome 5; provisional, no threshold set).** This is the same 41-case 3D set, rebuilt with `node test/fixtures/identity-set/build.ts <out> --medium 3d`. It has the same cases as #82's run above. The looked-dev cases are now the renders of #122's proof run (run 8, after review; kept in `docs/examples/look-dev/stevie/122/` since assetgrove#129). They are under the new preview lighting, with the views restyled in turn and blended toward the squarest view where they disagree. The generic 3D renders were remade under the same lighting earlier in this pass, before the restyle and blend changes, and are not remade. Wave 0 is unchanged. The profile is raccoon-world `main`'s `art/target-profile.json`, with its `identity` set to the shipped defaults, fixed before the run. Stevie's lock is v3, and its record check passed. #82's numbers are in brackets.
 
 | Question, threshold  | Cases           | AUC           | Same FR       | Drift FA  | Generic FA  | Mean same score | Spend  |
 | -------------------- | --------------- | ------------- | ------------- | --------- | ----------- | --------------- | ------ |
@@ -250,7 +259,7 @@ These are recomputed from logged scores, not a fresh run. The fresh run (run 3) 
 - **Run to run.** Wave 0's images are the same as in the first rerun of this pass, yet `cast` scored them lower (AUC 0.391, against 0.734 then). The same images can score differently from one run to the next.
 - **What this means for a 3D threshold.** `score` separates the looked-dev positives from their drift (AUC 0.90), but a stretched drift still scores above 3 positives. `cast` now accepts 3 of 10 looked-dev renders and no drift, but rejects most of them. 3D stays provisional, identity on 3D stays shadow-only, and no 3D threshold is set.
 
-## Identity cast question: animation posture is not drift (2026-11-12; assetforge#104)
+## Identity cast question: animation posture is not drift (2026-11-12; assetgrove#104)
 
 **The bar is met on the whole set, but not on the frames held out for the run, so shadow mode stays the default** and `question: "cast"` stays opt-in at 0.5. On run 7's held-out frames, Raccoon World is clean, but 2 of 12 posed bird drift cases are accepted.
 
@@ -304,7 +313,7 @@ Run 6's 30 false accepts and 12 false rejects cannot be split by kind here: the 
 
 **What is open:** a proportion change in a strongly posed frame, a held-out walk and family of Jimothy's own, the tolerances named under the rule, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen. #108 took these on; see the next section.
 
-## Identity cast question: only what the animation implies is excused (2026-11-12; assetforge#108)
+## Identity cast question: only what the animation implies is excused (2026-11-12; assetgrove#108)
 
 **The bar is met on the whole set in both runs, but not on either run's held-out frames, so shadow mode stays the default.** `question: "cast"` stays opt-in at 0.5, and the recommendation for a look-alike cast does not change. What still leaks is a body stretched 1.3× in a posed frame: 4 of the 36 held-out drift cases in run 9 and 1 of the 40 in run 8.
 
@@ -375,7 +384,7 @@ Most of the variation comes from where a box lands, not from the result. A box "
 
 **When it filters again.** When the same result gives the same drift set across repeated measurements: the markings calls rerun on one run's saved renders name the same drifting markings each time. That means a measurement whose boxes are stable, not a looser threshold.
 
-## Decision models for QA (owner, 2026-11-08; assetforge#27)
+## Decision models for QA (owner, 2026-11-08; assetgrove#27)
 
 #27 measured gateway decision models on image questions and closes with these outcomes:
 

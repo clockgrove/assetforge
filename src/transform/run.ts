@@ -38,7 +38,7 @@ import type {
 /** The engines available by default, in preference order. */
 export const DEFAULT_ENGINES: ImageEngine[] = [rasterEngine, materialEngine];
 
-export const RECIPE_FORMAT = "assetforge-recipe/1";
+export const RECIPE_FORMAT = "assetgrove-recipe/1";
 
 /** SHA-256 over `rgba8 <width>x<height>\n` and the RGBA bytes: a hash of the pixels, not a file. */
 export function pixelHash(r: Raster): string {
@@ -402,7 +402,7 @@ function jsonMeta(meta: Record<string, unknown>): Record<string, unknown> | unde
   return JSON.parse(JSON.stringify(meta)) as Record<string, unknown>;
 }
 
-/** The operations with their schemas and the engines implementing each, for `assetforge ops`. */
+/** The operations with their schemas and the engines implementing each, for `assetgrove ops`. */
 export function describeOperations(engines: ImageEngine[] = DEFAULT_ENGINES) {
   return {
     recipeFormat: RECIPE_FORMAT,

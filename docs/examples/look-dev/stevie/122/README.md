@@ -1,14 +1,14 @@
-# Look-dev on Stevie, second pass: before and after (assetforge#122)
+# Look-dev on Stevie, second pass: before and after (assetgrove#122)
 
-These are #122's renders, kept for comparison with the third pass (assetforge#129, in [`129/`](../129/)) the winter-groom pass (assetforge#131, in [`131/`](../131/)) and the face detail pass (assetforge#143, one directory up).
+These are #122's renders, kept for comparison with the third pass (assetgrove#129, in [`129/`](../129/)) the winter-groom pass (assetgrove#131, in [`131/`](../131/)) and the face detail pass (assetgrove#143, one directory up).
 
-This is one real `assetforge look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is raccoon-world `main` at 4ef1222. #82's renders are kept in [`82/`](../82/) for comparison.
+This is one real `assetgrove look-dev` run, made on 2026-11-12 (Pacific time) on Stevie's picked model, the same model as #82: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `81e5ece4…ef3f`, checked before the run). The art (`art/target-profile-3d.json`, `art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is raccoon-world `main` at 4ef1222. #82's renders are kept in [`82/`](../82/) for comparison.
 
 ```sh
-assetforge look-dev --model assets/models/stevie/stevie.glb \
+assetgrove look-dev --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
-  --profile art/target-profile-3d.json --work-item clockgrove/assetforge#122
+  --profile art/target-profile-3d.json --work-item clockgrove/assetgrove#122
 ```
 
 **Spend:** $0.34 of the $3.00 cap. The forecast was $1.89. The run made 14 calls: 7 restyles on `openai/gpt-image-2`, 1 eye and nose locate, 2 season grooms, 3 markings calls (front, three-quarter and side) and 1 identity score.
@@ -30,7 +30,7 @@ This stage's five runs cost $1.72 and its identity rerun $0.43. The first stage 
 3. after look-dev, summer coat;
 4. after look-dev, winter coat.
 
-The before and after renders share one lighting, Assetforge's default preview lighting: ambient 0.6 and a key of 0.4 from above-left of the camera, with one automatic exposure for the run, and highlights rolled off rather than clipped. The after renders draw Assetforge's shell-fur preview, driven by each season's groom maps. The target's fur material is clockgrove/clockgrove#242. `unlit-before-<view>.png` and `unlit-after-<view>.png` show the base colour alone.
+The before and after renders share one lighting, Assetgrove's default preview lighting: ambient 0.6 and a key of 0.4 from above-left of the camera, with one automatic exposure for the run, and highlights rolled off rather than clipped. The after renders draw Assetgrove's shell-fur preview, driven by each season's groom maps. The target's fur material is clockgrove/clockgrove#242. `unlit-before-<view>.png` and `unlit-after-<view>.png` show the base colour alone.
 
 ## Lit renders against the turnaround
 
@@ -107,4 +107,4 @@ The muzzle, brows and ear rims hold in every measured view. The boxes are a visi
 
 `pick` was not run: the result failed a check and is not staged. Handing a result into raccoon-world is that repository's follow-up, after Kirk judges it.
 
-The 3D identity rerun on these renders (assetforge#122, Outcome 5) is in [decisions.md](../../../../decisions.md), "3D after look-dev, second pass", beside #82's numbers. With `score` at 0.68, 7 of the 10 looked-dev renders pass; under #82's lighting, none did. `cast` now calls 3 of 10 on-model (#82: none; run 3: 1). Its reasons for the other 7 are pale flecks breaking up the eye mask, the tan tail tip, mottled tail bands, and the close-up's large head. Identity on 3D stays shadow-only.
+The 3D identity rerun on these renders (assetgrove#122, Outcome 5) is in [decisions.md](../../../../decisions.md), "3D after look-dev, second pass", beside #82's numbers. With `score` at 0.68, 7 of the 10 looked-dev renders pass; under #82's lighting, none did. `cast` now calls 3 of 10 on-model (#82: none; run 3: 1). Its reasons for the other 7 are pale flecks breaking up the eye mask, the tan tail tip, mottled tail bands, and the close-up's large head. Identity on 3D stays shadow-only.

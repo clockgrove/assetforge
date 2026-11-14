@@ -2,7 +2,7 @@
  * A scripted 3D provider for tests and offline runs: every model, rig and clip call answers with a
  * synthetic rigged character (test/fixtures/glb.ts). `SCRIPT_3D_TRIANGLES` makes every candidate
  * that many triangles (to exceed a budget); `SCRIPT_3D_OPEN_LOOP=1` leaves the clip unclosed by the
- * provider (Assetforge closes it).
+ * provider (Assetgrove closes it).
  */
 import type { Script } from "../../src/gateway/scripted.ts";
 import { syntheticCharacter } from "./glb.ts";

@@ -1,6 +1,6 @@
-# Assetforge agent rules
+# Assetgrove agent rules
 
-Assetforge is a public repository. These rules apply to every contributor, human or agent.
+Assetgrove is a public repository. These rules apply to every contributor, human or agent.
 
 ## Public repository
 
@@ -10,11 +10,11 @@ Assetforge is a public repository. These rules apply to every contributor, human
 
 ## Scope
 
-- Assetforge is generic. Anything specific to one game — its style bible, its manifest format, its validator — lives in that game's repository and reaches Assetforge as data (a target profile), never as code here.
+- Assetgrove is generic. Anything specific to one game — its style bible, its manifest format, its validator — lives in that game's repository and reaches Assetgrove as data (a target profile), never as code here.
 - Model providers sit behind one gateway adapter; provider SDK types never leak past it.
 - Every generated file carries provenance: model, route, prompt, parameters, seed where supported, request ID, time and cost.
 - Spend is bounded: every run reserves against a cost cap before calling a provider, and refuses when it would exceed it. Every paid call also reserves against the cross-run spend ledger's daily and work-item limits (`src/spend.ts`, docs/target-profile.md).
-- Approval is human. Assetforge filters and presents candidates; it never marks an asset approved.
+- Approval is human. Assetgrove filters and presents candidates; it never marks an asset approved.
 - Media is format-agnostic: each output declares its own media type, and `.gitattributes` decides Git LFS storage. Code never lists allowed formats.
 
 ## Dependencies

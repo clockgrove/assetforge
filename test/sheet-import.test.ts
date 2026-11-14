@@ -79,7 +79,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 async function dirs() {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-sheet-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-sheet-"));
   const targetDir = join(root, "target");
   await mkdir(targetDir);
   return { root, importsDir: join(root, "imports"), targetDir };

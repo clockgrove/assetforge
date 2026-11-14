@@ -40,7 +40,7 @@ const provenance: Provenance = {
 async function stagedRun(
   mutate: (candidate: StagedCandidate) => void = () => {},
 ): Promise<{ runDir: string; targetDir: string }> {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-lookdev-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-lookdev-"));
   const runDir = join(dir, "run");
   const targetDir = join(dir, "target");
   await mkdir(runDir, { recursive: true });

@@ -41,7 +41,7 @@ function profile(style: TargetProfile["style"]): TargetProfile {
 }
 
 async function setup(style: TargetProfile["style"], drawn: Parameters<typeof syntheticStrip>[0]) {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-anim-cli-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-anim-cli-"));
   const { strip } = syntheticStrip(drawn);
   await writeFile(join(root, "walk-right.png"), encodePng(strip));
   await writeFile(join(root, "profile.json"), JSON.stringify(profile(style)));
@@ -244,7 +244,7 @@ test("fix-frame: a provenance it cannot extend exits 2 before any call and write
 });
 
 test("write-families writes the onion skin and loop preview and reports animation QA", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-anim-wf-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-anim-wf-"));
   const target = join(root, "target");
   await mkdir(target);
   await writeFile(join(root, "sheet.png"), syntheticSheet().png);
@@ -339,7 +339,7 @@ test("write-families writes the onion skin and loop preview and reports animatio
 });
 
 test("animation-qa: --spec declares the gait; a four-legged walk passes under it", async () => {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-anim-gait-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-anim-gait-"));
   const walk = quadrupedWalk(8);
   await writeFile(join(root, "walk-right.png"), encodePng(joinStrip(walk.frames)));
   await writeFile(

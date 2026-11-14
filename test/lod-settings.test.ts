@@ -103,7 +103,7 @@ test("handoff.lods picks the packaging", () => {
     () => lodSettings(profile({ handoff: { lods: "bogus" } })),
     /model3d\.handoff\.lods must be embedded or files/,
   );
-  // A target's own notes beside Assetforge's fields are left alone, not refused.
+  // A target's own notes beside Assetgrove's fields are left alone, not refused.
   assert.deepEqual(handoffSettings(profile({ handoff: { container: "glb", lods: "files" } })), {
     sideImages: "beside",
     lods: "files",
