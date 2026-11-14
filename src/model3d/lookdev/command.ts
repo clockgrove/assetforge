@@ -11,7 +11,7 @@ import { Budget } from "../../budget.ts";
 import { Caller } from "../../calls.ts";
 import { InputError, ProviderError } from "../../errors.ts";
 import type { GenerationProvider } from "../../gateway/provider.ts";
-import { identityReason, identitySettings, scoreIdentity } from "../../identity.ts";
+import { identityReason, identitySettings3d, scoreIdentity } from "../../identity.ts";
 import type { IdentityScore } from "../../identity.ts";
 import { createRaster, decodeImage, encodePng } from "../../image/raster.ts";
 import type { Raster } from "../../image/raster.ts";
@@ -28,7 +28,6 @@ import type { DigitalSourceType } from "../../metadata.ts";
 import { loadReference, sha256, styleNotes, subjectOf } from "../../request.ts";
 import {
   IDENTITY_CAST_OPERATION,
-  IDENTITY_CHECK_OPERATION,
   LOOKDEV_GROOM_OPERATION,
   LOOKDEV_LOCATE_OPERATION,
   LOOKDEV_MARKINGS_OPERATION,
@@ -188,10 +187,10 @@ export function planLookdev(profile: TargetProfile, routes: Routes, capUsd?: num
   for (let i = 0; i < seasonsOf(settings).length; i++) add(LOOKDEV_GROOM_OPERATION);
   // At most one markings call per turntable view: only views with their own turnaround view call.
   for (let i = 0; i < TURNTABLE_VIEWS.length; i++) add(LOOKDEV_MARKINGS_OPERATION);
-  const identity = identitySettings(profile);
+  // Identity never filters a 3D character, so no record check is forecast.
+  const identity = identitySettings3d(profile);
   if (identity.mode !== "off") {
     add(identity.question === "cast" ? IDENTITY_CAST_OPERATION : "identity");
-    if (identity.mode === "enforce") add(IDENTITY_CHECK_OPERATION);
   }
   const estimateUsd = calls.reduce((sum, c) => sum + c.estimatedCostUsd, 0);
   return {
@@ -1437,7 +1436,7 @@ export async function lookDev(
 
   // 6. Identity lock on the looked-dev turntable (front and three-quarter), as for wave 0.
   let identity: IdentityScore | undefined;
-  const identityMode = identitySettings(profile);
+  const identityMode = identitySettings3d(profile);
   const firstSeason = plan.seasons[0]!;
   if (identityMode.mode !== "off") {
     const views = afterBySeason[firstSeason]!;

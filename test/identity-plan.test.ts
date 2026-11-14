@@ -51,7 +51,10 @@ async function fixture(withLock = true) {
   return { root, biblePath };
 }
 
-/** Candidate n gets the n-th answer, on the 0..4 rubric; a number below 0 makes the call fail. */
+/**
+ * Candidate n gets the n-th answer, on the 0..4 rubric; a number below 0 makes the call fail. The
+ * cast question always answers "den", on-model 0.6.
+ */
 function scripted(answers: number[]) {
   const image = createRaster(4, 4);
   setPixel(image, 1, 1, [120, 90, 80, 255]);
@@ -61,7 +64,9 @@ function scripted(answers: number[]) {
       // Enforce mode first checks the record against its references (#92); this one agrees.
       text: request.prompt.includes("For each written claim")
         ? JSON.stringify({ consistent: true, conflicts: [] })
-        : JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
+        : request.prompt.includes('"onModel": p')
+          ? JSON.stringify({ choice: "den", onModel: 0.6, reason: "on-model enough" })
+          : JSON.stringify({ styleScore: 1, passed: true, reason: "constitution matches" }),
     }),
     decide: (_request, index) => {
       const score = answers[index] as number;
@@ -181,6 +186,31 @@ test("the mode option overrides the profile, and off plans no scoring", async ()
   const off = await run([3.6], { identityMode: "off" });
   assert.equal(off.plan.identityCheck, undefined);
   assert.equal(off.run.identity, undefined);
+});
+
+test("the cast question with no threshold set plans, scores and records at 0.5", async () => {
+  const cast = await run([3.6], {
+    profile: { identity: { mode: "enforce", question: "cast" } },
+  });
+  assert.equal(cast.plan.identityCheck?.question, "cast");
+  assert.equal(cast.plan.identityCheck?.threshold, 0.5);
+  assert.equal(cast.run.identity?.threshold, 0.5);
+  // On-model 0.6 passes at 0.5, where the score question's 0.68 would filter it.
+  assert.equal(cast.run.filtered, 0);
+  const scored = cast.run.candidates[0]!.provenance.identity!;
+  assert.equal(scored.threshold, 0.5);
+  assert.equal(scored.passed, true);
+  assert.match(scored.reason, /^identity 0\.60 >= threshold 0\.5 /);
+  // An explicit threshold wins over the cast default.
+  const strict = await run([3.6], {
+    profile: { identity: { mode: "enforce", question: "cast", threshold: 0.68 } },
+  });
+  assert.equal(strict.plan.identityCheck?.threshold, 0.68);
+  assert.equal(strict.run.identity?.threshold, 0.68);
+  assert.equal(strict.run.filtered, 1);
+  // The score question keeps 0.68.
+  const score = await run([3.6]);
+  assert.equal(score.plan.identityCheck?.threshold, 0.68);
 });
 
 test("a subject with no lock is not scored and its plan has no identity check", async () => {

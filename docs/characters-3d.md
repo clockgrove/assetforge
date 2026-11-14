@@ -97,7 +97,7 @@ Also available:
    - `clip-<family>`: the clip exists, lasts more than zero and animates joints of the skin. A missing family passes with the reason `missing, not faked`.
    - `loop-<family>`: for a looping family, the last pose returns to the first within the loop tolerance.
    - `turntable`: renders written from a fixed camera and light. The camera is 15° above the horizon and framed on the rest-pose bounds. The light is one directional light plus ambient. The renders are front, three-quarter, side and back, relative to the model's facing, plus 4 three-quarter frames of each clip. They go in `<run>/c<n>-character-3d/` for every candidate, including filtered ones.
-   - `identity-lock`: the identity call scores the front and three-quarter renders, side by side, against the character's approved references. It uses the profile's identity mode, which is shadow by default (the score is recorded and nothing is filtered). The record comes from the bible:
+   - `identity-lock`: the identity call scores the front and three-quarter renders, side by side, against the character's approved references. It always runs in shadow mode: the score is recorded and never filters. A profile's `enforce` runs in shadow too, and the reason says why: no identity question separates lit renders of the right character from their drift. The record comes from the bible:
      - the subject's references;
      - its description as signature features;
      - the palette;

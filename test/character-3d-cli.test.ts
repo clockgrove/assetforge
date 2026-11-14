@@ -152,6 +152,48 @@ test("--dry-run forecasts every 3D call with no key, within $5 for 4 candidates"
   assert.equal(doc(over)["error"].code, "cap_refused");
 });
 
+test("enforce never filters a 3D character on identity: it scores in shadow and says why", async () => {
+  const w = await world({}, { identity: { mode: "enforce" } });
+  const dry = await cli(["stage", ...w.base, "--dry-run", "--json"]);
+  assert.equal(dry.code, 0, dry.stderr);
+  // No record check is forecast, because none runs.
+  assert.deepEqual(
+    doc(dry)["plan"].perCandidate.map((c: { operation: string }) => c.operation),
+    ["model3d", "rig3d", "clips3d", "identity"],
+  );
+  const r = await cli([
+    "stage",
+    ...w.base,
+    "--runs",
+    w.runs,
+    "--provider-script",
+    SCRIPT,
+    "--candidates",
+    "2",
+    "--json",
+  ]);
+  assert.equal(r.code, 0, r.stdout + r.stderr);
+  const run = doc(r);
+  assert.equal(run["candidates"].length, 2);
+  assert.equal(run["rejections"]?.length ?? 0, 0);
+  // The script scores the second candidate 2.2 of 4 (0.55), below the 0.68 threshold.
+  const low = run["candidates"][1];
+  const reason = low.reasons.find((x: { check: string }) => x.check === "identity-lock");
+  assert.equal(reason.passed, false);
+  assert.equal(reason.shadow, true);
+  assert.match(
+    reason.reason,
+    /< threshold 0\.68 .*shadow mode, not filtered: enforce does not filter 3D characters: no identity question separates lit renders of the right character from their drift/,
+  );
+  assert.equal(low.fields.identity.mode, "shadow");
+  assert.equal(low.fields.identity.filtered, false);
+  assert.match(low.fields.identity.shadowReason, /enforce does not filter 3D characters/);
+  assert.deepEqual(
+    low.provenance.calls.map((c: { operation: string }) => c.operation),
+    ["model3d", "rig3d", "clips3d", "identity"],
+  );
+});
+
 test("a run reserves the whole forecast before any call and refuses over the cap", async () => {
   const w = await world();
   const r = await cli([

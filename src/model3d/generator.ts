@@ -8,8 +8,7 @@ import { InputError, ProviderError } from "../errors.ts";
 import type { Generator, GeneratorContext, PlannedCall } from "../generators/generator.ts";
 import {
   IDENTITY_CAST_OPERATION,
-  IDENTITY_CHECK_OPERATION,
-  identitySettings,
+  identitySettings3d,
   identityReason,
   scoreIdentity,
 } from "../identity.ts";
@@ -199,10 +198,10 @@ export const character3dGenerator: Generator = {
       add(RIG_OPERATION);
       if (clipPlan(character, routes[CLIPS_OPERATION]).planned.length > 0) add(CLIPS_OPERATION);
     }
-    const identity = identitySettings(profile);
+    // Identity never filters a 3D character, so no record check is forecast.
+    const identity = identitySettings3d(profile);
     if (identity.mode !== "off") {
       add(identity.question === "cast" ? IDENTITY_CAST_OPERATION : "identity");
-      if (identity.mode === "enforce") add(IDENTITY_CHECK_OPERATION);
     }
     return calls;
   },
@@ -338,7 +337,7 @@ export const character3dGenerator: Generator = {
       sha256: r.sha256,
     }));
     let identity: IdentityScore | undefined;
-    const identityMode = identitySettings(profile);
+    const identityMode = identitySettings3d(profile);
     if (identityMode.mode !== "off") {
       const views = ["front", "three-quarter"].map((name) => {
         const render = renders.find((r) => r.view === name && r.clip === undefined);
