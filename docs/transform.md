@@ -73,7 +73,7 @@ The record (`generator: "transform"`) lists:
 
 A pixel hash is the SHA-256 of `rgba8 <width>x<height>\n` followed by the RGBA bytes. Steps are chained by pixel hashes, so no intermediate image has to be encoded.
 
-Strips written by the sheet import carry the same `steps` in their provenance: the import's `slice` and `matte`, then the write's `flip` (a mirrored family's own flip only), `register`, `apply-style` and `join`. This is a new optional field in the provenance each strip's manifest receives in the target.
+Strips written by the sheet import carry the same `steps` in their provenance: the import's `slice` and `matte`, then the write's `flip` (a mirrored family's own flip only), `register`, `apply-style` and `join`. It is an optional field in the provenance each strip's manifest receives in the target.
 
 ## Digital Source Type disclosure
 
@@ -95,17 +95,17 @@ Bounds, dimensions and transformation content identity come from decoded RGBA pi
 
 The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetgrove.
 
-The metadata adapter also supports JSON glTF through [Khronos `KHR_xmp_json_ld`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld), with the Digital Source Type URI in a document-level XMP packet. There is no glTF generator in the current pipeline; a future 3D writer must pass its output through that adapter. KTX2 outputs retain disclosure in their provenance sidecars.
+The metadata adapter also supports JSON glTF through [Khronos `KHR_xmp_json_ld`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld), with the Digital Source Type URI in a document-level XMP packet. KTX2 outputs retain disclosure in their provenance sidecars.
 
 ### Later: signed Content Credentials
 
-Digital Source Type is an unsigned disclosure, not a C2PA signature. Per the owner's 2026-11-07 decision, signed C2PA Content Credentials are later work. PNG, JPEG, WebP and WAV can embed C2PA manifests; glTF and KTX2 need a sidecar `.c2pa` file. This change does not add those manifests or sidecars.
+Digital Source Type is an unsigned disclosure, not a C2PA signature. Signed C2PA Content Credentials are later work. PNG, JPEG, WebP and WAV can embed C2PA manifests; glTF and KTX2 need a sidecar `.c2pa` file.
 
 ## Engines
 
 An engine adapter (`ImageEngine` in `src/transform/types.ts`) has a name, a version, the operations it implements, its encoders by media type, and a decoder. The in-house engine, `assetgrove-raster`, is Assetgrove's own TypeScript raster code. It decodes PNG and JPEG, and encodes PNG and lossless WebP (VP8L). Its version is bumped whenever any operation's output bytes change.
 
-Another engine, such as sharp/libvips, ImageMagick or a model-based matte, implements some of the same operations and is passed to the runner ahead of the in-house engine, or named by a step. Recipes don't change. Material derivation, native rendition and KTX2 encoding operations are registered by the material-maps runner (#14), with schemas and per-step provenance; see [materials.md](materials.md).
+Another engine, such as sharp/libvips, ImageMagick or a model-based matte, implements some of the same operations and is passed to the runner ahead of the in-house engine, or named by a step. Recipes don't change. Material derivation, native rendition and KTX2 encoding operations are registered by the material-maps runner, with schemas and per-step provenance; see [materials.md](materials.md).
 
 ## Programmatic use
 

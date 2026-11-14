@@ -1,8 +1,8 @@
 # Gateway models
 
-What the Vercel AI Gateway served on **2026-11-07**, read from its public model list (`GET https://ai-gateway.vercel.sh/v1/models`, no key needed). The list changes often; rerun the query before changing a default route. Prices are as the list reported them; Assetgrove records each call's actual cost when the gateway reports one.
+A snapshot of the Vercel AI Gateway's public model list (`GET https://ai-gateway.vercel.sh/v1/models`, no key needed). The list changes often; rerun the query before changing a default route. Prices are as the list reported them; Assetgrove records each call's actual cost when the gateway reports one.
 
-The gateway listed 498 models: 320 language, 39 image, 37 video, 28 embedding, 24 speech, 16 transcription, 15 evaluation, 10 realtime and 9 reranking.
+The snapshot lists 498 models: 320 language, 39 image, 37 video, 28 embedding, 24 speech, 16 transcription, 15 evaluation, 10 realtime and 9 reranking.
 
 ## Image models (39)
 
@@ -14,48 +14,48 @@ Language models that also output images (reachable through text generation, not 
 
 `alibaba/wan-v2.5-t2v-preview`, `alibaba/wan-v2.6-i2v`, `alibaba/wan-v2.6-i2v-flash`, `alibaba/wan-v2.6-r2v`, `alibaba/wan-v2.6-r2v-flash`, `alibaba/wan-v2.6-t2v`, `alibaba/wan-v2.7-r2v`, `alibaba/wan-v2.7-t2v`, `alibaba/wan-v3.0-video`, `alibaba/wan-v3.0-video-prime`, `bfl/flux-3-video`, `bytedance/seedance-2.0`, `bytedance/seedance-2.0-fast`, `bytedance/seedance-2.0-mini`, `bytedance/seedance-2.5`, `bytedance/seedance-v1.0-pro`, `bytedance/seedance-v1.0-pro-fast`, `bytedance/seedance-v1.5-pro`, `google/veo-3.1-fast-generate-001`, `google/veo-3.1-generate-001`, `google/veo-3.1-lite-generate-001`, `heygen/heygen-video-1`, `klingai/kling-v2.5-turbo-i2v`, `klingai/kling-v2.5-turbo-t2v`, `klingai/kling-v2.6-i2v`, `klingai/kling-v2.6-motion-control`, `klingai/kling-v2.6-t2v`, `klingai/kling-v3.0-i2v`, `klingai/kling-v3.0-motion-control`, `klingai/kling-v3.0-t2v`, `minimax/minimax-h3`, `minimax/minimax-h3-max`, `topaz/proteus`, `topaz/starlight-precise-2.6`, `spacexai/grok-imagine-video`, `spacexai/grok-imagine-video-1.5`, `spacexai/grok-imagine-video-1.5-lite`.
 
-Video is not used yet: animation is generated as a whole contact sheet first (owner decision, 2026-11-07), with video-to-frames later.
+Video is not used yet: animation is generated as a whole contact sheet first, with video-to-frames later.
 
 ## Default routes
 
 Set in `src/routes.ts` and overridable with `--routes <file.json>` (a JSON object of operation → partial route).
 
-| Operation                       | Model                          | Why                                                                                                                                                                                                                       | Estimate per call                                |
-| ------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `still` (stills and key poses)  | `openai/gpt-image-2`           | The issue makes GPT-image the default for stills; it takes reference images. Token-priced ($5/M input, $30/M output).                                                                                                     | $0.25 (upper bound at 1024x1024 with references) |
-| `edit` (each animation frame)   | `bfl/flux-kontext-pro`         | A reference-edit model: it edits the key pose it is given. Flat $0.04 per image. Accepts a seed.                                                                                                                          | $0.05                                            |
-| `vision` (QA)                   | `google/gemini-3-flash`        | A cheap vision-capable language model.                                                                                                                                                                                    | $0.02                                            |
-| `sheet` (a cycle as one sheet)  | `openai/gpt-image-2`           | Whole-sheet generation keeps identity across frames (owner decision); it takes references. Requested at 1536x1024.                                                                                                        | $0.30 (upper bound at 1536x1024 with references) |
-| `identity` (identity lock)      | `perplexity/pplx-decider-v1.2` | A typed decision model. Best on #27's identity eval with reference images (95%). The alternate is `openai/gpt-6-luna-decisions`. About $0.00001–0.00003 per answer.                                                       | $0.001 (deliberate upper bound)                  |
-| `identity-cast` (cast choice)   | `openai/gpt-6.1-terra`         | Used with `identity.question: "cast"`. Picked from the whole cast's references in the lock v2 eval (90.2% on the 3-way set, about $0.0019 an answer); a lead, not yet a measured default (#92). At most 16 images a call. | $0.02 (deliberate upper bound)                   |
-| `identity-check` (record check) | `openai/gpt-6.1-terra`         | Checks a record's written signature against its own references (#92). One call per record.                                                                                                                                | $0.02 (deliberate upper bound)                   |
-| `lookdev` (look-dev restyle)    | `openai/gpt-image-2`           | Repaints each flat-lit render of a picked 3D character in the look of its approved references, for projection back onto its UVs (#82). Takes reference images. 7 calls per character.                                     | $0.25 (upper bound at 1024x1024 with references) |
-| `lookdev-locate` (eyes, nose)   | `google/gemini-3-flash`        | Returns the eyes' and nose's pixel points on a close-up render (#82).                                                                                                                                                     | $0.02                                            |
-| `lookdev-groom` (season groom)  | `google/gemini-3-flash`        | Reads one season's `traits` and the references into fur lengths, densities and a tip tint (#82). One call per season.                                                                                                     | $0.02                                            |
+| Operation                       | Model                          | Why                                                                                                                                                                                                           | Estimate per call                                |
+| ------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `still` (stills and key poses)  | `openai/gpt-image-2`           | The default for stills; it takes reference images. Token-priced ($5/M input, $30/M output).                                                                                                                   | $0.25 (upper bound at 1024x1024 with references) |
+| `edit` (each animation frame)   | `bfl/flux-kontext-pro`         | A reference-edit model: it edits the key pose it is given. Flat $0.04 per image. Accepts a seed.                                                                                                              | $0.05                                            |
+| `vision` (QA)                   | `google/gemini-3-flash`        | A cheap vision-capable language model.                                                                                                                                                                        | $0.02                                            |
+| `sheet` (a cycle as one sheet)  | `openai/gpt-image-2`           | Whole-sheet generation keeps identity across frames; it takes references. Requested at 1536x1024.                                                                                                             | $0.30 (upper bound at 1536x1024 with references) |
+| `identity` (identity lock)      | `perplexity/pplx-decider-v1.2` | A typed decision model. Best on the identity eval with reference images (95%). The alternate is `openai/gpt-6-luna-decisions`. About $0.00001–0.00003 per answer.                                             | $0.001 (deliberate upper bound)                  |
+| `identity-cast` (cast choice)   | `openai/gpt-6.1-terra`         | Used with `identity.question: "cast"`. Picks from the whole cast's references (90.2% on the lock v2 eval's 3-way set, about $0.0019 an answer); a lead, not yet a measured default. At most 16 images a call. | $0.02 (deliberate upper bound)                   |
+| `identity-check` (record check) | `openai/gpt-6.1-terra`         | Checks a record's written signature against its own references. One call per record.                                                                                                                          | $0.02 (deliberate upper bound)                   |
+| `lookdev` (look-dev restyle)    | `openai/gpt-image-2`           | Repaints each flat-lit render of a picked 3D character in the look of its approved references, for projection back onto its UVs. Takes reference images. 7 calls per character.                               | $0.25 (upper bound at 1024x1024 with references) |
+| `lookdev-locate` (eyes, nose)   | `google/gemini-3-flash`        | Returns the eyes' and nose's pixel points on a close-up render.                                                                                                                                               | $0.02                                            |
+| `lookdev-groom` (season groom)  | `google/gemini-3-flash`        | Reads one season's `traits` and the references into fur lengths, densities and a tip tint. One call per season.                                                                                               | $0.02                                            |
 
 A 6-frame strip edits its author-approved key pose 6 times and makes one QA call: about $0.32 per candidate, so the default 4 candidates reserve about $1.28 of the $5 cap. The key pose comes from an earlier `still` run (about $0.27 per candidate, $1.08 for 4).
 
 A generated sheet makes one `sheet` call and one `vision` call for the grouping proposal: about $0.32, reserved against the $5 cap before either call.
 
-A character with an identity lock adds one `identity` call per candidate (see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). Some decision models reject images under about 300 px a side, and `liquid/d1` rejects image input entirely (#27), so pick an alternate that accepts images.
+A character with an identity lock adds one `identity` call per candidate (see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). Some decision models reject images under about 300 px a side, and `liquid/d1` rejects image input entirely, so pick an alternate that accepts images.
 
 ## 3D routes (Tripo, not the gateway)
 
 3D characters (`character-3d`, [characters-3d.md](characters-3d.md)) call Tripo's API directly with `TRIPO_API_KEY`. Their identity call still goes through the gateway. The account is on paid credits, so Tripo's output is owned: the routes' `outputGrant` is `LicenseRef-tripo-paid`, plan `paid`, commercial, `relabel: true`. Each call's cost is the task's reported `consumed_credit` × `usdPerCredit` ($0.01).
 
-| Operation | Model                             | What it calls                                                                                                      | Estimate per call |
-| --------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------- |
-| `model3d` | `tripo/v2.5-20250123`             | `multiview_to_model` with texture and PBR (`image_to_model` when there is only one view): 30 credits on 2026-11-10 | $0.50             |
-| `rig3d`   | `tripo/animate-rig-v2.0-20250506` | `animate_rig` with `rig_type` from the gait: 25 credits. The v1 rigger refuses quadrupeds.                         | $0.30             |
-| `clips3d` | `tripo/animate-retarget`          | `animate_retarget` with every library clip the spec needs, in one call                                             | $0.20             |
+| Operation | Model                             | What it calls                                                                                        | Estimate per call |
+| --------- | --------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------- |
+| `model3d` | `tripo/v2.5-20250123`             | `multiview_to_model` with texture and PBR (`image_to_model` when there is only one view): 30 credits | $0.50             |
+| `rig3d`   | `tripo/animate-rig-v2.0-20250506` | `animate_rig` with `rig_type` from the gait: 25 credits. The v1 rigger refuses quadrupeds.           | $0.30             |
+| `clips3d` | `tripo/animate-retarget`          | `animate_retarget` with every library clip the spec needs, in one call                               | $0.20             |
 
 One candidate is one `model3d`, one `rig3d`, one `clips3d` (left out when the library has none of the families) and one `identity` call. That is $1.001 reserved per candidate, or $4.004 for 4 candidates against the $5 cap.
 
-The `clips3d` route's `library` maps gait → family → `{ clip, loop }`. Tripo's library, probed on 2026-11-10:
+The `clips3d` route's `library` maps gait → family → `{ clip, loop }`. Tripo's library:
 
 - biped: `preset:idle`, `preset:walk`, `preset:run`, `preset:jump`, `preset:turn`, `preset:hurt`, `preset:fall`, `preset:climb`, `preset:dive`, `preset:slash` and `preset:shoot`;
 - quadruped: only `preset:quadruped:walk`. Tripo refuses `preset:quadruped:idle`, `:run`, `:trot`, `:stand`, `:jump` and others as invalid animation names.
 
 So a quadruped `idle` is reported missing, not faked. Override the library with `--routes` when the provider adds clips.
 
-Each route records its provider terms in provenance. The values name the terms in force on 2026-11-07; check and update them when a route changes.
+Each route records its provider terms in provenance. The values name the provider's current terms; check and update them when a route changes.

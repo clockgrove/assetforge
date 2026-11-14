@@ -1,6 +1,6 @@
 # Sheet import and sheet generation
 
-Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model can generate a whole cycle as one sheet, and that keeps the character's identity consistent across frames. The import path turns a raw sheet into game-ready strips. The sheet can come from Assetgrove's own sheet generation, ChatGPT or any other tool, or hand work. Per-frame reference edits are the fallback for fixing a single frame.
+Animation starts as a whole contact sheet. A model can generate a whole cycle as one sheet, and that keeps the character's identity consistent across frames. The import path turns a raw sheet into game-ready strips. The sheet can come from Assetgrove's own sheet generation, ChatGPT or any other tool, or hand work. Per-frame reference edits are the fallback for fixing a single frame.
 
 ## The commands
 
@@ -63,7 +63,7 @@ The target profile's optional `style` decides post-processing. Each world declar
 
 A painterly world declares `{ "alpha": { "mode": "soft" }, "color": { "rule": "full" } }`. A pixel-art world declares `{ "alpha": { "mode": "binary" }, "color": { "rule": "palette" }, "edges": "crisp" }`.
 
-Only the import path follows the style profile so far. `stage` and `pick` keep the binary alpha and bible palette of the first loop.
+Only the import path follows the style profile. `stage` and `pick` use binary alpha and the bible's palette.
 
 ## Provenance
 

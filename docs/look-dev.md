@@ -1,6 +1,6 @@
 # Character look-dev
 
-Look-dev (wave 1 of [PLAN.md](PLAN.md); assetgrove#82) gives a picked, rigged 3D character three things:
+Look-dev (wave 1 of [PLAN.md](PLAN.md)) gives a picked, rigged 3D character three things:
 
 - a base colour in the target's character look, on the model's own UVs, in place of the provider's texture;
 - fur groom maps the target's fur material reads, one groom per season the target declares;
@@ -30,7 +30,7 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
 ## How it works
 
-1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, side, the other side, back, three-quarter, the other three-quarter, and a high view of the back. Each view is framed on the figure's own outline, which fills 86% of its larger side, rather than on the bounding sphere. A view that sees the figure end-on, like the front of a long body, then still spends its pixels on it (assetgrove#143: framed on the sphere, the front view filled 43%). Then comes the **detail pass**: one view from the close-up's direction, framed on the head so its outline fills 80% (the rig template's head region, where the eyes and nose are; the close-up at the target's closest zoom when there is none). It sees the face at several times the turntable views' resolution. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The views are restyled in that order, and each view after the first starts from a render of the model carrying what the earlier views painted (projected as below), so it extends their markings instead of placing its own. The square-on views come first, so the diagonal views continue markings a square-on view already placed along the body. The prompt asks the model to:
+1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, side, the other side, back, three-quarter, the other three-quarter, and a high view of the back. Each view is framed on the figure's own outline, which fills 86% of its larger side, rather than on the bounding sphere. A view that sees the figure end-on, like the front of a long body, still spends its pixels on it. Then comes the **detail pass**: one view from the close-up's direction, framed on the head so its outline fills 80% (the rig template's head region, where the eyes and nose are; the close-up at the target's closest zoom when there is none). It sees the face at several times the turntable views' resolution. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The views are restyled in that order, and each view after the first starts from a render of the model carrying what the earlier views painted (projected as below), so it extends their markings instead of placing its own. The square-on views come first, so the diagonal views continue markings a square-on view already placed along the body. The prompt asks the model to:
    - keep the silhouette, pose and framing;
    - in the detail view, paint the head's markings and features at full detail, with the references' shape and clean edges, leaving out fine strands drawn standing off the face;
    - repaint only the surface colour, as evenly lit albedo;
@@ -67,9 +67,9 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
    `unlit-before-<view>.png` and `unlit-after-<view>.png` show the base colour alone for the four turntable views, with no lighting or fur.
 
-6. **Markings.** One `lookdev-markings` call (`google/gemini-3-flash`) per turntable view that has its own turnaround view. It reads that view, then the lit after render of each season. It names each identity marking that the bible's subject description names or the reference shows. For each marking, it gives in every image a box on the marking and a box on the neighbouring coat it contrasts with, as `[ymin, xmin, ymax, xmax]` on a 0 to 1000 scale. A box that mixes fractions with 0 to 1000 values is dropped. The route asks for low thinking (`providerOptions.google.thinkingConfig.thinkingLevel: "low"`): at the default level the call ran long enough to time out behind a metering relay. The measurement is deterministic: the CIELAB median of the figure's pixels in each box (see the `lookdev-markings` check).
+6. **Markings.** One `lookdev-markings` call (`google/gemini-3-flash`) per turntable view that has its own turnaround view. It reads that view, then the lit after render of each season. It names each identity marking that the bible's subject description names or the reference shows. For each marking, it gives in every image a box on the marking and a box on the neighbouring coat it contrasts with, as `[ymin, xmin, ymax, xmax]` on a 0 to 1000 scale. A box that mixes fractions with 0 to 1000 values is dropped. The route asks for low thinking (`providerOptions.google.thinkingConfig.thinkingLevel: "low"`): at the default level the call can run long enough to time out behind a metering relay. The measurement is deterministic: the CIELAB median of the figure's pixels in each box (see the `lookdev-markings` check).
 
-**Preview lighting** (assetgrove#122). Every before and after render, in every season, and the close-up share one lighting. It is relative to the camera, so each view is lit alike, as a turnaround is drawn. Assetgrove's default is neutral: ambient 0.6, plus a key of 0.4 from above and to the left of the camera, with automatic exposure. The exposure is one number for the whole run. It brings the source model's mean lit brightness over the four turntable views to its unlit (albedo) brightness. It depends on the source model alone, so before and after share it. Highlights are not clipped: above 0.8 of full scale, values roll off smoothly toward white, so a pale marking in the key light keeps its tone. A target may declare its own `previewLighting` (see Contract). `parameters.lookdev.lighting` records the lighting, the exposure, and each season's lit-to-unlit figure brightness per view.
+**Preview lighting.** Every before and after render, in every season, and the close-up share one lighting. It is relative to the camera, so each view is lit alike, as a turnaround is drawn. Assetgrove's default is neutral: ambient 0.6, plus a key of 0.4 from above and to the left of the camera, with automatic exposure. The exposure is one number for the whole run. It brings the source model's mean lit brightness over the four turntable views to its unlit (albedo) brightness. It depends on the source model alone, so before and after share it. Highlights are not clipped: above 0.8 of full scale, values roll off smoothly toward white, so a pale marking in the key light keeps its tone. A target may declare its own `previewLighting` (see Contract). `parameters.lookdev.lighting` records the lighting, the exposure, and each season's lit-to-unlit figure brightness per view.
 
 **The fur preview** draws `shells` offset copies of the surface (16 by default). Each copy is alpha-blended over what is beneath it, at the strands' expected coverage at that height. Strands thin toward the tips, and smooth clumps vary their length. No pixel makes a hit-or-miss choice per strand, so the coat stays soft and free of speckle at any zoom. It is a preview of what the maps drive, not the target's fur material.
 
@@ -112,10 +112,10 @@ Targets read the field names below. Names may be added, but none may be renamed.
   - `sizePx` defaults to the base colour's size.
   - Without `seasons`, there is one groom, with its maps keyed by map name.
   - `traits` (each season's look in words) and `calendar` are the target's. `traits` is read as given; `calendar` is carried, not read.
-- `lookdev` (added) fields:
+- `lookdev` fields:
   - `capUsd` is the look-dev cap for one character, default $3. `--cap` overrides it.
-  - `closestZoom` is the target's closest zoom, used for the close-up check render. The default is the character at a third of a 1440 px screen height, desktop (Kirk, 2026-11-10).
-  - `previewLighting` (added by assetgrove#122) is the lighting of the before and after renders, with each field optional. The shown values are the defaults. `keyDirection` is in camera space: x right, y up, z toward the camera. `exposure` is a number, or `"auto"`.
+  - `closestZoom` is the target's closest zoom, used for the close-up check render. The default is the character at a third of a 1440 px screen height, desktop.
+  - `previewLighting` is the lighting of the before and after renders, with each field optional. The shown values are the defaults. `keyDirection` is in camera space: x right, y up, z toward the camera. `exposure` is a number, or `"auto"`.
 
 **Template outputs**
 
@@ -153,6 +153,6 @@ The run keeps the source model's provenance and adds the following:
 - a `lookdev` step, whose input is the source model's hash and whose output is the new model's hash;
 - the combined `outputGrant` over every call, the source's included.
 
-Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item; assetgrove#74). Each call is reserved before it is made. The default routes forecast $2.14: 8 × $0.25 (7 views and the detail view) + $0.02 + 2 × $0.02 + 4 × $0.02 + $0.001. The four markings calls are an upper bound: only views with their own turnaround view make one. `--dry-run` prints the forecast and what is left under each limit.
+Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item). Each call is reserved before it is made. The default routes forecast $2.14: 8 × $0.25 (7 views and the detail view) + $0.02 + 2 × $0.02 + 4 × $0.02 + $0.001. The four markings calls are an upper bound: only views with their own turnaround view make one. `--dry-run` prints the forecast and what is left under each limit.
 
 Tests use the scripted provider in `test/fixtures/lookdev-script.ts`.

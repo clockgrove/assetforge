@@ -1,402 +1,145 @@
 # Decisions
 
-## Language and tooling (assetgrove#1, 2026-11-07)
+This file lists the decisions in force in Assetgrove and the reason for each.
 
-Chosen so the first adopting game (Node 24, pnpm, TypeScript) runs Assetgrove with no new runtime.
+## Language and tooling
 
-- **TypeScript on Node 24, no build step in development (the build is only for the package).** Node runs the `.ts` sources directly with its built-in type stripping, so the code uses erasable syntax only (no enums, namespaces or parameter properties) and imports name their `.ts` files. `tsc --noEmit` checks the types.
-- **pnpm**, pinned through `packageManager` and enabled with corepack. CI installs with `pnpm install --frozen-lockfile --ignore-scripts`; no dependency needs an install script.
-- **Commands:** `pnpm check` runs Prettier, ESLint (typescript-eslint) and `tsc --noEmit`. `pnpm test` runs `node:test` over `test/**/*.test.ts`, offline with the scripted provider. `pnpm test:real` runs the opt-in real-provider checks in `test/real/`, which skip without `AI_GATEWAY_API_KEY`.
-- **Runtime dependencies:** `ai` (the Vercel AI SDK, imported only by `src/gateway/vercel.ts`), `pngjs` and `jpeg-js` (pure-JavaScript image codecs). TypeScript stays on 6.0, the newest version typescript-eslint supports.
+Assetgrove is TypeScript on Node 24, managed with pnpm. Node runs the `.ts` sources directly with its built-in type stripping, so development has no build step, the code uses erasable syntax only (no enums, namespaces or parameter properties), and imports name their `.ts` files. A game that already uses Node, pnpm and TypeScript runs Assetgrove with no new runtime.
 
-## Release-age exclusion for the `ai` SDK (assetgrove#1, 2026-11-07)
+- **pnpm** is pinned through `packageManager` and enabled with corepack. CI installs with `pnpm install --frozen-lockfile --ignore-scripts`, so no dependency may need an install script.
+- **Commands:** `pnpm check` runs Prettier, ESLint (typescript-eslint) and `tsc --noEmit`. `pnpm test` runs `node:test` over `test/**/*.test.ts`, offline, with the scripted provider. `pnpm test:real` runs the opt-in real-provider checks in `test/real/`, which skip without their keys (`AI_GATEWAY_API_KEY`, `TRIPO_API_KEY`).
+- **Runtime dependencies:** `ai` (the Vercel AI SDK, imported only by `src/gateway/vercel.ts`), `pngjs` and `jpeg-js` (pure-JavaScript image codecs), `yaml` (the bible's front matter), `@modelcontextprotocol/server` (the MCP server), `gltf-validator` (the Khronos glTF validator in 3D QA) and `meshoptimizer` (mesh simplification for detail levels).
+- **TypeScript** stays on 6.0, the newest version typescript-eslint supports.
 
-`pnpm-workspace.yaml` lists `ai` and its three `@ai-sdk/*` packages, at exact versions, under `minimumReleaseAgeExclude`. pnpm 12's default release-age policy refuses versions published too recently; the dependency was pinned to the newest `ai` release on the day of implementation (`ai@7.0.165`, published 2026-11-07), so the gateway adapter was written and checked against the current SDK, and that release and its matching `@ai-sdk/*` packages were still inside the window. The exclusion names exact versions only, so any other version, including a later update, still waits out the window. Remove the file once those versions are older than the window (any day after 2026-11-08) and run `pnpm install` to confirm the lockfile is unchanged.
+## Release-age exclusion for the `ai` SDK
 
-## Renamed from Assetforge (2026-11-13)
+`pnpm-workspace.yaml` lists `ai@7.0.165` and its three `@ai-sdk/*` packages, at exact versions, under `minimumReleaseAgeExclude`. pnpm's default release-age policy refuses versions published too recently, and the gateway adapter is written and checked against this release. The exclusion names exact versions only, so any other version, including a later update, still waits out the window. Once these versions are older than the window, the exclusion can go; `pnpm install` must then leave the lockfile unchanged.
 
-Owner decision: the project is Assetgrove, and it stays under the Clockgrove organization as `clockgrove/assetgrove` and `@clockgrove/assetgrove`. The old name, Assetforge, collided with Kenney's Asset Forge, a well-known tool that makes game sprites and 3D models for the same audience, and the unscoped `assetforge` name on npm belongs to someone else.
+## Packaging
 
-- The rename is a clean cut. The command is `assetgrove`, the run directory is `.assetgrove/`, the variables are `ASSETGROVE_*`, and the plan and recipe formats are `assetgrove-plan-v1` and `assetgrove-recipe/1`. The old names are not read.
-- Issue and pull request numbers did not change: what older commits call `assetforge#N` is `assetgrove#N` here, and GitHub redirects the old links.
-- A record written before the rename keeps the engine names it was written with, such as `assetforge-raster`, because that is what made it. Nothing compares those names when a record is read.
-- One name outside this repository keeps the old word until its owner changes it: the `assetforge-worker` gateway key.
+The package is `@clockgrove/assetgrove`. It ships compiled JavaScript, because Node refuses to strip types inside `node_modules`.
 
-## MCP server on the official SDK (assetgrove#147, 2026-11-13)
-
-`assetgrove mcp` is served by the official TypeScript MCP SDK, `@modelcontextprotocol/server` pinned to 2.4.0 (Apache-2.0), over its stdio transport. It replaces the hand-written JSON-RPC loop from #34, which was pinned to one protocol revision and would fall behind as the protocol moves. The SDK negotiates the revision, validates arguments against each tool's input schema, and is the base for resources, tool `_meta` and MCP Apps later. Its dependencies are `@modelcontextprotocol/core` 2.4.0 (Apache-2.0) and `zod` (MIT, already in the tree through `ai`); its JSON Schema validator is bundled. None of the three has an install script, so CI's `--ignore-scripts` install is unaffected, and 2.4.0 is old enough for pnpm's release-age policy without an exclusion. The tool schemas stay plain JSON Schema, wrapped with the SDK's `fromJsonSchema`, so `tools/list` advertises them unchanged.
-
-## Characters are real-time 3D (Kirk, 2026-11-10)
-
-The target game's characters are rigged models in its live renderer, with an animation clip per family. Not 3D rendered to sprites, and not 2D sprites. Zoom, lighting and camera come from the renderer, and a new animation is a clip on the same rig rather than new art. Assetgrove's waves 0 and 1 moved to 3D characters. The 2D path (sheet generation and import, transformation core, loop QA, identity lock v1) stays for props, terrain, effects, UI and targets that use sprites. The first 2D shelter run is kept as the record of the 2D try. A 3D asset ships only under an output grant the target accepts (assetgrove#47): Meshy's free-plan CC BY 4.0 output is accepted by the target game with its credit line, while non-commercial or provider-retained output is refused.
-
-Wave 0 proves the loop with a walk clip: Tripo's clip library has no quadruped idle, so `idle` is reported missing rather than faked. A custom quadruped idle is the first item of wave 1 (Kirk, 2026-11-10). Animation is the provider's auto-rig plus its clip library, retargeted per family; custom clips only where the library has nothing close (Kirk, 2026-11-10).
-
-## Shared rig and generated gait (Kirk, 2026-11-10)
-
-Characters of one kind share a skeleton template fitted to each model, and their locomotion is generated from a gait profile the target declares, with foot-contact, joint-limit and skinning QA (assetgrove#84). This replaces the provider's auto-rig plus clip library for any kind whose target declares a template. The trigger was Kirk's read of wave 0's picked character (c3): Tripo's library walk is dog-like, with raised hind ankles, front wrists that fold and pinched ankles. Young animals of the character's real species, in his porch footage (frames only, never the clip), walk plantigrade, with flat hand-like front paws, a hunched back and a low swaying tail.
-
-## Animation (owner, 2026-11-07)
-
-Key pose first, then each frame a reference-guided edit of it. The key pose is approved by the author before any frame is edited: a sprite-strip spec must name it as `keyPose`, and Assetgrove refuses a strip spec without one before any spend. The approved path is two runs: stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. Video-to-frames comes later as another generator.
-
-## Sheet generation first (owner, 2026-11-07; assetgrove#10)
-
-The model generates a whole animation cycle as one contact sheet, because a whole sheet keeps identity consistent; the import path cleans it up, and a per-frame reference edit is the fallback for fixing a single frame. Sheets made by other tools (the owner's first imported sheet came from ChatGPT image generation) take the same path. A vision model proposes the families, order and mirror pairs; the author confirms them by setting the grouping file's status to `confirmed`, which Assetgrove never does itself. Registration pins the feet baseline and centre of mass to the anchor with one common scale, and refuses a family whose measured jitter exceeds the bound (1 px by default). Details in [sheet-import.md](sheet-import.md).
-
-## Style profile (owner, 2026-11-07; assetgrove#10)
-
-Assetgrove is not tied to one visual style. The target profile's optional `style` (alpha mode, colour rule, edges) decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha, crisp edges or a palette for flat-cartoon and pixel-art worlds. Without one, the sheet import uses soft alpha and full colour. The first loop's `stage` and `pick` still post-process to binary alpha and the bible palette; moving them onto the style profile is separate work.
-
-## Picking (owner, 2026-11-07)
-
-The operator picks. `assetgrove stage` stages only QA-passing candidates with their reasons; `assetgrove pick` writes the chosen one with the review field at the profile's pending value. Assetgrove never writes any other review value.
-
-## License of generated output (Kirk, 2026-11-07)
-
-Assetgrove writes the license value the target profile declares (the first target: MIT) and records the models, route and provider terms in provenance.
-
-## Provider output grants (assetgrove#47, 2026-11-09)
-
-Provider terms differ on who owns an output (Meshy free: CC BY 4.0 with credit; Tripo free: rights kept by Tripo, no commercial use; paid plans give ownership). Each route declares its `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`), every call records it, and the provenance carries the combination over its calls, the most restrictive winning. The provenance's `license` is the target's licence only when the grant allows relabelling; otherwise the granted licence, when it is commercial and the target lists it in `acceptedLicenses`. Anything else is refused at hand-off (`pick`, `write-families`) with exit 7 (`license_refused`) before a file is written. Staging is unaffected, so free-credit spikes that never reach a target still run.
-
-## Packaging (assetgrove#21, 2026-11-07)
-
-Owner decision: publish under the `@clockgrove` scope, as `@clockgrove/assetgrove`.
-
-- The package ships compiled JavaScript in `dist/`, because Node refuses to strip types inside `node_modules`. `tsc -p tsconfig.build.json` builds it, with `rewriteRelativeImportExtensions` turning `.ts` imports into `.js`.
-- The repository still runs the sources directly. Development has no build step.
+- `tsc -p tsconfig.build.json` builds `dist/`, with `rewriteRelativeImportExtensions` turning `.ts` imports into `.js`. The repository itself runs the sources directly.
 - The package ships `dist/`, `skills/`, the README and the LICENSE.
-- The version stays `0.0.0` in the repository. The release sets it from the exact tag.
-- Publishing is left to a maintainer: the npm org, trusted publishing and the release workflow under `.github/`.
+- The version is `0.0.0` in the repository.
+- Publishing (the npm org, trusted publishing and a release workflow) is a maintainer's step and is not in the repository. The package is published at 1.0.
 
-## CLI contract (assetgrove#21, 2026-11-07)
+## CLI contract
+
+Every command follows one contract, so scripts and agents can drive Assetgrove without parsing prose.
 
 - With `--json`, stdout is one JSON document: `ok`, `exitCode`, `command` and, on refusal, `error` with `code` and `message`. Logs go to stderr. Nothing prompts.
-- Exit codes: 0 success, 1 unexpected internal error, 2 invalid input, 3 cap refused: the run's cap or a cross-run spend limit (also a dry-run forecast over either; assetgrove#74), 4 provider error, 5 QA found nothing, 6 the target's validator rejected what was written (`pick` or `write-families`), 7 licence refused: the provider's output grant does not let the target declare the output (`license_refused`, nothing written; assetgrove#47).
-- `--dry-run` (on `stage` and `generate-sheet`, the commands that generate) spends nothing and needs no key.
+- Exit codes:
+  - 0: success.
+  - 1: unexpected internal error.
+  - 2: invalid input.
+  - 3: cap refused, by the run's cap or a cross-run spend limit, including a dry-run forecast over either.
+  - 4: provider error.
+  - 5: QA found nothing.
+  - 6: the target's validator rejected what was written (`pick` or `write-families`).
+  - 7: licence refused (`license_refused`): the provider's output grant does not let the target declare the output, and nothing is written.
+- `--dry-run` (on `stage`, `generate-sheet`, `animation-qa`, `fix-frame` and `materials`) prints the planned calls and the forecast, spends nothing and needs no key.
 - `--provider-script` runs a scripted provider for offline runs.
-- Every future command follows this contract.
 
-## Media transformation core (assetgrove#23, 2026-11-07)
+## MCP server on the official SDK
 
-- Operations are declared once, by name and parameter schema, in `src/transform/operations.ts`. Engines implement them behind the `ImageEngine` adapter. The in-house engine is `assetgrove-raster` 1.0.0, and its version is bumped whenever an operation's output bytes change.
-- Recipes are JSON (`format: "assetgrove-recipe/1"`). YAML was left out because it would need a parser dependency. The parameter schemas use a small JSON Schema subset kept in the repository, with no new dependency.
+`assetgrove mcp` is served by the official TypeScript MCP SDK, `@modelcontextprotocol/server` 2.4.0 (Apache-2.0), over its stdio transport. The SDK negotiates the protocol revision and validates arguments against each tool's input schema, where hand-written protocol code would fall behind the protocol. It brings `@modelcontextprotocol/core` 2.4.0 (Apache-2.0) and `zod` (MIT); none of them has an install script, and 2.4.0 needs no release-age exclusion. The tool schemas stay plain JSON Schema, wrapped with the SDK's `fromJsonSchema`, so `tools/list` advertises them unchanged.
+
+## Generation constitutions
+
+Art direction lives in a target-owned Markdown bible with validated YAML front matter, prose rationale, and Do's and Don'ts. Palette, outline, lighting, fog, saturation and value bounds use DTCG 2025.10 typed tokens; art-specific axes stay in the art schema. The JSON profile, spec and recipe formats stay JSON, and `yaml` is pinned to 2.9.1 because the bible format requires YAML.
+
+The target owns an Agent Skill that links the bible and starting presets. DESIGN.md contributes UI colour context only; Assetgrove does not extend its format with art direction. Prompt templates are copied into the target repository on explicit initialization (`assetgrove bible init`) and versioned there. `plan` records the compilation and model inputs; `apply` checks their hashes and authorizes generation spend without approving an asset.
+
+## Media transformation core
+
+Operations are declared once, by name and parameter schema, in `src/transform/operations.ts`, and engines implement them behind the `ImageEngine` adapter. The in-house engine is `assetgrove-raster`; its version is bumped whenever an operation's output bytes change, so provenance names what made each file.
+
+- Recipes are JSON (`format: "assetgrove-recipe/1"`). The parameter schemas use a small JSON Schema subset kept in the repository, so recipes need no parser or validator dependency.
 - Provenance steps are chained by pixel hashes, so intermediate images are never encoded. Sources and written files also record their file SHA-256. The record holds no time, so reruns are byte-identical.
-- WebP output is lossless VP8L from an in-house encoder, which is deterministic and needs no native dependency. KTX2 waits for the material maps (#14).
-- The sheet import runs on these operations, with byte-identical output.
+- WebP output is lossless VP8L from an in-house encoder, because it is deterministic and needs no native dependency.
+- The sheet import runs on these operations.
 
-## Generation constitutions (owner, 2026-11-08; assetgrove#28)
+## Sheet generation first
 
-Art direction lives in a target-owned Markdown bible with validated YAML front matter, prose rationale and Do's and Don'ts. The `yaml` parser is pinned to 2.9.1 because this format requires YAML; existing JSON profile, spec and recipe formats remain unchanged. Palette, outline, lighting, fog, saturation and value bounds use DTCG 2025.10 typed tokens. Art-specific axes remain in the art schema.
+The model generates a whole animation cycle as one contact sheet, because a whole sheet keeps identity consistent; a per-frame reference edit is the fallback for fixing a single frame. Sheets made by other tools take the same import path. A vision model proposes the families, order and mirror pairs, and the author confirms them by setting the grouping file's status to `confirmed`, which Assetgrove never does itself. Registration pins the feet baseline and centre of mass to the anchor with one common scale, and refuses a family whose measured jitter exceeds the bound (1 px by default). Details are in [sheet-import.md](sheet-import.md).
 
-The target-owned Agent Skill links the bible and starting presets. DESIGN.md contributes UI colour context only; Assetgrove does not extend its format with art direction. Prompt templates are copied into the target repository on explicit initialization and versioned there. `plan` records compilation and model inputs; `apply` checks their hashes and authorizes generation spend without approving an asset.
+## Style profile
 
-## Identity lock v1 (assetgrove#39, 2026-11-08)
+Assetgrove is not tied to one visual style. The target profile's optional `style` (alpha mode, colour rule, edges) decides post-processing: soft 8-bit alpha and full colour for a painterly world, binary alpha, crisp edges or a palette for flat-cartoon and pixel-art worlds. Without a style, the sheet import uses soft alpha and full colour. `stage` post-processes still and strip candidates to binary alpha and the bible palette whatever the style says.
 
-Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route, default `perplexity/pplx-decider-v1.2` from #27's image eval, with `openai/gpt-6-luna-decisions` as the alternate. Scoring starts in **shadow mode**: it runs beside the current QA, records the score and the agreement with QA, and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile until shadow runs have measured agreement. Scoring never approves.
+## Animation from an approved key pose
 
-**Threshold: 0.68 (owner, 2026-11-08).** The default comes from `assetgrove identity-eval` run by the owner on #27's identity set, which stays local: 22 labelled crops, each judged against both locks (character A's approved three-quarter turnaround; character B's sheet cell 3 plus his painted portrait), so 44 cases, 19 of them "same".
+A strip starts from a key pose, and each frame is a reference-guided edit of it. A sprite-strip spec must name an author-approved `keyPose` and an `animationFamily`, and Assetgrove refuses a strip spec without them before any spend. To make one, stage a `still` of the pose, choose one of the staged candidates (or any author-made image), then stage the strip with that file as `keyPose`. The author approves the pose before any frame is edited, so frames inherit an identity a person has accepted.
 
-| Model                                  | Recommended threshold | Accuracy    | False accepts | False rejects | Cost (44 calls) | p50 latency |
-| -------------------------------------- | --------------------- | ----------- | ------------- | ------------- | --------------- | ----------- |
-| perplexity/pplx-decider-v1.2 (default) | 0.678                 | 40/44 (91%) | 0             | 4             | $0.0014         | 1.15 s      |
-| openai/gpt-6-luna-decisions            | 0.395                 | 38/44 (86%) | 1             | 5             | $0.0084         | 1.12 s      |
+## Picking
 
-pplx-decider-v1.2's sweep:
+The person picks. `assetgrove stage` stages only QA-passing candidates with their reasons, and `assetgrove pick` writes the chosen one with the review field at the profile's pending value. Assetgrove never writes any other review value, because approval is human.
 
-| Threshold                               | False accepts | False rejects |
-| --------------------------------------- | ------------- | ------------- |
-| 0.60                                    | 11            | 0             |
-| 0.625 (the earlier provisional default) | 9             | 1             |
-| 0.65                                    | 6             | 3             |
-| 0.678                                   | 0             | 4             |
+## Decision models for QA
 
-Same-character scores bunch at 0.61–0.65, so lower thresholds let many wrong-character crops through; at 0.68 none pass. The 4 false rejects are character A's back view, two character A meshes from the 3D spike and one character B cell; enforce mode shows the person each with its score. pplx-decider-v1.2 stays the default model: more accurate and about 6× cheaper than the alternate.
+Identity scoring uses a typed decision model. Other image checks do not:
 
-**Shadow mode stays the default.** The set is small, and 4 of 19 same-character cases would be filtered. The set has no per-case verdicts from today's vision QA, so its agreement figure is label agreement (40/44), not QA agreement; shadow runs on real art measure QA agreement before enforce becomes the default.
+- **Strips:** a whole cycle is generated as one sheet and checked with pixel QA, one vision check for identity flicker and a budgeted per-frame fix, so per-frame checks need no decision model.
+- **Perspective:** perspective stays in the candidate's vision QA. That call costs a small fraction of a candidate, authors rely on its written reason, and there is no labelled perspective data to choose a decision model or cutoff from.
+- **Identity flicker:** stays a vision check until enough labelled flicker data exists to choose a decision model for it.
 
-#27 found decision-model confidence between 0.5 and 0.8 even on correct answers, so the threshold is applied to the score, not the confidence. Confidence is logged for later analysis.
+## Identity lock scoring
 
-## Identity locks cannot tell look-alike characters apart yet (2026-11-11)
+Every candidate of a character with an identity lock is scored against its identity record by a typed decision model (a five-level Score question) through the gateway's `identity` route. The default model is `perplexity/pplx-decider-v1.2`, with `openai/gpt-6-luna-decisions` as the alternate; pplx is the more accurate of the two and costs a fraction as much. The default threshold is 0.68, set where wrong-character crops stop passing on a labelled identity set. The threshold applies to the score, not to the model's confidence, because decision-model confidence sits between 0.5 and 0.8 even on correct answers; confidence is logged.
 
-The identity route stays `perplexity/pplx-decider-v1.2` at 0.68, in shadow mode. **Enforce mode must not be used for a cast of look-alike characters.** A wider eval found that the lock-score route can tell a character's kind from something else, but not one look-alike cast member from another. A four-legged cast was the fixture: 44 images of character A (2D strips, turntable views, 3D renders, photos) against 67 images of other members of the cast (44 of character B, 16 of character C including all three turnaround candidates, plus kits and one more member), every one scored against character A's lock:
+## Shadow mode is the identity default
 
-| Model                        | ROC AUC | False accepts at 0.74 | False rejects at 0.74 |
-| ---------------------------- | ------- | --------------------- | --------------------- |
-| perplexity/pplx-decider-v1.2 | 0.55    | 0 of 67               | 34 of 44              |
-| google/gemini-decision-1     | 0.49    | 26 of 67              | 21 of 44              |
+Scoring runs in shadow mode by default: it records the score beside QA and filters nothing. Filtering (`identity.mode: "enforce"`) is opt-in per target profile, and the default stays shadow until a question meets the [identity lock bar](#identity-lock-bar). Scoring never approves.
 
-An AUC of 0.5 is chance. The features the cast shares satisfy every level of the Score question for any of its members. A one-day switch to gemini-decision-1 (#90), based on a 20-case 3D set with only character C's c1 turnaround as the negative, was reverted when character C's c2 and c3 views scored up to 0.83 and character B up to 0.87. Its evidence was a small-sample artefact. pplx stays the default because both models are equally blind and pplx costs a tenth as much. Keeping characters on-model is assetgrove#92. It is cast-agnostic, and is measured on drift of the same character, generic members of the type and look-alike cast members, for more than one cast. Enforce mode waits for its measured bar.
+## No enforce mode for look-alike casts
 
-A follow-up the same day found a second cause: the record contradicted its references. Character A's v1 record called him lean, upright and long-legged, but his approved turnaround is stocky and short-legged. Models that trusted the text rejected the real character A and accepted the lean character C. The target corrected the record (lock v2). A rerun on v2 showed the text was not why the lock fails. Recall of the real character A recovered, but the single-reference lock stayed at chance (AUC 0.49–0.55), and character C was still taken for character A. One reference cannot separate look-alikes, so the table above stands. Vision chat models (Claude Opus 5.5, GPT-6.1 Terra, Gemini 4 Argon) did no better on the same question (lock AUC 0.33–0.58). Choosing among the whole cast's references did better: 90.2% for GPT-6.1 Terra on lock v2, with a generic "any other character is neither" sentence. It still passed about half the other cast members, so shadow mode stays. #92 now also requires catching a record whose text disagrees with its references.
+Do not use enforce mode for a cast of look-alike characters. A lock with one reference can tell a character's kind from something else, but not one look-alike cast member from another: on a labelled look-alike set its scores separate them no better than chance, whichever decision or vision model answers.
 
-## Identity lock bar: measured on two casts, not met yet (2026-11-11; assetgrove#92)
+## Identity records are checked against their references
 
-The four-legged cast these records measure, its 3D cases and the commands that built them were removed from this repository on 2026-11-13. The set `build.ts` writes today is the bird cast alone, so the four-legged numbers below can no longer be reproduced from here.
+In enforce mode, each identity record is first checked on the `identity-check` route: does its written signature agree with its own approved references? A record that disagrees is untrusted: its candidates are scored in shadow and never filtered until a person fixes the text or the references. A check that cannot run fails closed. Models trust the text, so a wrong record rejects the real character and accepts a look-alike.
 
-**The bar for enforce mode** is ROC AUC ≥ 0.95, false accepts ≤ 5% and false rejects ≤ 10%. Every negative kind (drift, generic, look-alike) and every cast must meet it on 2D cases of trusted records (records that pass their record check), at a threshold fixed before the run. It is `IDENTITY_ENFORCE_BAR`, and `identity-eval` reports it. 3D results are provisional: no threshold or bar rests on them until look-dev (#82) renders in the bible's style.
+## Identity lock bar
 
-**No question meets the bar yet, so shadow mode stays the default.** The default question stays `score` (`perplexity/pplx-decider-v1.2`) at 0.68. `identity.question: "cast"` stays opt-in, at 0.5 when used, for shadow runs.
+Enforce mode needs a measured bar: ROC AUC ≥ 0.95, false accepts ≤ 5% and false rejects ≤ 10% (`IDENTITY_ENFORCE_BAR`, reported by `identity-eval`). Every negative kind (drift, generic, look-alike) and every cast must meet it on 2D cases of trusted records, at a threshold fixed before the run. Only held-out cases count: positives and drift added after the prompt was last worded, never used to word it. No question meets the bar on held-out cases yet, so shadow mode stays the default, and enforce mode and the cast question are not recommended for a look-alike cast.
 
-**The set** is `node test/fixtures/identity-set/build.ts`: 184 cases, all from public or synthetic sources.
+## Identity cast question: only what the animation implies is excused
 
-- **The four-legged cast** (the target's lock v2): 30 same (character A's turnaround views and window photo, 14 frames of his owner-picked comparison strips, 12 cells of character B's contact sheet without his lock cell), 21 drift, 20 generic and 34 look-alike.
-  - Drift: 9 pixel edits of approved references, and 12 model edits checked by eye (no tail rings, no mask, pointed ears, long legs, orange or silver coat, stub tail, dark muzzle, spots, a lean character B). 6 flux-kontext edits that did not change the image were dropped and remade on gpt-image-2.
-  - Generic: 8 on-style generated characters of the same species and 2 photos of unknown animals of that species, each judged against both locks.
-  - Look-alike: character C's photos and each locked character's art judged against the other's lock.
-  - Also 18 3D cases (character A's wave-0 renders and two drift edits).
-- **Pebble birds**, synthetic, drawn in code: three look-alike birds, with 18 same, 12 drift, 9 generic and 12 look-alike cases.
-- **Two conflicted records:** character A's v1 lean text against v2's references, and a bird whose text was swapped, with 10 cases.
+`identity.question: "cast"` is opt-in. It judges a candidate as a choice among the whole cast (every identity record in the same bible) and also asks whether it is on-model for the subject against the subject's approved references, which win where the written record disagrees. The score is p(subject) × p(on-model). The default threshold stays 0.68 for every question; use 0.5 with `cast`, the threshold it is measured at. One call sends at most 16 images (`IDENTITY_CAST_MAX_IMAGES`), so a bible with more than 15 identity records is refused.
 
-**The record check** caught both deliberate conflicts and passed character B and the accurate birds. It also flags **character A's lock v2**: "five dark rings" and "back carried level" disagree with his approved three-quarter view, which shows about three rings and a rounded back. So every case judged against character A's lock is untrusted: kept out of the bar and never used for filtering. That is a finding for the target repository, not tuned away here. It also means the trusted four-legged positives are character B's 12 sheet cells alone.
+The on-model step excuses only what the pose and the named animation imply, and its wording names no species or cast:
 
-**Numbers** (2D, trusted records, 99 cases; one run per question; GPT-6.1 Terra for `cast`):
+- **Excused:** a back arched or hunched; a tail lowered, raised, swung or curled; a head turned, tilted or lowered; limbs bent, lifted, stretched out or overlapping; wings spread or folded; eyes closed in a blink; a crest or ears swept by motion; a body that looks deeper or shorter-legged because the legs bend or it turns; parts hidden or foreshortened by the view; background between the limbs. A held prop or food, or an open mouth, is excused only when the named animation implies it (eating, carrying, calling). The model lists these as `poseDifferences`, which never lower the score.
+- **Deviations:** a region in a different hue, or clearly lighter, darker or more muted as if repainted (shading and lighting are not a colour change); a marking missing, added or moved; a see-through hole; a different count of repeated marks on a part fully in view; proportions the pose does not produce; a signature feature missing, added or changed.
+- **Stretch:** a pose bends the body at the spine and joints but never rescales the figure. A whole body, or a rigid part such as the head, an eye or a beak, longer or shorter in one direction than the references show is a stretch, however the figure is tilted.
 
-| Question, threshold             | AUC   | Drift AUC | Generic AUC | Look-alike AUC | False accepts | False rejects | Birds FA / FR | Four-legged cast FA / FR |
-| ------------------------------- | ----- | --------- | ----------- | -------------- | ------------- | ------------- | ------------- | ------------------------ |
-| `score` (pplx), 0.68            | 0.972 | 0.898     | 1.000       | 1.000          | 22% (15/69)   | 3% (1/30)     | 33% / 0%      | 11% / 8%                 |
-| `cast`, who only, 0.5           | 0.931 | 0.750     | 1.000       | 1.000          | 23% (16/69)   | 0%            | 36% / 0%      | 11% / 0%                 |
-| `cast` with on-model check, 0.5 | 1.000 | 1.000     | 1.000       | 1.000          | 0% (0/69)     | 7% (2/30)     | 0% / 0%       | 0% / 17% (2/12)          |
+Animation posture is not drift, while a change of hue, marking or proportion is. A body stretched about 1.3× in a strongly posed frame can still pass.
 
-**Per kind and per cast** (same run; the trusted 2D negatives are 19 drift, 19 generic and 31 look-alike; a kind's false rejects are the 30 positives, so they equal the overall figure):
+## Characters are real-time 3D
 
-| Question, threshold             | Drift FA    | Generic FA | Look-alike FA | Birds AUC | Four-legged cast AUC |
-| ------------------------------- | ----------- | ---------- | ------------- | --------- | -------------------- |
-| `score` (pplx), 0.68            | 79% (15/19) | 0% (0/19)  | 0% (0/31)     | not kept  | not kept             |
-| `cast`, who only, 0.5           | not kept    | not kept   | not kept      | not kept  | not kept             |
-| `cast` with on-model check, 0.5 | 0% (0/19)   | 0% (0/19)  | 0% (0/31)     | 1.000     | 1.000                |
+Characters are rigged real-time 3D models with an animation clip per family. Zoom, lighting and camera come from the game's renderer, and a new animation is a clip on the same rig rather than new art. The 2D path (sheet generation and import, the transformation core, loop QA, identity lock) serves props, terrain, effects, UI and targets that use sprites.
 
-The per-case logs of these runs were not kept, so only the cells that follow from the recorded figures are filled. All 15 of `score`'s false accepts are drift: generic and look-alike AUC is 1.000, so every such negative scores below every positive, including the one positive under 0.68. With overall AUC 1.000, every subset of the on-model run, so each cast, is also 1.000. "Not kept" cells need the rerun that enforce waits for anyway (below), where `identity-eval` reports them per kind and per cast.
+## Missing clips are reported, not faked
 
-- **Choosing among the cast tells look-alikes and generics apart.** Every question reaches AUC 1.000 on those kinds with trusted records, where the single-reference lock was at chance (above).
-- **Drift was the gap.** "Who is this" answers "character A" for an orange or ringless character A (0.96–0.98). So the cast call now also asks whether the candidate is on-model for the subject against its references, and the score is p(subject) × p(on-model). That closes drift on trusted records.
-- **It misses the bar on one count:** the four-legged cast's false rejects at 0.5 are 2 of 12 character B cells (0.29 each, for a pale forehead stripe and a narrower muzzle). The sweep's 0.29 has no errors, but it was picked on the same set.
-- **It is strict across views of a one-reference lock.** Counting character A's untrusted record as if trusted, his side and back turnaround views score 0.29–0.35 ("one more tail band"), and all 14 comparison-strip frames score 0.01–0.13 (narrower face, domed back, weaker streaking). Those 14 frames are generated, so each carries an eye check against his turnaround in the fixture: all show his mask, ears, coat, stocky short-legged body and banded tail; the domed back and softer streaking are rendering variation, so they stay labelled same. False rejects for the four-legged cast are then 50% (15/30).
-- **3D (provisional, 18 cases):** AUC 0.41–0.72; every character A render is rejected at any of these thresholds. After look-dev (#82): see "3D after look-dev" below.
-- **Cost:** the measured runs cost $1.92 (pplx $0.02; Terra $0.83 and $1.06 with the on-model check, about $0.006 a case). The generated images cost $0.75.
-- **Prompt wording:** the shipped on-model sentence is the one the run used: "the approved references are the source of truth".
+Without a skeleton template, a character uses the provider's auto-rig and its clip library, retargeted per family. A family the library has no close clip for is reported as missing. It is never faked, and the candidate is not refused for it.
 
-**Rerun on character A's lock v3 (2026-11-11, 7:39 PM PST; thresholds fixed before the run).** The target's lock v3 fixed the record: it now passes its check and lists the front, side and back views as references. The fixture now pins the target commit with lock v3. The thresholds were fixed beforehand at the shipped defaults: `cast` at 0.5 and `score` at 0.68. Character A's three newly listed views were removed from the candidates, so no lock reference is scored against itself. On 2D, trusted records, there were 152 cases (45 positives):
+## Shared rig and generated gait
 
-| Question, threshold  | AUC   | Drift AUC | Generic AUC | Look-alike AUC | False accepts | False rejects | Birds FA / FR | Four-legged cast FA / FR | Spend |
-| -------------------- | ----- | --------- | ----------- | -------------- | ------------- | ------------- | ------------- | ------------------------ | ----- |
-| `cast` (Terra), 0.5  | 0.980 | 0.972     | 0.976       | 0.988          | 0% (0/107)    | 33% (15/45)   | 0% / 0%       | 0% / 56% (15/27)         | $0.33 |
-| `score` (pplx), 0.68 | 0.854 | 0.657     | 0.975       | 0.921          | 21% (22/107)  | 36% (16/45)   | 33% / 0%      | 15% / 59%                | $0.02 |
+Characters of one kind can share a skeleton template fitted to each model, with locomotion generated from a gait profile the target declares. QA checks foot contact, joint limits and skinning. For any kind whose target declares a template, this replaces the provider's auto-rig and clip library, because a provider's library walk does not move the way each species moves.
 
-**The bar is not met.** `cast` accepted no wrong character, generic or drift edit. Its 15 false rejects were all in the four-legged cast: 13 of the 14 frames of character A's comparison strips, 1 of character B's sheet cells, and the photo of character A at the window, called "none of the cast" (a real photo against illustrated references). The model named the right character on every strip frame (confidence 0.95–0.99). Its on-model check reported orange flecks on the brows and mask, a thinner tail and smaller eyes.
+## `lookdev-markings` is advisory
 
-**Those frames are defective, not on-model.** Each has 4 to 8 see-through holes in the face, 269 to 386 px per frame, with orange colour under them. `enclosedAreas` (#56) finds them; character B's cells have none. The background removal left them before #56 fixed it (#51): the strips were made at 6bae78a on 2026-11-09, hours before #56 merged. The fixture now records this as the crops' `defect`, so those frames are drift of character A, labelled from how they were made. The check was right to reject them. With them relabelled, run 2's logged scores give, at the same thresholds:
+`lookdev-markings` runs and records every measurement, but it never filters a look-dev candidate, and a drift does not make the run exit 5. Its reason is marked `shadow` and starts by saying the check is advisory and why; the run summary shows its verdict as "not filtered". The check measures each marking in boxes a vision model draws, and on the same code it names a different set of drifting markings on each run, so it cannot make a pass or fail call. It filters only once repeated measurements on the same renders name the same drifting markings, which takes stable boxes, not a looser threshold. A person judges the compare images.
 
-| Question, threshold  | AUC   | False accepts | False rejects | Four-legged cast AUC, FA / FR | Birds AUC, FA / FR  |
-| -------------------- | ----- | ------------- | ------------- | ----------------------------- | ------------------- |
-| `cast` (Terra), 0.5  | 0.973 | 1/121         | 2/31          | 0.929, 1/88 / 2/13            | 1.000, 0/33 / 0/18  |
-| `score` (pplx), 0.68 | 0.947 | 22/121        | 2/31          | 0.896, 11/88 / 2/13           | 1.000, 11/33 / 0/18 |
+## 3D identity results are provisional
 
-These are recomputed from logged scores, not a fresh run. The fresh run (run 3) stopped part-way when the gateway account ran out of credit, so it is not recorded. **Overall `cast` meets the bar, but the four-legged cast does not:** its false rejects are the window photo and one character B cell out of 13 positives, and its one false accept is a defective character A frame at 0.54. Character A has almost no 2D positives left: his approved views are now his lock's references, and his strips are defective. **Shadow mode stays the default, and `question: "cast"` is not switched on for the four-legged cast yet.** 3D (provisional, 18 cases) rejects every character A render (AUC 0.77).
+`identity-eval` reports 3D cases apart and marks them provisional: no threshold or bar rests on them. Do not use enforce mode on 3D characters, because at the shipped thresholds no question separates lit renders of the right character from their drift.
 
-**What is open:**
+## Licence of generated output
 
-- **Clean positives for character A, done (run 5, 2026-11-11 night):** 14 fresh frames from `generate-sheet` with today's background removal (6 idle, 8 walk), checked by eye and free of holes, are in the fixture as `same` items with sheet provenance. At the same thresholds:
+Assetgrove writes the licence the target profile declares and records the models, route and provider terms in provenance.
 
-  | Question, threshold  | AUC   | False accepts | False rejects | Four-legged cast AUC, FA / FR | Birds AUC, FA / FR  | Spend |
-  | -------------------- | ----- | ------------- | ------------- | ----------------------------- | ------------------- | ----- |
-  | `cast` (Terra), 0.5  | 0.980 | 1/135         | 7/45 (16%)    | 0.962, 1/102 / 7/27           | 1.000, 0/33 / 0/18  | $1.43 |
-  | `score` (pplx), 0.68 | 0.954 | 22/135        | 2/45          | 0.935, 11/102 / 2/27          | 1.000, 11/33 / 0/18 | $0.02 |
+## Provider output grants
 
-  **The bar is still not met, on false rejects.** All 6 idle frames pass. 5 of the 8 walk frames are rejected for "a more humped back" and "a shorter tail", which is a walking character's posture judged against standing references. The window photo and one character B cell are the other two. The one false accept is a defective old frame at 0.67.
-
-- **Next: posture versus identity.** Done in #104; see the next section. Whether photos belong in a 2D art set is the person approving's call.
-- **The 3D numbers:** after look-dev, below.
-
-**3D after look-dev (2026-11-12; assetgrove#82, Outcome 9; provisional, no threshold set).** These are the 3D cases of the set: character A's 16 wave-0 renders and their 2 drift edits, plus the looked-dev renders of the real run and the generic 3D renders. The looked-dev renders are 10 same (summer and winter coats; front, three-quarter, side, back and the close-up) and 3 pixel drift (hue shift, tall stretch, colour removed). The generics are 5 renders of a second real look-dev run on character A's mesh with a generic subject (an ordinary animal of the same species with a pale, silvery coat and a narrow eye mask) and the 2D generic `generic-silver-front` as its one reference, each a negative against characters A and B (10 cases). They are scored against the cast's locks (character A's lock v3, record check passed). `node test/fixtures/identity-set/build.ts <out> --medium 3d` writes the 41 cases. Thresholds are the shipped defaults, fixed before the run. These numbers are from the run after review, on the second look-dev run's renders; the wave-0 cases were rescored with them.
-
-| Question, threshold  | Cases           | AUC   | Same FR | Drift FA | Generic FA | Mean same score | Spend  |
-| -------------------- | --------------- | ----- | ------- | -------- | ---------- | --------------- | ------ |
-| `score` (pplx), 0.68 | all 3D (41)     | 0.790 | 22/26   | 0/5      | 0/10       | 0.56            | $0.006 |
-|                      | wave 0 (18)     | 0.656 | 12/16   | 0/2      |            | 0.57            |        |
-|                      | looked-dev (13) | 0.667 | 10/10   | 0/3      |            | 0.54            |        |
-| `cast` (Terra), 0.5  | all 3D (41)     | 0.796 | 26/26   | 0/5      | 0/10       | 0.03            | $0.42  |
-|                      | wave 0 (18)     | 0.547 | 16/16   | 0/2      |            | 0.04            |        |
-|                      | looked-dev (13) | 0.817 | 10/10   | 0/3      |            | 0.02            |        |
-
-- **Per kind:** same, drift and generic. Over all 3D cases, the drift AUC is 0.677 (`score`) and 0.662 (`cast`); the generic AUC is 0.846 (`score`, generic mean 0.45) and 0.863 (`cast`, generic mean 0.01). **3D look-alikes are missing:** no other cast member has a 3D model yet, so they wait for wave 1. The 3D generics keep character A's mesh and proportions; only their surface is generic.
-- **Per cast:** the four-legged cast only. The birds have no 3D cases.
-- **Who is rejected.** `cast` rejects every lit 3D render of character A, before and after look-dev (26/26). `score` rejects every looked-dev lit render (10/10) and 12 of the 16 wave-0 renders; the other 4 wave-0 renders score 0.68 or more. No wrong render, drift or generic, is accepted by either question. `cast` names character A every time (confidence 0.89–0.98), then calls the render off-model. For the looked-dev renders it gives a much darker brown coat without the warm tan chest and underside, a reduced, muted cream muzzle, ear rims that are not clearly pale, muted tail bands on the back view, and a broader head than the body.
-- **The darkness is mostly the renderer's lighting.** Rendered unlit, the looked-dev model's three-quarter view averages RGB 113,92,75. Assetgrove's turntable lighting (ambient 0.35 plus one key light) brings the figure to about 0.7 of that, and the shell-fur preview shades its shells darker toward the root.
-- **Diagnostic, unlit renders** (not in the set; 4 views each; $0.09):
-
-  | Render                 | `score` mean (range) | `cast` mean (range) |
-  | ---------------------- | -------------------- | ------------------- |
-  | before look-dev, unlit | 0.63 (0.53–0.71)     | 0.03 (0.01–0.06)    |
-  | after look-dev, unlit  | 0.71 (0.69–0.72)     | 0.19 (0.12–0.35)    |
-
-  Unlit, every looked-dev view clears `score`'s 0.68. `cast`'s remaining complaints are smaller eyes, a slimmer tail, a shorter, smoother coat, pale flecks across the eye mask, a brownish nose and a pale stripe behind the head on the back view. The eyes and tail are the mesh, which look-dev does not change.
-
-- **What this means for a 3D threshold.** No question separates the lit looked-dev positives from drift and generics at the shipped thresholds: every looked-dev lit render falls below both. 3D stays provisional, and identity on 3D stays shadow-only.
-
-**3D after look-dev, second pass (2026-11-12; assetgrove#122, Outcome 5; provisional, no threshold set).** This is the same 41-case 3D set, rebuilt with `node test/fixtures/identity-set/build.ts <out> --medium 3d`. It has the same cases as #82's run above. The looked-dev cases are now the renders of #122's proof run (run 8, after review). They are under the new preview lighting, with the views restyled in turn and blended toward the squarest view where they disagree. The generic 3D renders were remade under the same lighting earlier in this pass, before the restyle and blend changes, and are not remade. Wave 0 is unchanged. The profile is the target's `art/target-profile.json` on `main`, with its `identity` set to the shipped defaults, fixed before the run. Character A's lock is v3, and its record check passed. #82's numbers are in brackets.
-
-| Question, threshold  | Cases           | AUC           | Same FR       | Drift FA  | Generic FA  | Mean same score | Spend  |
-| -------------------- | --------------- | ------------- | ------------- | --------- | ----------- | --------------- | ------ |
-| `score` (pplx), 0.68 | all 3D (41)     | 0.869 (0.790) | 15/26 (22/26) | 1/5 (0/5) | 0/10 (0/10) | 0.63 (0.56)     | $0.008 |
-|                      | wave 0 (18)     | 0.656 (0.656) | 12/16 (12/16) | 0/2 (0/2) |             | 0.57 (0.57)     |        |
-|                      | looked-dev (13) | 0.900 (0.667) | 3/10 (10/10)  | 1/3 (0/3) |             | 0.71 (0.54)     |        |
-| `cast` (Terra), 0.5  | all 3D (41)     | 0.854 (0.796) | 22/26 (26/26) | 0/5 (0/5) | 0/10 (0/10) | 0.15 (0.03)     | $0.42  |
-|                      | wave 0 (18)     | 0.391 (0.547) | 15/16 (16/16) | 0/2 (0/2) |             | 0.06 (0.04)     |        |
-|                      | looked-dev (13) | 0.933 (0.817) | 7/10 (10/10)  | 0/3 (0/3) |             | 0.29 (0.02)     |        |
-
-- **Per kind.** Over all 3D cases, the drift AUC is 0.677 for `score` (#82: 0.677) and 0.588 for `cast` (#82: 0.662). The generic AUC is 0.965 for `score` (generic mean 0.39; #82: 0.846, mean 0.45) and 0.987 for `cast` (generic mean 0.00; #82: 0.863, mean 0.01). 3D look-alikes are still missing, as in #82's run.
-- **Per cast.** The four-legged cast only.
-- **`score`.** 7 of the 10 looked-dev renders clear 0.68: summer front 0.80, three-quarter 0.75, side 0.73, back 0.73 and close-up 0.75; winter front 0.72 and three-quarter 0.73. The 3 false rejects are the winter side (0.64), back (0.64) and close-up (0.66). Under #82's lighting, every lit render was rejected. One drift is accepted: the summer side view stretched tall, at 0.70. The hue-shifted and desaturated drift score 0.48 and 0.59. Wave 0 scores as in #82's run.
-- **`cast`.** It names character A every time (confidence 0.86–0.98). It calls 3 looked-dev renders on-model: summer front (0.86), summer back (0.81) and winter back (0.65). It calls the other 7 off-model, for:
-  - pale flecks or patches breaking up the eye mask (7, the side views included);
-  - a tan tail tip (4);
-  - mottled tail bands (2, both winter);
-  - the close-up's large head (2);
-  - a darker chest with less tan underside (winter front).
-
-  The tail is what `lookdev-markings` names on the same run. The flecked mask is not: the check measures the mask's colour and contrast, not its texture. Head size is the mesh, which look-dev does not change.
-
-- **Run to run.** Wave 0's images are the same as in the first rerun of this pass, yet `cast` scored them lower (AUC 0.391, against 0.734 then). The same images can score differently from one run to the next.
-- **What this means for a 3D threshold.** `score` separates the looked-dev positives from their drift (AUC 0.90), but a stretched drift still scores above 3 positives. `cast` now accepts 3 of 10 looked-dev renders and no drift, but rejects most of them. 3D stays provisional, identity on 3D stays shadow-only, and no 3D threshold is set.
-
-## Identity cast question: animation posture is not drift (2026-11-12; assetgrove#104)
-
-The four-legged cast in these records is no longer kept here; see the note under the identity lock bar above.
-
-**The bar is met on the whole set, but not on the frames held out for the run, so shadow mode stays the default** and `question: "cast"` stays opt-in at 0.5. On run 7's held-out frames, the four-legged cast is clean, but 2 of 12 posed bird drift cases are accepted.
-
-**The rule.** The cast question's on-model step now judges each feature as it would look in the references' pose. Differences the pose, view or animation phase explains are not deviations, and the model lists them apart as `poseDifferences`, which never lower `onModel`. Examples are an arched or hunched back, a tail that is lowered, swung, curled or foreshortened, a turned or lowered head, bent limbs, spread or folded wings, and parts hidden by the view. Rendering variation between two drawings is not a deviation either: shading, lighter or more muted tones of the same hue, and texture. Nor is what the animation adds, such as food held or background between the limbs. These still count as deviations:
-
-- a region or marking in a different hue, including flecks across a mask or brow;
-- a marking missing, added or moved;
-- a see-through hole in the body or face;
-- a clearly different count of repeated marks on a part that shows them all;
-- proportions no pose can produce: body build or shape, head size, or a limb, tail or ear whose length differs by more than swing or foreshortening explains (at most about a third);
-- a missing or changed signature feature.
-
-Two tolerances in this wording come from the development check on seen frames, not from #104: a count difference of one mark that could merge into the body, the tip or the shading is not counted (the first wording rejected 7 of 8 of run 5's character A walk frames for tail bands hidden on a foreshortened tail), and "at most about a third" bounds the length change that swing or foreshortening explains for a limb, tail or ear (the body's stretch has no such allowance). The rendering-variation and animation-addition exemptions above (same-hue tones, texture, a held prop, an open mouth, background between the limbs) also go beyond posture. All of these are in the measured prompt, and whether they stay is an open question on the PR.
-
-The wording names no species. Sheet import and planning now name the animation family in the candidate's description when the spec has one. The score is unchanged: p(subject) × p(on-model).
-
-**How it was measured.** The threshold was fixed before each run at 0.5, the shipped default, on the default `identity-cast` route (GPT-6.1 Terra). Prompt wording was only ever changed on cases already scored ("seen"). Every run's new frames were added, checked by eye and committed before that run, and never used to adjust the prompt before it.
-
-- **Development (seen frames only):** run 5's character A walk frames and the existing drift. The first wording made the model count tail bands on a foreshortened tail (7 of 8 walk frames rejected). It also excused a stub tail, a stretched bird and a tailless character B. The wording was revised until those 50 cases scored AUC 1.000 with no errors.
-- **Run 6 (held-out frames):** a second walk and a sniff cycle for character A, a walk and an eat cycle for character B (28 `generate-sheet` frames), 8 drift edits of the new walk frames, and per bird 4 animation poses (flap, peck, look-back, crest-swept) with 4 posed drift cases. 294 cases, $2.09.
-- **Run 7 (held-out frames, prompt v3):** after run 6, the prompt was revised on run 6's cases (now seen). Then, before run 7, it added a third character A walk and an eat cycle (14 frames). It added 8 unused cells of character B's own contact sheet (4 walk, 4 sit-groom) and 11 drift edits in those poses. Per bird it added 4 new poses (hop, preen, glide, turn) with posed drift. 341 cases, $2.28.
-
-**Numbers** (2D, trusted records; every record passed its check; "held out" means that run's new positives and drift with every generic and look-alike negative; FA / FR are false accepts and false rejects at 0.5):
-
-| Run, cases                 | AUC   | Drift AUC | Generic AUC | Look-alike AUC | FA     | FR    | Birds AUC, FA / FR | Four-legged cast AUC, FA / FR | Bar     |
-| -------------------------- | ----- | --------- | ----------- | -------------- | ------ | ----- | ------------------ | ----------------------------- | ------- |
-| Run 6, whole set (268)     | 0.924 | 0.882     | 0.944       | 0.949          | 30/183 | 12/85 | 1.000, 0/45 / 0/30 | 0.869, 30/138 / 12/55         | not met |
-| Run 6, held out (176)      | 0.907 | 0.858     | 0.897       | 0.921          | 15/136 | 10/40 | 1.000, 0/33 / 0/12 | 0.856, 15/103 / 10/28         | not met |
-| Run 7, whole set (315)     | 0.991 | 0.984     | 0.993       | 0.997          | 2/210  | 1/105 | 0.999, 2/57 / 0/42 | 0.989, 0/153 / 1/63           | met     |
-| Run 7, held out (181)      | 0.996 | 0.973     | 1.000       | 1.000          | 2/147  | 0/34  | 0.996, 2/33 / 0/12 | 1.000, 0/114 / 0/22           | not met |
-| Run 7, new cases only (79) | 0.986 | 0.973     | n/a         | 1.000          | 2/45   | 0/34  | 0.990, 2/12 / 0/12 | 1.000, 0/33 / 0/22            | not met |
-
-Per kind at 0.5 (FR for same, FA for each negative kind). Run 7's split is exact: its 2 false accepts are the 2 bird drift cases named below and its false reject is a positive, and the case counts per kind come from `node test/fixtures/identity-set/build.ts <out> [--held-out "#104 run 7"]`:
-
-| Run 7, cases        | Same FR | Drift FA | Generic FA | Look-alike FA |
-| ------------------- | ------- | -------- | ---------- | ------------- |
-| Whole set (315)     | 1/105   | 2/86     | 0/29       | 0/95          |
-| Held out (181)      | 0/34    | 2/23     | 0/29       | 0/95          |
-| New cases only (79) | 0/34    | 2/23     | n/a        | 0/22          |
-
-Run 6's 30 false accepts and 12 false rejects cannot be split by kind here: the runs' per-case logs were written outside the repository (as the identity-eval docs ask), the chunks were merged by hand, and those logs are not in this record. The per-kind AUCs above are what was kept. The same holds for 3D rates at 0.5 in both runs.
-
-3D (provisional, 18 cases, not judged): run 6 AUC 0.20, run 7 AUC 0.72; most character A renders are still rejected, as before. Rates at 0.5 were not kept (see above).
-
-**Character B's held-out frames are weaker evidence than character A's.** His run 7 positives are cells 8, 12, 16 and 20 (walk) and 40, 41, 43 and 44 (sit-groom) of his contact sheet. On its 8-column grid they are neighbours, in the same cycles, of cells 9, 14, 17 and 22 (walk) and 39 and 42 (sit-groom), which the existing `sheet` entry scored in runs 5 and 6, before the prompt was revised on run 6's cases. They are frames the prompt never saw, but not a new walk or a new family for him: his sheet holds no family the earlier runs had not touched. Only character A has a held-out walk and families (eat, sniff) of his own; another family for character B needs new art of him.
-
-- **Posture is no longer drift.** Run 7 rejected none of its 34 held-out animation frames: character A's walk and eat frames, character B's own walk and sit-groom cells, and the bird poses. On the whole set, the 5 character A walk frames run 5 rejected now pass. The one false reject left is the window photo, called "none of the cast".
-- **Drift is still caught in a pose.** All 11 posed four-legged drift edits in run 7 score low, as do run 5's drift and the defective pre-#56 strip frames. The 2 misses are bird drift in the run 7 "preen" pose (tilted, head turned): a body stretched 1.3× tall scored 0.94 and 0.98. On held-out drift that is 2/23 (8.7%), over the 5% bar, and for the bird cast 2/33 (6.1%). This is the bar's failure.
-- **Run 6 failed for two reasons, both fixed before run 7.** The first was a wording that excused tone and marking-edge differences: the defective strip frames, with orange showing through holes in the face, passed at 0.82–0.92, as did a hue-shifted character B. The prompt now counts a hue change and a see-through hole, and run 7 rejects them. The second was that all 14 generated character B frames were called character A. On a second look the model was right: those frames lack character B's very fluffy coat and draw character A's face. `generate-sheet` drew character A's design under character B's name, and the first eye check missed it. They and the drift made from them are in `generated.json`'s `dropped` list with that reason. Character B's run 7 positives are cells of his own sheet. A generated sheet of a look-alike cast member needs an eye check against the other members, not only against its own references.
-- **Cost:** about $7.33 on the gateway by the spend ledger: the two runs ($4.37), development checks on seen cases ($2.13), and 7 sheets (one failed its frame count) and 20 drift edits ($0.83).
-
-**What is open:** a proportion change in a strongly posed frame, a held-out walk and family of character B's own, the tolerances named under the rule, and the window photo. Enforce mode waits for a run whose held-out frames meet the bar. That run needs fresh poses, because run 7's preen frames are now seen. #108 took these on; see the next section.
-
-## Identity cast question: only what the animation implies is excused (2026-11-12; assetgrove#108)
-
-The four-legged cast in these records is no longer kept here; see the note under the identity lock bar above.
-
-**The bar is met on the whole set in both runs, but not on either run's held-out frames, so shadow mode stays the default.** `question: "cast"` stays opt-in at 0.5, and the recommendation for a look-alike cast does not change. What still leaks is a body stretched 1.3× in a posed frame: 4 of the 36 held-out drift cases in run 9 and 1 of the 40 in run 8.
-
-**The rule.** The on-model step now excuses only what the pose and the named animation imply. The wording names no species or cast.
-
-- **Excused:** a back arched or hunched, a tail lowered, raised, swung or curled, a head turned, tilted or lowered, and limbs bent, lifted, stretched out or overlapping. So are wings spread or folded, eyes closed in a blink, a crest or ears swept by motion, a body that looks deeper or shorter-legged because the legs bend or it turns, and parts hidden by the view or foreshortened toward or away from it. Background between the limbs is excused too. A held prop or food, or an open mouth, is excused only when the named animation implies it (eating, carrying, calling). Otherwise it counts as something added.
-- **No longer excused:** #104's exemptions beyond the pose are gone: same-hue lighter or more muted tones, texture, a one-mark count difference, and a length change of up to about a third.
-- **Deviations:**
-  - a region in a different hue, or the whole region clearly lighter, darker or more muted ("as if repainted"; shading and lighting are not a colour change);
-  - a marking missing, added or moved;
-  - a see-through hole;
-  - a different count of repeated marks on a part fully in view;
-  - proportions the pose does not produce;
-  - a signature feature missing, added or changed.
-- **Stretch:** "a pose bends the body at the spine and joints but never rescales the figure". A whole body, or a rigid part such as the head, an eye or a beak, longer or shorter in one direction than the references show is a stretch, however the figure is tilted.
-
-The score and the answer are unchanged: p(subject) × p(on-model), with `poseDifferences` apart.
-
-**How it was measured.** The threshold was fixed at 0.5 before every run, on the default `identity-cast` route (GPT-6.1 Terra), on 2D cases with trusted records (every record passed its check in both runs). The prompt was worded only on cases scored before: #104's set, including run 7's preen frames. It took four development passes ($5.90): the first rejected 23 of 105 positives once tones and band counts counted (character A's generated walk frames, for "one fewer band", "underside more muted" and "deeper body"), and the wording was revised until those seen cases gave 7 false rejects in 63 four-legged positives with no false accepts. Each run's new frames were checked by eye and committed before that run (`heldOut` "#108 run 8" and "#108 run 9"). Each run's rows are rebuilt from the fixture at the commit that run was scored on: run 8 at `63334e5` and run 9 at `b9e5258`. Run the build with `node test/fixtures/identity-set/build.ts <out>`, and add `--held-out "#108 run 8"` or `--held-out "#108 run 9"` for the held-out cut. Later fixture commits change run 8's cut, because `b9e5258` relabels the scratch frames as drift and adds run 9's look-alikes. At `63334e5`, run 8's cut is 224 cases: 35 same, 40 drift, 29 generic and 120 look-alike. The table's 219 count only 115 of those look-alikes, the ones with trusted records.
-
-- **Run 8** added, per bird, 5 new poses (scratch, bow, reach, tuck, land). Each pose has an on-model frame and two drifts: a body stretched 1.3× tall or wide, and a feature (wing hue, crest count, eye ring, or a lighter tone of the wing's own hue). It also added 20 unused cells of character B's own contact sheet (crouch-hop, walk-right-alert, walk-left and idle, as the owner grouped them), each checked by eye against his lock and against character A, and 10 posed pixel drifts of them (stretch, muted tone, hue). Cost: 436 cases, $2.86.
-- **Run 8 found a fixture fault:** in the "scratch" pose (head turned, wing raised), the bird drawing puts the eye inside the wing. The model rejected two of those frames for it ("the eye is drawn inside the wing"), and it was right. The pose now carries a `defect`, so its on-model frames are drift by construction, as a crop's defect is.
-- **Run 9** came after run 8 with the prompt unchanged. It added per bird 5 more poses (shake, lean, glance, puff, dip) with the same two drifts, and 10 more unused character B cells (walk-right, walk-right-alert, idle) with 6 posed drifts. Cost: 507 cases, $1.91.
-
-**Numbers** (2D, trusted records, at 0.5; "held out" is that run's new positives and drift with every generic and look-alike negative):
-
-| Run, cases                          | AUC   | Drift AUC | FA    | FR     | Birds AUC, FA / FR  | Four-legged cast AUC, FA / FR | Bar     |
-| ----------------------------------- | ----- | --------- | ----- | ------ | ------------------- | ----------------------------- | ------- |
-| Run 8, whole set (410)              | 0.989 | 0.983     | 3/270 | 11/140 | 0.998, 1/87 / 3/57  | 0.985, 2/183 / 8/83           | met     |
-| Run 8, held out (219)               | 0.993 | 0.971     | 2/184 | 3/35   | 0.992, 1/51 / 2/15  | 0.995, 1/133 / 1/20           | not met |
-| Run 8, held out, scratch relabelled | 0.994 | 0.977     | 3/187 | 1/32   | 0.996, 2/54 / 0/12  | 0.995, 1/133 / 1/20           | not met |
-| Run 9, whole set (481)              | 0.990 | 0.982     | 7/319 | 5/162  | 0.999, 3/120 / 0/69 | 0.987, 4/199 / 5/93           | met     |
-| Run 9, held out (215)               | 0.994 | 0.968     | 4/190 | 0/25   | 0.992, 2/51 / 0/15  | 0.996, 2/139 / 0/10           | not met |
-| Run 9, new cases only (71)          | 0.975 | 0.968     | 4/46  | 0/25   | 0.986, 2/30 / 0/15  | 0.966, 2/16 / 0/10            | not met |
-
-The "scratch relabelled" row is recomputed from run 8's logged scores with the defect applied, not a fresh run. Per kind at 0.5 (FR for same, FA for each negative kind):
-
-| Run, cases            | Same FR | Drift FA     | Generic FA | Look-alike FA |
-| --------------------- | ------- | ------------ | ---------- | ------------- |
-| Run 8, whole (410)    | 11/140  | 3/126        | 0/29       | 0/115         |
-| Run 8, held out (219) | 3/35    | 2/40 (5.0%)  | 0/29       | 0/115         |
-| Run 9, whole (481)    | 5/162   | 7/165 (4.2%) | 0/29       | 0/125         |
-| Run 9, held out (215) | 0/25    | 4/36 (11.1%) | 0/29       | 0/125         |
-
-Generic and look-alike AUC is 0.992–1.000 in every row. 3D is provisional (18 cases, not judged): it rejects all 16 character A renders in both runs (AUC 0.70 in run 8, 0.44 in run 9; no false accept of the 2 drift renders).
-
-- **Run 8 fails on bird false rejects (2/15).** Both are the defective scratch frames. Relabelled, it fails on held-out drift instead: 3/43 is 7%, because fern's scratch frame was accepted. Either way, the bar is not met.
-- **Run 9 fails on held-out drift (4/36).** All four misses are body proportion: pebble and dusk stretched 1.3× in the "dip" pose (tilted about 57°), at 0.97 and 0.94, and character B walk-right cells 10 (1.3× tall, 0.97) and 13 (1.3× wide, 0.85).
-- **Proportion leaks in strong poses; tone and markings do not.** Across both runs' held-out drift, 28 of 30 bird proportion drifts and 7 of 10 character B proportion drifts are caught. Every tone drift is caught: the 6 lighter-tone bird wings and the 3 muted character B cells. So are every hue drift and every eye-ring change. One crest-count drift was missed (fern, 3 → 2 with the crest swept back in "tuck", 0.95). Run 7's preen stretch, now seen, is caught.
-- **Character B's new positives pass.** 29 of his 30 held-out cells pass. These are frames of his own art, so a held-out walk and three families (crouch-hop, walk-right-alert, walk-left) are his own. The one rejected cell (crouch-hop 26) was called "vertically squashed", a crouch read as a stretch: the same confusion as the leaks, the other way round.
-- **The whole set's false rejects** are the window photo ("none of the cast") and character A's generated walk and eat frames from runs 5 and 7. The stricter rule rejects those frames for one fewer tail band, a lighter lower leg, a tan tail tip or a bulkier body. Without #104's one-mark and same-hue tone excuses, the generator's own small drift now counts. The whole set's false accepts include run 5's stub-tail edit (0.78), which #104 caught.
-- **A lead, not measured on fresh frames:** asking for a written `proportions` comparison (body, head and eyes, length against depth along the body's own axis) before `onModel` caught both dip stretches on the now-seen run 8 and 9 cases. Character B's stretch-tall cells still passed (2/16 four-legged drift accepted, and one crouch rejected as squashed). It was not shipped. A run that tries it needs fresh poses and fresh art of a second character: character B's sheet has 6 unused cells left (1, 2, 4, 5, 51, 56).
-- **Cost:** $11.84 on the gateway, from the eval reports: $7.08 for development on seen cases (including the `proportions` check) and $4.76 for the two runs. The spend ledger reserved every call against this issue's work item. The fixture frames are cells of committed art or drawn in code, so they cost nothing.
-
-**What is open:** a body stretched about 1.3× in a strongly posed frame. Enforce mode and the `question: "cast"` recommendation for a look-alike cast wait for a run whose held-out frames meet the bar.
-
-## `lookdev-markings` is advisory (owner, 2026-11-13)
-
-**`lookdev-markings` still runs and records every measurement, but it no longer filters a look-dev candidate, and a drift no longer makes the run exit 5.** Its reason is marked `shadow`, as the identity lock's is in shadow mode. It starts by saying the check is advisory and why, and the run summary shows its verdict as "not filtered". Approval stays human: a person judges the compare images, and `pick` is theirs.
-
-**Why.** The check measures each marking in boxes a vision model draws, on the turnaround and on the renders. On unchanged code it names a different set of drifting markings on each run, so it cannot make a pass/fail call:
-
-- #122's five proof runs named 4 to 12 drifting measurements;
-- #129's runs named 11 to 13, and a replay with fur off still named 8, on the same renders;
-- #131's runs named 3 and 8.
-
-Most of the variation comes from where a box lands, not from the result. A box "beside" a marking often covers a different region in the render than in the turnaround. In #129's run 3, the front tail's body box covered most of the figure. In #131's run 2, the side mask's neighbouring box overlapped the mask itself. The check also could not hand off a result a person had approved: Kirk approved #131's renders ("looks pretty good"), and the drifts filtered them.
-
-**When it filters again.** When the same result gives the same drift set across repeated measurements: the markings calls rerun on one run's saved renders name the same drifting markings each time. That means a measurement whose boxes are stable, not a looser threshold.
-
-## Decision models for QA (owner, 2026-11-08; assetgrove#27)
-
-#27 measured gateway decision models on image questions and closes with these outcomes:
-
-- **Identity scoring uses a decision model.** #39 scores every candidate of a locked character with `perplexity/pplx-decider-v1.2`, in shadow mode, at the 0.68 threshold (see Identity lock v1 above).
-- **Per-frame checks during a strip need no decision model.** A whole cycle is generated as one sheet (#10), and #38 checks it with pixel QA, one vision check for identity flicker and a budgeted per-frame fix.
-- **No decision-model perspective check.** Perspective stays in the candidate's vision QA. That vision call costs about half a cent next to a candidate of about $0.25, authors rely on its written reason, and there is no labelled perspective data to choose a model or cutoff from.
-- **Lit and style checks** cite #27's numbers when their Objectives are filed.
-
-Moving identity flicker to a decision-model screen is filed only once more labelled flicker data exists.
+Provider terms differ on who owns an output, so each route declares its `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`), every call records it, and the provenance carries the most restrictive combination over its calls. The provenance's `license` is the target's licence only when the grant allows relabelling; otherwise it is the granted licence, when that licence is commercial and the target lists it in `acceptedLicenses`. Anything else is refused at hand-off (`pick`, `write-families`) with exit 7 (`license_refused`) before a file is written. Staging is unaffected, so free-credit trials that never reach a target still run.

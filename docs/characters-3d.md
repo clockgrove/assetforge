@@ -1,6 +1,6 @@
 # Real-time 3D characters
 
-Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md); assetgrove#72) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
+Real-time 3D characters (wave 0 of [PLAN.md](PLAN.md)) are made with the same `stage` and `pick` commands as other kinds. `stage` takes a `character-3d` spec and the bible's approved references of the character. It generates rigged, animated binary glTF (`.glb`) candidates within the cost cap and QA-filters them, then writes turntable renders for the person. `pick` writes the candidate the person chooses into a target whose profile declares `model3d`. Assetgrove never picks.
 
 ```sh
 assetgrove stage --spec fern-3d.json --bible bible.json --profile profile.json --dry-run
@@ -29,7 +29,7 @@ Targets read the field names below. Fields may be added, but not renamed.
 - `gait` (`quadruped` or `biped`) chooses the rig.
 - `clips` lists the animation families to retarget, named as they will be in the model.
 - `fields` reaches the templates as `spec.fields.*`.
-- `heightM` (optional, added here) scales the model to that standing height in metres. Without it, the provider's units are kept as metres.
+- `heightM` (optional) scales the model to that standing height in metres. Without it, the provider's units are kept as metres.
 
 **Target profile**
 
@@ -46,7 +46,7 @@ Targets read the field names below. Fields may be added, but not renamed.
 
 - `forward` is `+z` (default), `-z`, `+x` or `-x`.
 - `turntable.sizePx` defaults to 512.
-- `loopTolerance` (optional, added here) defaults to 2° and 1% of the model's height.
+- `loopTolerance` (optional) defaults to 2° and 1% of the model's height.
 - A profile without `model3d` is refused before any spend (exit 2).
 
 **Template outputs**
@@ -107,7 +107,7 @@ A candidate that fails a filtering check is not staged. It is listed in the run'
 
 ## Shared rig and generated gait
 
-A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip (assetgrove#84; Kirk, 2026-11-10), and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as a wave 0 pick:
+A target can declare one skeleton template for a kind of character and a gait profile per locomotion clip, and motions for its other clips ([below](#motions-besides-walking)). For such a target, Assetgrove does not use the provider's auto-rig and clip library. It fits the template to each character and generates the clips itself, so every character of the kind shares one rig and one motion style. `stage` then makes only the generation and identity calls: the `rig3d` and `clips3d` calls are neither forecast nor made. `assetgrove rig` does the same for a model that already exists, such as a wave 0 pick:
 
 ```sh
 assetgrove rig --model c3.glb --provenance c3/provenance.json --spec fern-3d.json --profile profile.json
@@ -145,7 +145,7 @@ Targets read the field names below. Names may be added, but none may be renamed.
 ```
 
 - `rig.template` is a path relative to the profile file. `rig.kind` names the kind of character it serves.
-- `rig.qa` (optional, added) sets the QA tolerances, in body lengths:
+- `rig.qa` (optional) sets the QA tolerances, in body lengths:
   - `contactBodyLengths`, default 0.01;
   - `slideBodyLengths`, default 0.01;
   - `heelBodyLengths`, default 0.02;
@@ -161,7 +161,7 @@ Targets read the field names below. Names may be added, but none may be renamed.
   - `headPitchDeg` and `tailPitchDeg`: positive lowers the head or tail. Tail pitch is measured from level.
   - `tailSwayDeg`: the tail's yaw amplitude, in step with the hips.
   - `speedBodyLengthsPerSecond`: the walking speed.
-  - Added, optional:
+  - Optional:
     - `swingCurlDeg: { fore, hind }`: the paw's downward curl at mid-swing, default 0;
     - `hipSwayDeg`: default a third of `tailSwayDeg`;
     - `reference`: a directory of gait reference frames (PNG or JPEG, in name order), relative to the profile;
@@ -194,9 +194,9 @@ Targets read the field names below. Names may be added, but none may be renamed.
 ```
 
 - `rest` is the joint's position as fractions of **body length**, the model's front-to-back extent at rest, tail included. It is in the character's facing frame: +z forward, +y up, +x the character's left. The origin is at the ground, at the bounds' centre on z and on the body's midline on x: the median x of the torso (the middle 40% of the body length, above a third of the model's height), so a tail curled to one side or a splayed leg does not pull it off the body.
-- `limits` and `stanceLimits` are degrees of the joint's local rotation from rest, read as X-Y-Z Euler angles. x is flex and extend; a positive x pitches a forward-pointing bone down. An axis without a range is free. `limits` holds in every phase. `stanceLimits` (added) holds for a foot's ankle or wrist while that foot bears weight.
-- `role` (added) is `pelvis`, `spine`, `neck`, `head` or `tail`. It tells the gait where the arch, head carriage and tail go.
-- `feet[].joints` is the leg chain: upper (hip or shoulder), lower (knee or elbow), ankle (or wrist), toe. `plantigrade: true` stands the foot flat, from ankle to toe, in stance. `name` and `pair` (`fore` or `hind`) are added.
+- `limits` and `stanceLimits` are degrees of the joint's local rotation from rest, read as X-Y-Z Euler angles. x is flex and extend; a positive x pitches a forward-pointing bone down. An axis without a range is free. `limits` holds in every phase. `stanceLimits` holds for a foot's ankle or wrist while that foot bears weight.
+- `role` is `pelvis`, `spine`, `neck`, `head` or `tail`. It tells the gait where the arch, head carriage and tail go.
+- `feet[].joints` is the leg chain: upper (hip or shoulder), lower (knee or elbow), ankle (or wrist), toe. `plantigrade: true` stands the foot flat, from ankle to toe, in stance. `name` names the foot and `pair` is `fore` or `hind`.
 
 **Template outputs**, added to those above:
 
@@ -240,11 +240,11 @@ Targets read the field names below. Names may be added, but none may be renamed.
 
 ## Motions besides walking
 
-A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking (assetgrove#135): looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is still reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`.
+A target with a shared rig can also declare, next to its gait profiles, the clips a character needs besides walking: looping families such as an idle, and one-shots such as gestures and interactions. `rig` and `stage` generate each declared family on the same fitted skeleton as the walk. The clips go in the same `.glb`, with the same `extras` (`loop`, `generated`) and the same provenance. A spec family with neither a gait profile nor a motion is reported in `missingClips` and never faked. Its reason is `the target declares no gait profile or motion for "<family>"`.
 
 ### Declaration
 
-The field names below are added to the contract.
+The field names below are part of the contract.
 
 ```json
 "model3d": {
@@ -299,7 +299,7 @@ The declaration names joints, feet and roles of the target's own template. Asset
 
 1. **Stance.** The neutral stance is the fitted rest pose, lowered only as far as every leg needs to reach the ground with its foot flat (plantigrade). It is never raised.
 2. **Generate.** Each clip is deterministic, keyed at 30 frames per second (at least 24 keys). Each frame poses the body, back, head, tail and named joints from the eased keys. Then each leg is solved as in the walk: the same two-bone inverse kinematics, the same skinned-sole correction, and the same flat plantigrade stance. A planted foot stays where it stands on the ground line while the body moves over it. A lifted foot goes where its pose puts it. A looping clip's last key is its first. The clip's `speedMps` is 0: it stays put.
-3. **QA**, on the written file's deformed mesh at every key, held to the rig's existing bar:
+3. **QA**, on the written file's deformed mesh at every key, held to the walk's bar:
    - `contact-<family>`: on every span a foot is down, its sole stays on the ground line within `contactBodyLengths` and slides no more than `slideBodyLengths`, and a plantigrade heel stays down within `heelBodyLengths`. A foot that is never down is not measured. A span with fewer than two frames to measure fails.
    - `joint-limits-<family>`: as for the walk. A weight-bearing ankle or wrist is held to its `stanceLimits` while its foot is down.
    - `skinning-<family>`: as for the walk.
@@ -343,7 +343,7 @@ A grant the target cannot accept is refused with exit 7 before anything is writt
 
 ### Hand-off shape
 
-A target's validator may take fewer clip fields than Assetgrove produces, or only a self-contained `.glb` (assetgrove#137). The profile declares the shape it takes:
+A target's validator may take fewer clip fields than Assetgrove produces, or only a self-contained `.glb`. The profile declares the shape it takes:
 
 ```json
 "model3d": {
@@ -362,7 +362,7 @@ Whatever the shape, `pick` measures each clip's `durationMs` (the last key time)
 
 ## Detail levels and tiers
 
-A target profile can declare a chain of detail levels and quality tiers (assetgrove#136). `assetgrove lod` makes them from any `.glb`: a staged candidate of `stage`, `rig` or `look-dev`, or a model that has been handed off, with its side maps beside it. It checks each level against the full model and stages the result as a one-candidate run for `pick`. It calls no model and spends nothing. It exits 5 when the chain fails QA, and the renders are still written.
+A target profile can declare a chain of detail levels and quality tiers. `assetgrove lod` makes them from any `.glb`: a staged candidate of `stage`, `rig` or `look-dev`, or a model that has been handed off, with its side maps beside it. It checks each level against the full model and stages the result as a one-candidate run for `pick`. It calls no model and spends nothing. It exits 5 when the chain fails QA, and the renders are still written.
 
 ```sh
 assetgrove lod --run .assetgrove/runs/<run> --candidate c1
@@ -395,7 +395,7 @@ assetgrove lod --model fern.glb --provenance fern.glb.provenance.json --spec fer
   - `budgets.lods` still caps the count measured in the main file.
 - `tiers.<name>` holds the tier's budgets: `triangles` and `textureMaxPx`, and, when present, `materials`, `bones` and `lods`.
   - The budgets go either on the tier itself or under a class (`character`, `prop`). A class is chosen by the spec's `tierClass`.
-  - `fur: false` (added) marks a tier that draws no fur. Its rendition leaves out every external side map that look-dev writes (groom, tint and eye mask). The embedded textures stay.
+  - `fur: false` marks a tier that draws no fur. Its rendition leaves out every external side map that look-dev writes (groom, tint and eye mask). The embedded textures stay.
   - Other keys, such as `status`, are ignored.
 - `lodQa.silhouette` (optional, default 0.06) is the largest share of the full model's silhouette that a level may cover differently.
 - `handoff.lods` is `embedded` (the default) or `files`; see Packaging below.

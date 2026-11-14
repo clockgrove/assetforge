@@ -1,6 +1,6 @@
 # Assetgrove PRD
 
-Status: draft 1 (2026-11-07). Owner: Kirk Marple.
+Status: draft 1.
 The implementation plan, split into waves that drive Objectives, follows from this document and is kept separately.
 
 ## 1. Why
@@ -80,7 +80,7 @@ Assetgrove closes it as a tool. A game declares what it needs as data. Assetgrov
 
 ### 5.2 Animation that holds together
 
-- **Sheet generation first (owner decision, 2026-11-07).** The model generates a whole cycle as one contact sheet, which keeps identity consistent across frames far better than frame-by-frame requests. An import path turns a sheet into a strip:
+- **Sheet generation first.** The model generates a whole cycle as one contact sheet, which keeps identity consistent across frames far better than frame-by-frame requests. An import path turns a sheet into a strip:
   - slices the frames;
   - removes the background to the style profile's alpha mode;
   - strips labels;
@@ -114,7 +114,7 @@ An asset that looks right on a white background can look wrong in the game. The 
 
 ### 5.5 Material maps: lit 2.5D, 3D-ready
 
-Owner decision (2026-11-07): the visual ceiling is lit 2.5D now and 3D-ready later. A target's renderer lights the scene with dynamic lights, shadows, colour grading, bloom, reflections, fog, wind and particles, at several quality tiers. A sprite lit for one moment fights all of that, so by default every asset ships as a material, not a picture. The colour (albedo) is generated under the style bible's neutral key light, and a standard set of maps comes with it, aligned to the same frame grid:
+The visual ceiling is lit 2.5D now and 3D-ready later. A target's renderer lights the scene with dynamic lights, shadows, colour grading, bloom, reflections, fog, wind and particles, at several quality tiers. A sprite lit for one moment fights all of that, so by default every asset ships as a material, not a picture. The colour (albedo) is generated under the style bible's neutral key light, and a standard set of maps comes with it, aligned to the same frame grid:
 - **normal** and **height/depth**: shape for dynamic light, shadows and depth sorting, and the bridge to a later 3D renderer;
 - **emissive** and **roughness/wetness**: window glow and lantern light, and how rain darkens and shines a surface;
 - **wind/flow**: how foliage, fur and water move.
@@ -166,7 +166,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
   - the version of the provider's terms;
   - the style bible's version.
 - The license value comes from the target profile.
-- Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off (assetgrove#47).
+- Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off.
 - The asset lock makes every approved asset auditable, and regenerable as far as the provider allows.
 - Candidates are cached by content hash. Asking the same question twice does not pay twice.
 
@@ -182,7 +182,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
 
 ### 5.11 Media transformation
 
-Owner direction (2026-11-07): transformation is a core layer of its own, not a side effect of generation. Every operation works the same on generated, imported and hand-made media, so an author can fix, convert or recombine an asset without regenerating it. Generators, the sheet import (§5.2) and hand-off all use this layer.
+Transformation is a core layer of its own, not a side effect of generation. Every operation works the same on generated, imported and hand-made media, so an author can fix, convert or recombine an asset without regenerating it. Generators, the sheet import (§5.2) and hand-off all use this layer.
 
 - **Images and frames.**
   - Slice a sheet into frames, or join frames into a strip or sheet.
@@ -265,7 +265,7 @@ These are measured per campaign and recorded in the repository:
   - a GitHub Action that opens the pick PR;
   - an MCP server for agents.
 - **Storage:** the target repository, with Git LFS. Locks and caches are content-addressed.
-- **Language and tooling:** chosen in the first Objective (assetgrove#1). Prefer what the first adopter already runs: Node 24, pnpm, TypeScript.
+- **Language and tooling:** chosen in the first Objective. Prefer what the first adopter already runs: Node 24, pnpm, TypeScript.
 
 ## 10. Open questions
 

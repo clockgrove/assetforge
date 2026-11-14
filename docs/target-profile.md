@@ -116,7 +116,7 @@ The paths are illustrative.
 
 ## Spend limits across runs
 
-A run's `--cap` bounds that run alone. A spend ledger bounds what all runs spend together (assetgrove#74): every paid call, in every command and over MCP, reserves its estimate in the ledger before it is made and settles at its actual cost after, recording its route (`provider:operation:model`), work item, cost and time. Before each call, and for the whole forecast before a run's first call, two limits are checked beside the run's cap:
+A run's `--cap` bounds that run alone. A spend ledger bounds what all runs spend together: every paid call, in every command and over MCP, reserves its estimate in the ledger before it is made and settles at its actual cost after, recording its route (`provider:operation:model`), work item, cost and time. Before each call, and for the whole forecast before a run's first call, two limits are checked beside the run's cap:
 
 - **Daily:** spend over the last 24 hours, by every run that uses the ledger.
 - **Work item:** all spend recorded under one work item, such as an Objective, a campaign or a session label. It applies only when a work item is named.
@@ -132,7 +132,7 @@ A call or run that would cross either limit is refused before any provider call 
 
 When both the environment and the target profile's `spend` set a limit, the stricter applies; when neither does, the default does, so a run is never uncapped. An invalid value is invalid input (exit 2). The ledger is append-only JSON Lines; concurrent runs order their reservations by their appends and never reserve past a limit together. A reservation never settled (a run that crashed) keeps its estimate. The ledger holds no keys or prompts.
 
-Scripted runs (`--provider-script`) are not real spend, so they are excluded: their calls are never written to the ledger and the limits never refuse them, while the run's own `--cap` applies as before. A dry run with a script still prints the limits, with `spend.counted` false. The rule is structural: the provider named `scripted` is unpaid and every other provider name is paid. Tests that prove the limits offline use a script that exports `paid: true`, which the CLI runs under the paid name `scripted-paid`.
+Scripted runs (`--provider-script`) are not real spend, so they are excluded: their calls are never written to the ledger and the limits never refuse them, while the run's own `--cap` still applies. A dry run with a script still prints the limits, with `spend.counted` false. The rule is structural: the provider named `scripted` is unpaid and every other provider name is paid. Tests that prove the limits offline use a script that exports `paid: true`, which the CLI runs under the paid name `scripted-paid`.
 
 ## Relightable materials
 
