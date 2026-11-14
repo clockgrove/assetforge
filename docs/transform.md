@@ -6,14 +6,14 @@ The transformation core (PRD §5.11) runs deterministic image operations on any 
 
 ```sh
 # One operation. With --profile, the target profile's style and frame size supply the defaults.
-pnpm assetforge op matte hand-painted.png --out clean.png
-pnpm assetforge op trim clean.png --out trimmed.png --params '{"margin": 2}' --profile profile.json
+pnpm assetgrove op matte hand-painted.png --out clean.png
+pnpm assetgrove op trim clean.png --out trimmed.png --params '{"margin": 2}' --profile profile.json
 
 # A recipe file.
-pnpm assetforge recipe sheet-to-renditions.json sheet.png --out out/ --profile profile.json
+pnpm assetgrove recipe sheet-to-renditions.json sheet.png --out out/ --profile profile.json
 
 # Every operation, its parameter schema, and the engines that implement it.
-pnpm assetforge ops --json
+pnpm assetgrove ops --json
 ```
 
 All three follow the CLI contract: `--json` prints one JSON document, nothing prompts, and invalid input exits 2. A single output goes to `--out` when that path has an extension. Its extension must match the output's format (`.png` for PNG, `.webp` after `convert` to WebP); a mismatch is refused before anything is written. An input keeps its media type when an engine can encode it; a JPEG input is written as PNG unless a `convert` step says otherwise. Otherwise `--out` is a directory, and each output is written there as `<name>.<extension>`. The provenance record goes beside the output, as `<out>.provenance.json` or `<dir>/provenance.json`. An input file is never overwritten.
@@ -37,13 +37,13 @@ Outputs are named after the source file. `slice` adds `-f001`, `-f002` and so on
 | `renditions`  | each  | Makes one copy per entry in `scales` (default `[1, 2]`). The input is treated as 1x.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `convert`     | each  | Sets the format an image is written in, by extension or media type. The engine decides which formats exist. The in-house engine encodes PNG and lossless WebP.                                                                                                                                                                                                                                                                                                                                |
 
-`assetforge ops --json` lists each operation's parameter schema. The schemas use a small JSON Schema subset: types, `enum`, bounds, `required` and `default`. Unknown parameters are refused.
+`assetgrove ops --json` lists each operation's parameter schema. The schemas use a small JSON Schema subset: types, `enum`, bounds, `required` and `default`. Unknown parameters are refused.
 
 ## Recipes
 
 ```json
 {
-  "format": "assetforge-recipe/1",
+  "format": "assetgrove-recipe/1",
   "name": "sheet-to-renditions",
   "steps": [
     { "op": "slice" },
@@ -93,7 +93,7 @@ PNG stores an uncompressed XMP packet in an `iTXt` chunk whose keyword is `XML:c
 
 Bounds, dimensions and transformation content identity come from decoded RGBA pixels. The `pixels` hash described above excludes container metadata, so adding XMP leaves that identity unchanged. File `sha256` values deliberately hash the complete written file, including XMP; manifest file hashes are calculated after embedding, so they still verify the bytes delivered to a target.
 
-The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetforge. Clockgrove's public `validateSource` implementation can also be run separately against tagged outputs through that profile boundary.
+The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetgrove. Clockgrove's public `validateSource` implementation can also be run separately against tagged outputs through that profile boundary.
 
 The metadata adapter also supports JSON glTF through [Khronos `KHR_xmp_json_ld`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld), with the Digital Source Type URI in a document-level XMP packet. There is no glTF generator in the current pipeline; a future 3D writer must pass its output through that adapter. KTX2 outputs retain disclosure in their provenance sidecars.
 
@@ -103,7 +103,7 @@ Digital Source Type is an unsigned disclosure, not a C2PA signature. Per the own
 
 ## Engines
 
-An engine adapter (`ImageEngine` in `src/transform/types.ts`) has a name, a version, the operations it implements, its encoders by media type, and a decoder. The in-house engine, `assetforge-raster`, is Assetforge's own TypeScript raster code. It decodes PNG and JPEG, and encodes PNG and lossless WebP (VP8L). Its version is bumped whenever any operation's output bytes change.
+An engine adapter (`ImageEngine` in `src/transform/types.ts`) has a name, a version, the operations it implements, its encoders by media type, and a decoder. The in-house engine, `assetgrove-raster`, is Assetgrove's own TypeScript raster code. It decodes PNG and JPEG, and encodes PNG and lossless WebP (VP8L). Its version is bumped whenever any operation's output bytes change.
 
 Another engine, such as sharp/libvips, ImageMagick or a model-based matte, implements some of the same operations and is passed to the runner ahead of the in-house engine, or named by a step. Recipes don't change. Material derivation, native rendition and KTX2 encoding operations are registered by the material-maps runner (#14), with schemas and per-step provenance; see [materials.md](materials.md).
 

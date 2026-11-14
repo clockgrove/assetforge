@@ -73,7 +73,7 @@ export function syntheticProfile(overrides: Partial<TargetProfile> = {}): Target
         path: "{{output.path}}",
         mediaType: "{{output.mediaType}}",
         creator: "{{profile.creator}}",
-        tool: "assetforge",
+        tool: "assetgrove",
       },
       license: "{{profile.license}}",
       provenance: {
@@ -97,7 +97,7 @@ export function syntheticProfile(overrides: Partial<TargetProfile> = {}): Target
 }
 
 export async function syntheticWorld(): Promise<World> {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-"));
   const bibleDir = join(dir, "bible");
   await mkdir(join(bibleDir, "refs"), { recursive: true });
   await writeFile(join(bibleDir, "refs/stevie-sheet.png"), encodePng(drawSubject(48)));

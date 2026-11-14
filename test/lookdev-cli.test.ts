@@ -55,7 +55,7 @@ const GROOM = {
 
 /** A target with a rig template, a groom declaration and a manifest that carries the look-dev fields. */
 async function world(options: { groom?: Doc | null; model3d?: boolean; motions?: boolean } = {}) {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-lookdev-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-lookdev-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
   for (const [i, role] of roles.entries()) {

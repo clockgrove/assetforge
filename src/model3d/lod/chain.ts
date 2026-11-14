@@ -1,6 +1,6 @@
 /**
  * The detail-level chain and tier renditions a target profile declares, made from one `.glb`
- * (assetforge#136; docs/characters-3d.md, "Detail levels and tiers"). Levels simplify only the
+ * (assetgrove#136; docs/characters-3d.md, "Detail levels and tiers"). Levels simplify only the
  * index lists, so every kept vertex keeps its skin, UVs and alignment with the textures and side
  * maps. Each level is checked against the full model; a level that fails is left out, with its
  * reason. Then each tier takes the levels within its triangle budget and textures within its size.

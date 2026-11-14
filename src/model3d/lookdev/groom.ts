@@ -406,7 +406,7 @@ const END_ADVANCE = 0.3;
  * a marking of another lightness, or run off the end of its part: to the distance at which it
  * would, smoothed over about a centimetre of surface and never under MARKING_FLOOR of its length.
  * A strand that lies across an edge carries its root's colour over it, in any fur renderer that
- * reads these maps, so long fur over narrow bands smears them (assetforge#131). Measured in 3D on
+ * reads these maps, so long fur over narrow bands smears them (assetgrove#131). Measured in 3D on
  * the base colour's L*, smoothed at MARKING_CELL, so the coat's fine texture is not an edge;
  * markings broader than the fur keep its full length.
  */

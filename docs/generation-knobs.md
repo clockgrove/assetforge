@@ -7,18 +7,18 @@
 Run in the target repository:
 
 ```sh
-assetforge bible init --directory . --world "Example World" --preset cozy-storybook --json
-assetforge bible describe --bible .assetforge/art-direction/BIBLE.md --json
+assetgrove bible init --directory . --world "Example World" --preset cozy-storybook --json
+assetgrove bible describe --bible .assetgrove/art-direction/BIBLE.md --json
 ```
 
 Available presets are `cozy-storybook` (soft painterly storybook), `flat-cartoon-kids` (bold outlines and simple flat shading), and `dark-gritty-isometric` (restrained colour, worn surfaces and an isometric camera). They use plain visual descriptions, never named games, studios or artists.
 
-Initialization writes `.assetforge/art-direction/BIBLE.md`, its adjacent `SKILL.md`, repository-owned copies under `presets/`, and `.assetforge/prompts/default.md`. Commit these files with your target repository. The skill links the bible, anchors and presets so a harness can load them while generating or reviewing art. Existing JSON bibles remain supported by the older generation commands; new plan/apply uses the Markdown bible.
+Initialization writes `.assetgrove/art-direction/BIBLE.md`, its adjacent `SKILL.md`, repository-owned copies under `presets/`, and `.assetgrove/prompts/default.md`. Commit these files with your target repository. The skill links the bible, anchors and presets so a harness can load them while generating or reviewing art. Existing JSON bibles remain supported by the older generation commands; new plan/apply uses the Markdown bible.
 
 To switch the look of later plans without a code change:
 
 ```sh
-assetforge bible preset --bible .assetforge/art-direction/BIBLE.md --preset flat-cartoon-kids --json
+assetgrove bible preset --bible .assetgrove/art-direction/BIBLE.md --preset flat-cartoon-kids --json
 ```
 
 This loads the preset from the target repository's sibling `presets/<preset>.md`. It changes look, tone and their token bounds while retaining the world's name, palette, anchors, identity locks and prose. Review the changed bible and commit it; plans made before the switch become stale. Edit the repository's preset files to customize future switches.
@@ -59,7 +59,7 @@ identities:
     palette: ["#29303b", "#d2b48c"]
 ```
 
-Every plan for that character attaches the approved turnaround and the lock automatically. Add approved images in your own repository; Assetforge ships no private character art.
+Every plan for that character attaches the approved turnaround and the lock automatically. Add approved images in your own repository; Assetgrove ships no private character art.
 
 The asset spec still describes the requested asset. A separate brief supplies its purpose and context:
 
@@ -75,7 +75,7 @@ The asset spec still describes the requested asset. A separate brief supplies it
 
 An optional `adjustments` object can request only fields listed in the bible's `adjustable` bounds. A brief cannot rewrite the audience, palette, identity, rendering or content limits. Out-of-range moods or permitted adjustments are clamped and recorded; unsupported constitutional overrides and named-style imitation are refused. LLM output is checked too. Named-style phrases and recognized game, studio and artist names are refused case-insensitively across brief, spec and compiler prose. Ordinary free-text context is accepted without a fixed vocabulary. Profile palettes must be compatible with the bible; a palette rule in either layer constrains both prompts and postprocessing.
 
-For UI-facing purposes such as icons, portraits and badges, a target repository's `DESIGN.md` `colors` (from front matter or fenced YAML) contributes subordinate interface palette context. The art bible remains authoritative; Assetforge does not extend DESIGN.md with art direction.
+For UI-facing purposes such as icons, portraits and badges, a target repository's `DESIGN.md` `colors` (from front matter or fenced YAML) contributes subordinate interface palette context. The art bible remains authoritative; Assetgrove does not extend DESIGN.md with art direction.
 
 Run settings are a separate JSON file:
 
@@ -88,16 +88,16 @@ Run settings are a separate JSON file:
 ## Plan, inspect and apply
 
 ```sh
-assetforge plan --spec spec.json --bible .assetforge/art-direction/BIBLE.md \
+assetgrove plan --spec spec.json --bible .assetgrove/art-direction/BIBLE.md \
   --profile profile.json --brief brief.json --settings settings.json --out plan.json --json
-assetforge apply plan.json --auto-approve --out .assetforge/runs --json
+assetgrove apply plan.json --auto-approve --out .assetgrove/runs --json
 ```
 
 `plan` never generates images. It calls the configured compiler LLM to produce final positive and negative prompts for the target model family. It records the exact compiler output, route, template version and hash, references with roles and hashes, clamps, candidate count, settings, cost forecast and constitutional directives. If the compiler is unavailable, a deterministic template-only fallback is recorded as `template-fallback`; malformed or unsafe model output is refused.
 
 The repository's default template supports `{{constitution}}`, `{{spec}}`, `{{brief}}`, `{{settings}}` and `{{family}}`. Override it in git or select another repository file with `--template`. Presentation, background and lighting belong in that template and bible. There is no global painterly presentation instruction.
 
-A human can review a plan and set only its `approved` field to `true`, then run `assetforge apply plan.json`. An unattended campaign explicitly passes `--auto-approve`. Any other plan edit requires planning again. Apply reloads and hashes the bible, template, character identity and image references before any generation. Changed source files invalidate the plan even when their declared versions were not bumped. Applied candidates carry the plan's exact compiler inputs and output in provenance and remain pending asset review.
+A human can review a plan and set only its `approved` field to `true`, then run `assetgrove apply plan.json`. An unattended campaign explicitly passes `--auto-approve`. Any other plan edit requires planning again. Apply reloads and hashes the bible, template, character identity and image references before any generation. Changed source files invalidate the plan even when their declared versions were not bumped. Applied candidates carry the plan's exact compiler inputs and output in provenance and remain pending asset review.
 
 Model credentials come from `AI_GATEWAY_API_KEY`. Tests and offline harnesses can pass `--provider-script module.mjs`, whose default export supplies the existing `{ image, vision }` scripted provider contract, plus `decide` for identity scoring (it returns `{ answer: { type: "score", score } }` or `{ answer: { type: "boolean", probability } }`). The compiler uses `vision` with its compilation request; return JSON containing `prompt`, `negativePrompt`, `violations` and `clamps`. For sprite strips, the compiler also returns `framePrompts`, one entry per frame of the approved key pose. Candidate QA returns JSON containing `styleScore`, `passed` and `reason`. Real providers are opt-in.
 
@@ -125,7 +125,7 @@ The target profile configures it:
 
 A record is trusted only when its written signature features, proportions and palette agree with its own approved references. The references are the source of truth: a record that calls a stocky character lean makes a model reject the real character and accept a lean look-alike. `checkIdentityRecord` asks a vision model on the `identity-check` route to compare each written claim with the reference images, and returns each conflict with the claim and what the references show.
 
-- **At record time:** `assetforge identity-check --bible BIBLE.md [--subject <name>]... [--json]` checks every record (or the named ones), prints each verdict with its reason, and exits 1 when any record conflicts or could not be checked.
+- **At record time:** `assetgrove identity-check --bible BIBLE.md [--subject <name>]... [--json]` checks every record (or the named ones), prints each verdict with its reason, and exits 1 when any record conflicts or could not be checked.
 - **In enforce mode:** a run checks each record once before its first score. A record that conflicts is not used for filtering: its candidates are still scored, but in shadow mode, and the reason says why, until a person fixes the text or the references. A check that could not run (a provider error or an unreadable answer) fails closed like any provider failure in enforce mode: every candidate is filtered, with the reason. Shadow mode makes no check call. The plan records the check's route, so a `--routes` file applies to it.
 - **In `identity-eval`:** every record the set uses is checked and the report lists each check. Cases scored against a record that conflicts or could not be checked are marked and reported as their own group: they are kept out of the sweep, the recommended threshold, the AUC, the per-kind and per-cast breakdown and the bar, since such a record never filters.
 
@@ -134,7 +134,7 @@ Scores land in each candidate's `fields.identity` and provenance (`provenance.id
 ### Choosing the threshold
 
 ```sh
-assetforge identity-eval --bible BIBLE.md --cases cases.json --profile profile.json \
+assetgrove identity-eval --bible BIBLE.md --cases cases.json --profile profile.json \
   --log identity-eval.jsonl --json
 ```
 
@@ -154,7 +154,7 @@ The repository's acceptance set has two casts. Raccoon World is downloaded from 
 ## MCP
 
 ```sh
-assetforge mcp --provider-script scripted-provider.mjs
+assetgrove mcp --provider-script scripted-provider.mjs
 ```
 
 The server runs on the official TypeScript MCP SDK (`@modelcontextprotocol/server`) over the stdio transport, so the SDK negotiates the protocol revision. It serves tools only. Diagnostics never occupy stdout. The server stops when its stdin closes; a request still running at that moment gets no answer, so a client keeps stdin open until it has read its responses.

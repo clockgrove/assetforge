@@ -66,7 +66,7 @@ const profile3d = (overrides: Record<string, unknown> = {}) => ({
       kind: "generated",
       path: "{{output.path}}",
       mediaType: "{{output.mediaType}}",
-      tool: "assetforge",
+      tool: "assetgrove",
     },
     license: "{{profile.license}}",
     credit: "{{provenance.outputGrant.attribution?}}",
@@ -93,7 +93,7 @@ async function world(
   spec: Record<string, unknown> = {},
   profileOverrides: Record<string, unknown> = {},
 ) {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-3d-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-3d-"));
   await mkdir(join(dir, "refs"));
   const roles = ["turnaround-front", "turnaround-side", "turnaround-back"];
   for (const [i, role] of roles.entries()) {

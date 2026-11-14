@@ -1,4 +1,4 @@
-/** The parts of the Khronos glTF validator (`gltf-validator`, which ships no types) Assetforge uses. */
+/** The parts of the Khronos glTF validator (`gltf-validator`, which ships no types) Assetgrove uses. */
 declare module "gltf-validator" {
   export interface ValidationMessage {
     code: string;

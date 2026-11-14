@@ -246,7 +246,7 @@ export async function runMaterials(options: {
     specHash: sha256(Buffer.from(JSON.stringify(spec))),
     derivationHash: sha256(Buffer.from(JSON.stringify(derivation))),
     lightSources: sources.map((s) => ({ name: s.name, sha256: sha256(encodePng(s.mask)) })),
-    generator: "assetforge-materials",
+    generator: "assetgrove-materials",
     ...(options.digitalSourceType !== undefined && {
       sourceDeclaration: sourceDeclaration(options.digitalSourceType),
     }),

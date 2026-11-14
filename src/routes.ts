@@ -28,7 +28,7 @@ export interface Route {
   supportsSeed?: boolean;
   providerOptions?: Record<string, Record<string, unknown>>;
   /**
-   * 3D routes: the axis the provider's models face (`+z` when unset). Assetforge turns each model
+   * 3D routes: the axis the provider's models face (`+z` when unset). Assetgrove turns each model
    * to the target profile's `model3d.forward`.
    */
   forward?: "+x" | "-x" | "+z" | "-z";
@@ -278,7 +278,7 @@ export const defaultRoutes: Routes = {
   },
   // Look-dev (#122): where each identity marking and the coat beside it are, in a turnaround view
   // and the lit renders of the same view, for the deterministic markings check.
-  // Low thinking (assetforge#122): boxing markings needs no long reasoning, and at the default
+  // Low thinking (assetgrove#122): boxing markings needs no long reasoning, and at the default
   // level the call ran long enough to time out at the gateway relay in two real runs.
   [LOOKDEV_MARKINGS_OPERATION]: {
     model: "google/gemini-3-flash",

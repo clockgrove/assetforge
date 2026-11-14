@@ -1,6 +1,6 @@
 # Inputs: asset spec, style bible and target profile
 
-Assetforge reads three JSON files. All three are data owned by the game; none of them is code here. Relative paths in a file resolve against that file's directory.
+Assetgrove reads three JSON files. All three are data owned by the game; none of them is code here. Relative paths in a file resolve against that file's directory.
 
 ## Asset spec
 
@@ -22,7 +22,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 - `look` (optional) names one of the bible's `looks`, such as `character` or `environment`. The asset gets that look's notes and references on top of the shared ones. An unknown look is refused before any spend.
 - `frames.width` and `frames.height` default to the profile's frame size; `frames.count` defaults to 1.
 - `anchor` is the pivot in frame coordinates: the bottom centre of the subject is aligned to it. It defaults to the bottom centre of the frame.
-- `keyPose` (required for `sprite-strip`) is the author-approved key pose image; every frame becomes a reference-guided edit of it. A strip spec without one is refused before any spend. To make one through Assetforge, stage a `still` spec of the pose (set `frames.width` and `frames.height` larger than the profile's frame size for a detailed reference), look at the staged candidates, and name the chosen file as `keyPose`.
+- `keyPose` (required for `sprite-strip`) is the author-approved key pose image; every frame becomes a reference-guided edit of it. A strip spec without one is refused before any spend. To make one through Assetgrove, stage a `still` spec of the pose (set `frames.width` and `frames.height` larger than the profile's frame size for a detailed reference), look at the staged candidates, and name the chosen file as `keyPose`.
 - `fields` holds extra values the profile's manifest template reads as `{{spec.fields.*}}`.
 
 ## Style bible
@@ -43,7 +43,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
 }
 ```
 
-`looks` (optional) gives each domain of a world its own style, for example characters in naturalistic fur within a lightly painted yard. Each look has its own `notes`. A reference with a `look` is sent only for specs of that look; one without is sent for every look. A spec with no `look` gets only the shared notes and untagged references. Assetforge assumes no look names or styles: the target defines both.
+`looks` (optional) gives each domain of a world its own style, for example characters in naturalistic fur within a lightly painted yard. Each look has its own `notes`. A reference with a `look` is sent only for specs of that look; one without is sent for every look. A spec with no `look` gets only the shared notes and untagged references. Assetgrove assumes no look names or styles: the target defines both.
 
 ```json
 "notes": ["warm lantern light against cool dusk rain"],
@@ -77,7 +77,7 @@ Assetforge reads three JSON files. All three are data owned by the game; none of
       "kind": "generated",
       "path": "{{output.path}}",
       "creator": "{{profile.creator}}",
-      "tool": "assetforge"
+      "tool": "assetgrove"
     },
     "license": "{{profile.license}}",
     "provenance": {
@@ -107,16 +107,16 @@ This example follows the public manifest shape in Clockgrove's `packages/assets/
 - **Templates.** `"{{a.b}}"` as a whole string inserts the value of any JSON type; `"{{a.b?}}"` drops the key when the value is undefined; `{{a.b}}` inside a longer string interpolates text. An undefined required value is an error.
 - **Values available:** `spec.*` (the spec, with its `fields` also merged in), `profile.*` (`values`, `name`, `license`), `bible.version`, `output.*` (`path`, `mediaType`, `extension`, `sha256`, and what the generator adds: `frames`, `anchor`, `bounds`, `palette` for images; imported strips add `jitterPx` and set `palette` only under a palette colour rule), `provenance` (the full record) and `run.*` (`runId`, `candidateId`, `pickedAt`).
 - **Licences.** `license` is the target's own licence, declared for outputs whose provider grant lets the target relabel them (paid plans that give ownership). `acceptedLicenses` (optional, default none) lists licences the target takes on purpose beyond its own, such as `CC-BY-4.0` when it publishes the credit line (`{{provenance.outputGrant.attribution}}`). Hand-off (`pick`, `write-families`) re-derives the output grant from the provenance's calls and refuses, before writing anything, with exit 7 (`license_refused`) an output whose grant neither allows relabelling nor is listed, and every non-commercial grant. In hand-off templates `{{profile.license}}` and `{{provenance.license}}` are the licence the output is declared under, so a template never relabels.
-- **Provenance.** Every pick carries its full provenance record into the target. `layout.provenance`, when set, writes it as its own file at that path; the template can also embed `"{{provenance}}"`; with neither, it is written beside the media file as `<media path>.provenance.json`. The record holds the models, route, prompt, parameters, reference hashes, seed where supported, request IDs, times, cost, provider terms, bible version and license, the combined `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`; the most restrictive grant over all calls wins), plus every call with its own `outputGrant`. Each call marks `costSource` (`provider` or `estimate`) and `requestIdSource` (`provider`, or `local` when the gateway reported no ID and Assetforge generated one).
-- **Review.** Assetforge always sets the field at `review.path` to `review.pending` and never writes another value there.
+- **Provenance.** Every pick carries its full provenance record into the target. `layout.provenance`, when set, writes it as its own file at that path; the template can also embed `"{{provenance}}"`; with neither, it is written beside the media file as `<media path>.provenance.json`. The record holds the models, route, prompt, parameters, reference hashes, seed where supported, request IDs, times, cost, provider terms, bible version and license, the combined `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`; the most restrictive grant over all calls wins), plus every call with its own `outputGrant`. Each call marks `costSource` (`provider` or `estimate`) and `requestIdSource` (`provider`, or `local` when the gateway reported no ID and Assetgrove generated one).
+- **Review.** Assetgrove always sets the field at `review.path` to `review.pending` and never writes another value there.
 - **Validator.** Run in the target directory after the pick is written, with `{{manifest}}` and `{{media}}` replaced by the written paths. A non-zero exit is reported as a rejection.
 - **Media.** Each output declares its own media type and extension; `.gitattributes` in the target decides what Git LFS stores.
-- **3D detail levels and tiers.** `model3d.lods` declares the detail-level chain: each level's `triangleRatio` of the full model and the `minScreenHeight` it shows down to. `model3d.tiers` declares each quality tier's budgets (`triangles`, `textureMaxPx` and, optionally, `materials`, `bones` and `lods`), either directly or nested by class. A tier may also set `fur: false`. `model3d.lodQa.silhouette` sets the level QA tolerance, and `model3d.handoff.lods` (`embedded` or `files`) sets how the levels are packaged. `assetforge lod` makes the chain and the tier renditions within these budgets ([characters-3d.md](characters-3d.md#detail-levels-and-tiers)).
+- **3D detail levels and tiers.** `model3d.lods` declares the detail-level chain: each level's `triangleRatio` of the full model and the `minScreenHeight` it shows down to. `model3d.tiers` declares each quality tier's budgets (`triangles`, `textureMaxPx` and, optionally, `materials`, `bones` and `lods`), either directly or nested by class. A tier may also set `fur: false`. `model3d.lodQa.silhouette` sets the level QA tolerance, and `model3d.handoff.lods` (`embedded` or `files`) sets how the levels are packaged. `assetgrove lod` makes the chain and the tier renditions within these budgets ([characters-3d.md](characters-3d.md#detail-levels-and-tiers)).
 - **Spend.** An optional `spend` object, `{ "dailyLimitUsd": 10, "workItemLimitUsd": 5 }`, sets the cross-run spend limits below. Each is a non-negative USD amount.
 
 ## Spend limits across runs
 
-A run's `--cap` bounds that run alone. A spend ledger bounds what all runs spend together (assetforge#74): every paid call, in every command and over MCP, reserves its estimate in the ledger before it is made and settles at its actual cost after, recording its route (`provider:operation:model`), work item, cost and time. Before each call, and for the whole forecast before a run's first call, two limits are checked beside the run's cap:
+A run's `--cap` bounds that run alone. A spend ledger bounds what all runs spend together (assetgrove#74): every paid call, in every command and over MCP, reserves its estimate in the ledger before it is made and settles at its actual cost after, recording its route (`provider:operation:model`), work item, cost and time. Before each call, and for the whole forecast before a run's first call, two limits are checked beside the run's cap:
 
 - **Daily:** spend over the last 24 hours, by every run that uses the ledger.
 - **Work item:** all spend recorded under one work item, such as an Objective, a campaign or a session label. It applies only when a work item is named.
@@ -125,10 +125,10 @@ A call or run that would cross either limit is refused before any provider call 
 
 | Variable                         | Meaning                                                                    | Default                                                                                                                                                                                             |
 | -------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ASSETFORGE_SPEND_LEDGER`        | The ledger file, shared by every run that names the same file              | `$XDG_STATE_HOME/assetforge/spend.jsonl`, else `~/.local/state/assetforge/spend.jsonl`; in a Factory worker (`FACTORY_ISSUE` set), `assetforge-spend.jsonl` in `$FACTORY_STATE_DIR`, else `$TMPDIR` |
-| `ASSETFORGE_WORK_ITEM`           | The work item calls are recorded under; `--work-item <label>` overrides it | a Factory worker's Objective, `<GITHUB_REPOSITORY>#<FACTORY_ISSUE>` (or `factory#<n>`); otherwise none: only the daily limit applies                                                                |
-| `ASSETFORGE_DAILY_LIMIT_USD`     | The daily limit in USD                                                     | $10                                                                                                                                                                                                 |
-| `ASSETFORGE_WORK_ITEM_LIMIT_USD` | The limit per work item in USD                                             | $5                                                                                                                                                                                                  |
+| `ASSETGROVE_SPEND_LEDGER`        | The ledger file, shared by every run that names the same file              | `$XDG_STATE_HOME/assetgrove/spend.jsonl`, else `~/.local/state/assetgrove/spend.jsonl`; in a Factory worker (`FACTORY_ISSUE` set), `assetgrove-spend.jsonl` in `$FACTORY_STATE_DIR`, else `$TMPDIR` |
+| `ASSETGROVE_WORK_ITEM`           | The work item calls are recorded under; `--work-item <label>` overrides it | a Factory worker's Objective, `<GITHUB_REPOSITORY>#<FACTORY_ISSUE>` (or `factory#<n>`); otherwise none: only the daily limit applies                                                                |
+| `ASSETGROVE_DAILY_LIMIT_USD`     | The daily limit in USD                                                     | $10                                                                                                                                                                                                 |
+| `ASSETGROVE_WORK_ITEM_LIMIT_USD` | The limit per work item in USD                                             | $5                                                                                                                                                                                                  |
 
 When both the environment and the target profile's `spend` set a limit, the stricter applies; when neither does, the default does, so a run is never uncapped. An invalid value is invalid input (exit 2). The ledger is append-only JSON Lines; concurrent runs order their reservations by their appends and never reserve past a limit together. A reservation never settled (a run that crashed) keeps its estimate. The ledger holds no keys or prompts.
 
@@ -136,7 +136,7 @@ Scripted runs (`--provider-script`) are not real spend, so they are excluded: th
 
 ## Relightable materials
 
-`style.materials` opts a world into normal, height/depth, emissive, roughness/wetness and wind/flow channels, native 1×/2× (optional 4×) renditions, temporal bounds, target compression and lit-preview commands. Per-asset derivation sources stay separate from the world profile. See [materials.md](materials.md) for the `assetforge materials` command, encoding, provenance and target command contracts.
+`style.materials` opts a world into normal, height/depth, emissive, roughness/wetness and wind/flow channels, native 1×/2× (optional 4×) renditions, temporal bounds, target compression and lit-preview commands. Per-asset derivation sources stay separate from the world profile. See [materials.md](materials.md) for the `assetgrove materials` command, encoding, provenance and target command contracts.
 
 ### Relightable materials
 

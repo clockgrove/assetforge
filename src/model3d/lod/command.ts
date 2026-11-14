@@ -1,6 +1,6 @@
 /**
- * `assetforge lod`: makes the detail-level chain and tier renditions the target profile declares
- * (assetforge#136) from a staged candidate or a given `.glb`, checks each level against the full
+ * `assetgrove lod`: makes the detail-level chain and tier renditions the target profile declares
+ * (assetgrove#136) from a staged candidate or a given `.glb`, checks each level against the full
  * model, and stages the result as a one-candidate run that `pick` hands off. No model is called
  * and nothing is spent.
  */
@@ -171,7 +171,7 @@ async function givenSource(options: LodOptions): Promise<Source> {
     );
   }
   if (!provenance || typeof provenance !== "object" || !Array.isArray(provenance.calls)) {
-    throw new InputError("the provenance file is not an Assetforge provenance record");
+    throw new InputError("the provenance file is not an Assetgrove provenance record");
   }
   const glb = parseGlb(model.bytes);
   return {
@@ -204,7 +204,7 @@ export function withoutChain(glb: Glb): Glb {
   const referenced = (glb.json.skins ?? []).some((s) => s.joints.some((j) => j >= first));
   if (!trailing || referenced) {
     throw new InputError(
-      "the model already carries MSFT_lod levels that Assetforge did not make; give it the full model alone",
+      "the model already carries MSFT_lod levels that Assetgrove did not make; give it the full model alone",
     );
   }
   glb.json.nodes = nodes.slice(0, first);
@@ -341,7 +341,7 @@ export async function lodChain(
       {
         op: LOD_STEP,
         params: { method: LOD_METHOD, packaging: lods.packaging, levels: chain.levels },
-        engine: { name: "assetforge-lod", version: "1" },
+        engine: { name: "assetgrove-lod", version: "1" },
         inputs: [sourceSha256],
         outputs,
       },

@@ -1,5 +1,5 @@
 /**
- * The look-dev markings check (assetforge#122): each identity marking measured in the lit after
+ * The look-dev markings check (assetgrove#122): each identity marking measured in the lit after
  * renders against the matching turnaround view, in CIELAB, per marking and per view.
  */
 import { ProviderError } from "../../errors.ts";

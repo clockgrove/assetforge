@@ -1,5 +1,5 @@
 /**
- * QA of a detail level against the full model (assetforge#136): its triangles within the level's
+ * QA of a detail level against the full model (assetgrove#136): its triangles within the level's
  * ratio, the same skeleton, skin and clips with every kept vertex's weights and UVs unchanged, and
  * its silhouette in the turntable views and across every clip's frames.
  */

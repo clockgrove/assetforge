@@ -1,6 +1,6 @@
 /**
  * The detail-level chain, texture tiers and packaging a target profile declares for a 3D model
- * (assetforge#136; docs/characters-3d.md).
+ * (assetgrove#136; docs/characters-3d.md).
  */
 import { InputError } from "../../errors.ts";
 import type { TargetProfile } from "../../types.ts";

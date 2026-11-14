@@ -10,7 +10,7 @@ const BIN_CHUNK = 0x004e4942; // "BIN\0"
 
 export const GLB_MEDIA_TYPE = "model/gltf-binary";
 
-/** The glTF 2.0 document, loosely typed: only the fields Assetforge reads are named. */
+/** The glTF 2.0 document, loosely typed: only the fields Assetgrove reads are named. */
 export interface GltfDocument {
   asset: { version: string; generator?: string; [key: string]: unknown };
   scene?: number;

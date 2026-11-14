@@ -1,5 +1,5 @@
 /**
- * Texture renditions for a quality tier (assetforge#136): every image larger than the tier's
+ * Texture renditions for a quality tier (assetgrove#136): every image larger than the tier's
  * `textureMaxPx` is area-averaged down to fit, aspect kept, so UVs still land on the same texels.
  * Look-dev's external side maps (groom, tint, eye mask) go the same way, or are dropped from a tier
  * that draws no fur.

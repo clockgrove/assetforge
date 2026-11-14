@@ -1,17 +1,17 @@
-# Look-dev on Stevie, face detail pass: before and after (assetforge#143)
+# Look-dev on Stevie, face detail pass: before and after (assetgrove#143)
 
-This is one real `assetforge look-dev` run, made on 2026-11-13 (Pacific time) on Stevie's picked model, the same model as #82 to #131. It is the pre-look-dev pick: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` at 7c459ee (sha256 `81e5ece4…ef3f`, checked before the run). raccoon-world `main` has since replaced that file with #131's result (raccoon-world#107). The art (`art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122.
+This is one real `assetgrove look-dev` run, made on 2026-11-13 (Pacific time) on Stevie's picked model, the same model as #82 to #131. It is the pre-look-dev pick: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` at 7c459ee (sha256 `81e5ece4…ef3f`, checked before the run). raccoon-world `main` has since replaced that file with #131's result (raccoon-world#107). The art (`art/style-bible.json`, `art/stevie/character-3d/spec.json` and Stevie's turnaround views) is unchanged since #122.
 
 #131's renders, Kirk's approved pick, are kept in [`131/`](131/), with #129's in [`129/`](129/), #122's in [`122/`](122/) and #82's in [`82/`](82/).
 
 ```sh
-assetforge look-dev --model assets/models/stevie/stevie.glb \
+assetgrove look-dev --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
-  --profile art/target-profile-3d.json --work-item clockgrove/assetforge#143
+  --profile art/target-profile-3d.json --work-item clockgrove/assetgrove#143
 ```
 
-**The profile is a copy without `model3d.handoff`.** raccoon-world's `art/target-profile-3d.json` declares `model3d.handoff` with descriptive fields (`container`, `compression`, `textureMediaTypes`, `ktx2`). Assetforge has refused those since #137 (`model3d.handoff has unknown field(s)`), so the profile no longer loads. The runs used a copy with that section removed. The section does not affect look-dev, and without it the hand-off takes Assetforge's defaults. As in #129, the runs called `lookDev` with the options this command passes, through a provider that also saved every reply.
+**The profile is a copy without `model3d.handoff`.** raccoon-world's `art/target-profile-3d.json` declares `model3d.handoff` with descriptive fields (`container`, `compression`, `textureMediaTypes`, `ktx2`). Assetgrove has refused those since #137 (`model3d.handoff has unknown field(s)`), so the profile no longer loads. The runs used a copy with that section removed. The section does not affect look-dev, and without it the hand-off takes Assetgrove's defaults. As in #129, the runs called `lookDev` with the options this command passes, through a provider that also saved every reply.
 
 **Spend:** $0.42 of the $3.00 cap. The run made 15 calls: 8 restyles on `openai/gpt-image-2` (7 views and the detail view), 1 eye and nose locate, 2 season grooms, 3 markings calls and 1 identity score.
 
@@ -95,4 +95,4 @@ The markings check is advisory (#133). Every other check passed, so the run stag
 
 The three-quarter view's tail keeps its banding in both coats. The side view's "full ringed tail" was measured this run as contrast against the body, which reads the tail's overall lightness, not its bands. #131 discusses that measure.
 
-`pick` was not run. The run is staged for Kirk at `~/work/assetforge-runs/stevie-lookdev-143/` on the machine that made it.
+`pick` was not run. The run is staged for Kirk at `~/work/assetgrove-runs/stevie-lookdev-143/` on the machine that made it.

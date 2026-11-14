@@ -2,7 +2,7 @@
 
 ## Report a vulnerability privately
 
-Do not report a suspected vulnerability in a public issue, pull request or discussion. Report it through GitHub's [private vulnerability reporting](https://github.com/clockgrove/assetforge/security/advisories/new) for this repository, which opens a draft security advisory that only you and the maintainers can see.
+Do not report a suspected vulnerability in a public issue, pull request or discussion. Report it through GitHub's [private vulnerability reporting](https://github.com/clockgrove/assetgrove/security/advisories/new) for this repository, which opens a draft security advisory that only you and the maintainers can see.
 
 ## What to include
 
@@ -19,4 +19,4 @@ Never post secrets, credentials, tokens or personal data, yours or anyone else's
 
 ## Supported versions
 
-Assetforge is in active development and has no supported release line yet. Report against the commit you tested.
+Assetgrove is in active development and has no supported release line yet. Report against the commit you tested.

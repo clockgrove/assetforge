@@ -3,7 +3,7 @@
  * `node check-model.ts <manifest> <model-target.json>`, in the target directory. It decodes the
  * manifest and the model target profile with Clockgrove's contract, reads the `.glb` at
  * `output.path`, and checks it with Clockgrove's `validateModel`, as Clockgrove's asset CLI does.
- * Exits 1 with the problems when the validator refuses. Assetforge's glue, not Clockgrove code.
+ * Exits 1 with the problems when the validator refuses. Assetgrove's glue, not Clockgrove code.
  */
 import { readFileSync } from "node:fs";
 import { decodeModelAssetManifest, decodeModelTargetProfile } from "./model-asset.ts";

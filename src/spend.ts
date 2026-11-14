@@ -7,7 +7,7 @@ import { InputError } from "./errors.ts";
 import type { TargetProfile } from "./types.ts";
 
 /**
- * Provider spend across runs (assetforge#74). A run's `Budget` caps that run alone; this ledger
+ * Provider spend across runs (assetgrove#74). A run's `Budget` caps that run alone; this ledger
  * caps what every run on this machine (or in this CI job) spends together: a daily limit over the
  * last 24 hours, and a limit per work item (an Objective, a campaign or a session label).
  *
@@ -49,10 +49,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const EPSILON = 1e-9;
 
 export const SPEND_ENV = {
-  ledger: "ASSETFORGE_SPEND_LEDGER",
-  workItem: "ASSETFORGE_WORK_ITEM",
-  dailyLimit: "ASSETFORGE_DAILY_LIMIT_USD",
-  workItemLimit: "ASSETFORGE_WORK_ITEM_LIMIT_USD",
+  ledger: "ASSETGROVE_SPEND_LEDGER",
+  workItem: "ASSETGROVE_WORK_ITEM",
+  dailyLimit: "ASSETGROVE_DAILY_LIMIT_USD",
+  workItemLimit: "ASSETGROVE_WORK_ITEM_LIMIT_USD",
   /** Set by Factory in a worker's environment on every route: the Objective's issue number. */
   factoryIssue: "FACTORY_ISSUE",
 } as const;
@@ -150,13 +150,13 @@ export class SpendLedger {
   }
 
   /**
-   * The ledger and limits from the environment: `ASSETFORGE_SPEND_LEDGER` (default
-   * `$XDG_STATE_HOME/assetforge/spend.jsonl`, or `~/.local/state/...`; in a Factory worker, where
-   * `FACTORY_ISSUE` is set, `assetforge-spend.jsonl` in `$FACTORY_STATE_DIR`, else `$TMPDIR`),
-   * `ASSETFORGE_WORK_ITEM`
+   * The ledger and limits from the environment: `ASSETGROVE_SPEND_LEDGER` (default
+   * `$XDG_STATE_HOME/assetgrove/spend.jsonl`, or `~/.local/state/...`; in a Factory worker, where
+   * `FACTORY_ISSUE` is set, `assetgrove-spend.jsonl` in `$FACTORY_STATE_DIR`, else `$TMPDIR`),
+   * `ASSETGROVE_WORK_ITEM`
    * (or `workItem`, from `--work-item`; else a Factory worker's Objective from `FACTORY_ISSUE`),
-   * `ASSETFORGE_DAILY_LIMIT_USD` and
-   * `ASSETFORGE_WORK_ITEM_LIMIT_USD`.
+   * `ASSETGROVE_DAILY_LIMIT_USD` and
+   * `ASSETGROVE_WORK_ITEM_LIMIT_USD`.
    */
   static fromEnv(
     env: NodeJS.ProcessEnv = process.env,
@@ -170,11 +170,11 @@ export class SpendLedger {
       ? resolve(configured)
       : factoryWorkItem(env) !== undefined
         ? // A Factory worker's sandbox drops writes outside its stage's temp dir between commands,
-          // so a ledger under the home directory would forget every reservation (assetforge#108).
-          join(temp && isAbsolute(temp) ? temp : tmpdir(), "assetforge-spend.jsonl")
+          // so a ledger under the home directory would forget every reservation (assetgrove#108).
+          join(temp && isAbsolute(temp) ? temp : tmpdir(), "assetgrove-spend.jsonl")
         : join(
             stateHome && isAbsolute(stateHome) ? stateHome : join(homedir(), ".local", "state"),
-            "assetforge",
+            "assetgrove",
             "spend.jsonl",
           );
     const workItem =

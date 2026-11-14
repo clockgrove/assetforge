@@ -1,5 +1,5 @@
 /**
- * The in-house engine: Assetforge's own TypeScript raster code (pngjs and jpeg-js decode, the
+ * The in-house engine: Assetgrove's own TypeScript raster code (pngjs and jpeg-js decode, the
  * sheet slicer, matte and registration, an in-house lossless WebP encoder). Every implementation is
  * a pure function of its input pixels and parameters.
  */
@@ -325,7 +325,7 @@ const convert: OperationImpl = ([item], p) => {
   return { items: [{ ...it, mediaType }] };
 };
 
-export const RASTER_ENGINE_NAME = "assetforge-raster";
+export const RASTER_ENGINE_NAME = "assetgrove-raster";
 
 export const rasterEngine: ImageEngine = {
   name: RASTER_ENGINE_NAME,

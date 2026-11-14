@@ -1,4 +1,4 @@
-# Assetforge PRD
+# Assetgrove PRD
 
 Status: draft 1 (2026-11-07). Owner: Kirk Marple. First adopter: Clockgrove's Raccoon World.
 The implementation plan, split into waves that drive Objectives, follows from this document and is kept separately.
@@ -18,20 +18,20 @@ Clockgrove's Raccoon World needs:
 
 Image, video, audio and 3D models can produce the raw material. Raw model output is not a game asset, though. It has the wrong size and background, drifting identity and style, no provenance and no review. Today a person closes that gap by hand, one asset at a time.
 
-Assetforge closes it as a tool. A game declares what it needs as data. Assetforge turns the request into candidates that already meet the game's spec, shows a person only the ones worth looking at, and hands the pick to the game's own pipeline with complete provenance.
+Assetgrove closes it as a tool. A game declares what it needs as data. Assetgrove turns the request into candidates that already meet the game's spec, shows a person only the ones worth looking at, and hands the pick to the game's own pipeline with complete provenance.
 
 **North star:** a game author files a request for a set of assets, comes back to a short list of in-spec candidates shown in the game's own scene, picks, and the picks land as pending assets the game's validator accepts. Spend stays within the declared cap, and every file is traceable.
 
 ## 2. Principles
 
-1. **Generic core, game as data.** Anything specific to one game reaches Assetforge as a *target profile* and a *style bible*: data, never code. Reason: Clockgrove is the first adopter, not the only one.
+1. **Generic core, game as data.** Anything specific to one game reaches Assetgrove as a *target profile* and a *style bible*: data, never code. Reason: Clockgrove is the first adopter, not the only one.
 2. **Spec first.** A request is built from a typed asset spec, not typed freehand. Reason: output that matches the spec costs less to review than output that only looks right.
-3. **Humans approve.** Assetforge filters, ranks and explains. It never marks anything approved. Reason: the target's review is the quality and license gate, and it belongs to people.
+3. **Humans approve.** Assetgrove filters, ranks and explains. It never marks anything approved. Reason: the target's review is the quality and license gate, and it belongs to people.
 4. **Provenance is part of the asset.** Every output records its model, route, prompt, parameters, references, seed where supported, request ID, time, cost and the provider terms. Reason: licensing, reproducibility and trust.
 5. **Bounded spend.** Every run reserves against a cap before it calls a provider, and refuses a run that would go over. Reason: generation is cheap per call and expensive in aggregate.
 6. **Format-agnostic.** Media types are declared per output. The code never keeps a list of allowed formats, and `.gitattributes` decides what Git LFS stores. Reason: video, audio and 3D arrive later through new generators, not rewrites.
 7. **Providers behind adapters.** One gateway adapter for models. Provider SDK types never leak past it. Reason: models change monthly.
-8. **GitHub is the record.** Requests, candidates, picks and their history live in repositories and pull requests, not in a hosted service Assetforge would have to run. Reason: no platform to operate; review happens where code review already happens.
+8. **GitHub is the record.** Requests, candidates, picks and their history live in repositories and pull requests, not in a hosted service Assetgrove would have to run. Reason: no platform to operate; review happens where code review already happens.
 9. **Offline by default.** Tests use a scripted provider. Real-provider runs are opt-in and skip cleanly without a key.
 
 ## 3. Users and jobs
@@ -42,7 +42,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 | Reviewer (the target's human gate) | Approve or reject picks in the target's own review, with the evidence beside each one. |
 | Coding agent (for example a Factory worker) | Request assets inside a task and stage candidates for a human pick, without being able to approve them. |
 | World-pack creator (later) | Produce a pack's assets under the world's style bible without being an artist. |
-| Maintainer of another game | Adopt Assetforge with a new target profile and style bible, with no code changes. |
+| Maintainer of another game | Adopt Assetgrove with a new target profile and style bible, with no code changes. |
 
 ## 4. Concepts
 
@@ -76,7 +76,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
    - **Perspective:** matches the isometric sample.
    - **Style:** close to the bible.
 5. **Pick.** The author sees the passing candidates beside the references, each with its QA reasons, and picks one or none.
-6. **Hand-off.** The pick and its manifest are written into the target in the profile's format, with full provenance and `review.status: "pending"`. Git LFS stores the media. The target's validator must accept the output; Assetforge runs it before it reports success.
+6. **Hand-off.** The pick and its manifest are written into the target in the profile's format, with full provenance and `review.status: "pending"`. Git LFS stores the media. The target's validator must accept the output; Assetgrove runs it before it reports success.
 
 ### 5.2 Animation that holds together
 
@@ -102,7 +102,7 @@ Assetforge closes it as a tool. A game declares what it needs as data. Assetforg
 
 ### 5.3 Consistency engine (the differentiator)
 
-A world's look is only as good as its weakest asset, so Assetforge treats consistency as data:
+A world's look is only as good as its weakest asset, so Assetgrove treats consistency as data:
 - **Identity lock.** Each character has an identity record: its approved references plus a vision-model fingerprint. Every candidate of that character is scored against it, and a candidate below the threshold is filtered out with the reason.
 - **Style distance.** Every candidate gets a style score against the bible's references. The score is recorded, so the world's spread can be seen over time.
 - **Drift report.** When the style bible changes version, the asset locks show which approved assets were made under an older bible. A campaign can regenerate them for review.
@@ -110,7 +110,7 @@ A world's look is only as good as its weakest asset, so Assetforge treats consis
 
 ### 5.4 In-context preview
 
-An asset that looks right on a white background can look wrong in the yard. The target profile can declare a preview command, which renders a candidate in the game's own scene: for Clockgrove, its golden-scene renderer at night in the rain, next to Stevie. The pick screen shows each candidate in place. Assetforge only calls the command and never knows the game's renderer.
+An asset that looks right on a white background can look wrong in the yard. The target profile can declare a preview command, which renders a candidate in the game's own scene: for Clockgrove, its golden-scene renderer at night in the rain, next to Stevie. The pick screen shows each candidate in place. Assetgrove only calls the command and never knows the game's renderer.
 
 ### 5.5 Material maps: lit 2.5D, 3D-ready
 
@@ -125,7 +125,7 @@ The target's style profile can turn any channel off, and it declares how each ch
 - **Temporal stability.** Across an animation's frames, the maps must not flicker. A bound on frame-to-frame change per channel is part of QA.
 - **Lit-preview QA.** The pick screen shows each candidate lit by the target's own light rig at several moments (noon, dusk in rain, night under lantern light), using the in-context preview (§5.4).
 - **Renditions.** Every asset is delivered at 1× and 2×, plus GPU-compressed textures (KTX2) when the target profile asks for them, so the game picks per quality tier.
-- **Lights as data.** Assetforge reads the target's light rig as data, for preview only. The renderer that lights the game is the target's choice (Clockgrove decides by a bake-off, #67).
+- **Lights as data.** Assetgrove reads the target's light rig as data, for preview only. The renderer that lights the game is the target's choice (Clockgrove decides by a bake-off, #67).
 
 ### 5.6 Sets and campaigns
 
@@ -136,8 +136,8 @@ The target's style profile can turn any channel off, and it declares how each ch
 ### 5.7 Review where review already happens
 
 - **CLI and local web picker** for an author at their desk.
-- **GitHub-native picking.** As a GitHub Action, Assetforge opens a pull request in the target repository with the candidates. The PR comment holds a gallery: references, candidates, QA reasons and in-context renders. The author picks with a checkbox or a reply. Assetforge then commits the pick, removes the rejected candidates and leaves the PR for the target's human approval. No hosted service is involved.
-- **Agent use.** Assetforge exposes a tool interface (a CLI with JSON output, plus an MCP server) so a coding agent can request assets inside a task. Agents can stage candidates and open the pick PR. They cannot pick or approve.
+- **GitHub-native picking.** As a GitHub Action, Assetgrove opens a pull request in the target repository with the candidates. The PR comment holds a gallery: references, candidates, QA reasons and in-context renders. The author picks with a checkbox or a reply. Assetgrove then commits the pick, removes the rejected candidates and leaves the PR for the target's human approval. No hosted service is involved.
+- **Agent use.** Assetgrove exposes a tool interface (a CLI with JSON output, plus an MCP server) so a coding agent can request assets inside a task. Agents can stage candidates and open the pick PR. They cannot pick or approve.
 
 ### 5.8 More media types, through new generators
 
@@ -166,7 +166,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
   - the version of the provider's terms;
   - the style bible's version.
 - The license value comes from the target profile. Clockgrove: MIT, as its own work; owner decision, 2026-11-07.
-- Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off (assetforge#47).
+- Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off (assetgrove#47).
 - The asset lock makes every approved asset auditable, and regenerable as far as the provider allows.
 - Candidates are cached by content hash. Asking the same question twice does not pay twice.
 
@@ -214,7 +214,7 @@ Owner direction (2026-11-07): transformation is a core layer of its own, not a s
 
 These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeline.md`), its Wave 4 and Wave 8 plans, and the architecture.
 
-| Need | Source | Assetforge capability |
+| Need | Source | Assetgrove capability |
 | --- | --- | --- |
 | Sprite strips: `frames.count` frames side by side; RGBA; alpha, colour and size rules from the world pack's style profile (#61; Raccoon World: soft alpha, full colour); bounds equal to the visible box | pipeline.md, #61 | 5.1 post-processing, run against the target validator |
 | Size limits per role (#61), large environment pieces included; atlas packing is the game's job | pipeline.md, #61 | Target profile limits |
@@ -234,10 +234,10 @@ These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeli
 
 ## 7. Non-goals
 
-- **No runtime dependency:** a game never calls Assetforge while it runs.
+- **No runtime dependency:** a game never calls Assetgrove while it runs.
 - **No auto-approval,** under any score.
 - **No hosted service, asset CDN or storage:** the target's pipeline uploads its approved assets.
-- **Not a replacement for an editor:** small fixes stay in normal image tools, and Assetforge re-validates what comes back.
+- **Not a replacement for an editor:** small fixes stay in normal image tools, and Assetgrove re-validates what comes back.
 - **No training or fine-tuning** of models on a game's art in this phase. References are passed per request.
 - **No photorealism or styles outside the bible,** unless a target's bible asks for them.
 
@@ -266,7 +266,7 @@ These are measured per campaign and recorded in the repository:
   - a GitHub Action that opens the pick PR;
   - an MCP server for agents.
 - **Storage:** the target repository, with Git LFS. Locks and caches are content-addressed.
-- **Language and tooling:** chosen in the first Objective (assetforge#1). Prefer what the first adopter already runs: Node 24, pnpm, TypeScript.
+- **Language and tooling:** chosen in the first Objective (assetgrove#1). Prefer what the first adopter already runs: Node 24, pnpm, TypeScript.
 
 ## 10. Open questions
 
@@ -280,5 +280,5 @@ These are measured per campaign and recorded in the repository:
 
 - **Each world** owns its style bible, target profile and review. Raccoon World's live in clockgrove/raccoon-world (raccoon-world#2).
 - **Clockgrove** owns the platform side: validating external worlds' assets (clockgrove/clockgrove#61), material packing, atlases and KTX2 delivery (clockgrove/clockgrove#66).
-- **Factory** builds Assetforge (Objectives) and owns Git LFS persistence and infrastructure.
-- **Assetforge** owns generation, post-processing, QA, picking and hand-off.
+- **Factory** builds Assetgrove (Objectives) and owns Git LFS persistence and infrastructure.
+- **Assetgrove** owns generation, post-processing, QA, picking and hand-off.

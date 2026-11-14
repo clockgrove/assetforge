@@ -2,7 +2,7 @@
  * Builds #92's identity acceptance set: the synthetic bird cast (drawn in code) and the Raccoon
  * World cast (downloaded from clockgrove/raccoon-world's public references at the pinned commit,
  * plus the generated generics and drift committed under `generated/`, see generate.ts), with one
- * cases file for `assetforge identity-eval --cases <out>/cases.json`. Nothing it writes
+ * cases file for `assetgrove identity-eval --cases <out>/cases.json`. Nothing it writes
  * belongs in the repository.
  *
  *   node test/fixtures/identity-set/build.ts <out-dir> [--no-raccoon-world] [--held-out <run>]

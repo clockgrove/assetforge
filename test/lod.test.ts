@@ -1,5 +1,5 @@
 /**
- * `assetforge lod` end to end (assetforge#136): the detail-level chain and tier renditions a target
+ * `assetgrove lod` end to end (assetgrove#136): the detail-level chain and tier renditions a target
  * profile declares, made from a synthetic `.glb`, checked, staged, and handed off by `pick`. No
  * model is called.
  */
@@ -106,7 +106,7 @@ async function chain(
   p: TargetProfile,
   options: { spec?: AssetSpec; side?: Uint8Array } = {},
 ) {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-lod-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-lod-"));
   const bytes = lodModel(model);
   if (model.external) await writeFile(join(dir, model.external.uri), options.side!);
   const path = join(dir, "model.glb");
@@ -196,7 +196,7 @@ test("a static model gets its chain embedded, a phone tier beside, renders, and 
   for (const a of candidate(run).artifacts!) assert.ok(existsSync(join(runDir, a)), a);
 
   // pick hands the main file and the tier off, with the tier in the manifest.
-  const target = await mkdtemp(join(tmpdir(), "assetforge-lod-target-"));
+  const target = await mkdtemp(join(tmpdir(), "assetgrove-lod-target-"));
   const picked = await pick({ runDir, candidateId: "c1", targetDir: target });
   const written = await readdir(join(target, "assets/kit"));
   assert.deepEqual(written.sort(), [
@@ -245,7 +245,7 @@ function clockgrove(model3d: Doc = {}): TargetProfile {
         kind: "generated",
         path: "{{output.path}}",
         creator: "{{profile.creator}}",
-        tool: "assetforge",
+        tool: "assetgrove",
       },
       license: "{{profile.license}}",
       provenance: {
@@ -277,7 +277,7 @@ function clockgrove(model3d: Doc = {}): TargetProfile {
 }
 
 // Clockgrove's validator allows no `levels` or `tiers` field in its manifest (its `output` has exact
-// keys), so the level files are written beside `model.glb` and named only in Assetforge's run record.
+// keys), so the level files are written beside `model.glb` and named only in Assetgrove's run record.
 test("files packaging: a file per level, tier files per level, each valid; Clockgrove accepts the pick", async () => {
   const p = clockgrove({ tiers: { phone: { triangles: PHONE_TRIANGLES, textureMaxPx: 64 } } });
   const { run, runDir, passed, bytes } = await chain({}, p);
@@ -318,7 +318,7 @@ test("files packaging: a file per level, tier files per level, each valid; Clock
     assert.ok((tier.extra!["textureMaxPx"] as number) <= 64);
   }
 
-  const target = await mkdtemp(join(tmpdir(), "assetforge-lod-clockgrove-"));
+  const target = await mkdtemp(join(tmpdir(), "assetgrove-lod-clockgrove-"));
   await writeFile(
     join(target, "model-target.json"),
     JSON.stringify({ version: 1, limits: CLOCKGROVE_BUDGETS }),
@@ -532,7 +532,7 @@ test("a profile without model3d.lods, and class-nested tiers without a tierClass
 });
 
 test("the CLI refuses a profile without model3d.lods with exit 2", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-lod-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-lod-cli-"));
   const noLods = profile();
   delete noLods.model3d!.lods;
   await writeFile(join(dir, "model.glb"), lodModel());
@@ -606,7 +606,7 @@ test("a staged run's candidate is chained again, with a profile override, carryi
     two.run.candidates[0]!.provenance.steps!.map((s) => s.op),
     ["lod-chain", "lod-chain"],
   );
-  const target = await mkdtemp(join(tmpdir(), "assetforge-lod-again-"));
+  const target = await mkdtemp(join(tmpdir(), "assetgrove-lod-again-"));
   await pick({ runDir: two.runDir, candidateId: "c1", targetDir: target });
   const written = await readdir(join(target, "assets/kit"));
   assert.ok(written.includes("kit.phone.groom.length.png"), written.join(", "));

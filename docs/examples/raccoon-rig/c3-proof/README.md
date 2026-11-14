@@ -1,6 +1,6 @@
-# Stevie's c3 on the draft raccoon rig (assetforge#84)
+# Stevie's c3 on the draft raccoon rig (assetgrove#84)
 
-The draft raccoon template and walk in this directory's parent, applied to Stevie's wave 0 pick (raccoon-world `references/stevie/3d-wave0-candidates/c3`, Kirk's pick) with `assetforge rig`. The run called no provider and cost $0. These files are for Kirk to judge.
+The draft raccoon template and walk in this directory's parent, applied to Stevie's wave 0 pick (raccoon-world `references/stevie/3d-wave0-candidates/c3`, Kirk's pick) with `assetgrove rig`. The run called no provider and cost $0. These files are for Kirk to judge.
 
 ## Inputs
 
@@ -21,7 +21,7 @@ The throwaway profile was the fragment in `../profile-fragment.json` plus a layo
 
 ## QA: c3's defects
 
-The generated walk passes every check (`qa.json`). Every figure below is Assetforge's own, recorded in `qa.json`, measured on the deformed mesh of the written file:
+The generated walk passes every check (`qa.json`). Every figure below is Assetgrove's own, recorded in `qa.json`, measured on the deformed mesh of the written file:
 
 - `contact-walk`: every stance sole is within 0.1 mm of the ground and slides at most 1.4 mm. The heel is measured on the deformed sole: the lowest vertex of its heel end (the rear third of the sole) above the lowest of its toe end. Every heel is within 0.1 mm of its toe in stance. The tolerances are 7.7 mm for contact and slide and 15 mm for the heel, scaled from the body length of 0.765 m.
 - `joint-limits-walk`: every joint stays within the template's range over 24 frames. Each weight-bearing wrist and ankle stays within its stance range, so none folds in stance.

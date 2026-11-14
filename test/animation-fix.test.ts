@@ -237,7 +237,7 @@ test("soft and binary styles both work", async () => {
 
 /** A 4-frame strip on disk with a target profile of its frame size, for `runFixFrame`. */
 async function stripOnDisk() {
-  const root = await mkdtemp(join(tmpdir(), "assetforge-fix-prov-"));
+  const root = await mkdtemp(join(tmpdir(), "assetgrove-fix-prov-"));
   const path = join(root, "walk.png");
   await writeFile(path, encodePng(makeStrip(4)));
   const target = stripTarget({

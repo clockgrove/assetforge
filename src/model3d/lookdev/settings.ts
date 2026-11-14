@@ -1,7 +1,7 @@
 /**
  * The target profile's look-dev fields: `model3d.groom` (the contract shared with
  * clockgrove/raccoon-world#39 and Clockgrove's fur material) and `model3d.lookdev`
- * (added by assetforge#82). See docs/look-dev.md.
+ * (added by assetgrove#82). See docs/look-dev.md.
  */
 import { InputError } from "../../errors.ts";
 import type { TargetProfile } from "../../types.ts";
@@ -10,7 +10,7 @@ export const DEFAULT_GROOM_MAPS = ["length", "direction", "density"] as const;
 export type GroomMapName = (typeof DEFAULT_GROOM_MAPS)[number];
 
 export interface GroomProfile {
-  /** The maps the target's fur material reads; every one Assetforge knows by default. */
+  /** The maps the target's fur material reads; every one Assetgrove knows by default. */
   maps?: string[];
   /** Edge of each map in pixels; the base colour's edge by default. */
   sizePx?: number;
@@ -18,7 +18,7 @@ export interface GroomProfile {
   seasons?: string[];
   /** Each season's look in words: the target's, read as given. */
   traits?: Record<string, string>;
-  /** Which coat each month wears: the target's, carried but not read by Assetforge. */
+  /** Which coat each month wears: the target's, carried but not read by Assetgrove. */
   calendar?: unknown;
 }
 
@@ -27,7 +27,7 @@ export interface LookdevProfile {
   capUsd?: number;
   /** The target's closest zoom on desktop, for the close-up check render. */
   closestZoom?: { screenHeightPx?: number; characterScreenFraction?: number };
-  /** The lighting of the before-and-after renders (assetforge#122); neutral and well exposed by default. */
+  /** The lighting of the before-and-after renders (assetgrove#122); neutral and well exposed by default. */
   previewLighting?: {
     ambient?: number;
     key?: number;
@@ -46,7 +46,7 @@ export interface PreviewLightingSettings {
 }
 
 /**
- * Assetforge's default preview lighting: mostly even light with a soft key from above and to the
+ * Assetgrove's default preview lighting: mostly even light with a soft key from above and to the
  * left of the camera, exposed so the figure reads at its albedo's brightness on average.
  */
 export const DEFAULT_PREVIEW_LIGHTING: PreviewLightingSettings = {
@@ -88,7 +88,7 @@ export function lookdevSettings(profile: TargetProfile): LookdevSettings {
   for (const map of maps) {
     if (!(DEFAULT_GROOM_MAPS as readonly string[]).includes(map)) {
       throw new InputError(
-        `${where}.maps names "${String(map)}"; Assetforge writes ${DEFAULT_GROOM_MAPS.join(", ")}`,
+        `${where}.maps names "${String(map)}"; Assetgrove writes ${DEFAULT_GROOM_MAPS.join(", ")}`,
       );
     }
   }

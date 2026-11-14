@@ -19,7 +19,7 @@ test(
   async () => {
     const temps: string[] = [];
     const temp = async () => {
-      const dir = await mkdtemp(join(tmpdir(), "assetforge-pkg-"));
+      const dir = await mkdtemp(join(tmpdir(), "assetgrove-pkg-"));
       temps.push(dir);
       return dir;
     };
@@ -39,7 +39,7 @@ test(
         "README.md",
         "LICENSE",
         "dist/cli.js",
-        "skills/assetforge/SKILL.md",
+        "skills/assetgrove/SKILL.md",
       ]) {
         assert.ok(paths.includes(wanted), `tarball lacks ${wanted}`);
       }
@@ -62,11 +62,11 @@ test(
         ],
         { cwd: install },
       );
-      await stat(join(install, "node_modules/.bin/assetforge"));
+      await stat(join(install, "node_modules/.bin/assetgrove"));
 
       const env = { ...process.env };
       delete env["AI_GATEWAY_API_KEY"];
-      const bin = join(install, "node_modules/@clockgrove/assetforge/dist/cli.js");
+      const bin = join(install, "node_modules/@clockgrove/assetgrove/dist/cli.js");
       const run = (args: string[]) =>
         exec(process.execPath, ["--no-experimental-strip-types", bin, ...args], {
           cwd: install,

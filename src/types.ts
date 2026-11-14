@@ -1,4 +1,4 @@
-/** Core data types. Everything game-specific reaches Assetforge as one of these, as data. */
+/** Core data types. Everything game-specific reaches Assetgrove as one of these, as data. */
 import type { DigitalSourceType } from "./metadata.ts";
 import type { MaterialProfile } from "./material/profile.ts";
 import type { TransformStep } from "./transform/types.ts";
@@ -128,7 +128,7 @@ export interface TargetProfile {
   layout: { media: string; manifest: string; provenance?: string };
   /** JSON manifest template: `"{{path}}"` inserts any value, `"a {{path}} b"` interpolates. */
   manifest: unknown;
-  /** Where the review status sits in the manifest, and the only value Assetforge writes there. */
+  /** Where the review status sits in the manifest, and the only value Assetgrove writes there. */
   review: { path: string; pending: string };
   /** Command run in the target directory after hand-off; `{{manifest}}` and `{{media}}` are replaced. */
   validator?: { command: string[] };
@@ -178,7 +178,7 @@ export interface CallRecord {
   referenceHashes: string[];
   seed?: number;
   requestId: string;
-  /** `provider` when the gateway reported the ID; `local` when Assetforge had to generate one. */
+  /** `provider` when the gateway reported the ID; `local` when Assetgrove had to generate one. */
   requestIdSource: "provider" | "local";
   startedAt: string;
   finishedAt: string;

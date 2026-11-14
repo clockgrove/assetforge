@@ -33,7 +33,7 @@ test("materials documents required options and rejects missing input through CLI
 
 // Fake-only renderer: copies albedo to prove argv/file transport, not actual target lighting quality.
 test("materials CLI writes native still and animation materials with scripted lit QA", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-material-cli-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-material-cli-"));
   const renderer = join(dir, "render.mjs");
   await writeFile(
     renderer,
@@ -123,7 +123,7 @@ test("materials CLI writes native still and animation materials with scripted li
 });
 
 test("materials dry-run forecasts defaults without provider or output writes and refuses over cap", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "assetforge-material-plan-"));
+  const dir = await mkdtemp(join(tmpdir(), "assetgrove-material-plan-"));
   const profile = join(dir, "profile.json"),
     spec = join(dir, "spec.json"),
     derivation = join(dir, "derivation.json"),

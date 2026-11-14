@@ -1,21 +1,21 @@
 # Sheet import and sheet generation
 
-Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model can generate a whole cycle as one sheet, and that keeps the character's identity consistent across frames. The import path turns a raw sheet into game-ready strips. The sheet can come from Assetforge's own sheet generation, ChatGPT or any other tool, or hand work. Per-frame reference edits are the fallback for fixing a single frame.
+Animation starts as a whole contact sheet (owner decision, 2026-11-07). A model can generate a whole cycle as one sheet, and that keeps the character's identity consistent across frames. The import path turns a raw sheet into game-ready strips. The sheet can come from Assetgrove's own sheet generation, ChatGPT or any other tool, or hand work. Per-frame reference edits are the fallback for fixing a single frame.
 
 ## The commands
 
 ```sh
 # A sheet made elsewhere: slice, clean, and stage a grouping proposal.
-pnpm assetforge import --sheet jimothy-sprite-sheet.png --profile profile.json --bible bible.json \
+pnpm assetgrove import --sheet jimothy-sprite-sheet.png --profile profile.json --bible bible.json \
   --asset jimothy --tool "ChatGPT image generation" \
   --digital-source-type trainedAlgorithmicMedia --frames 57 \
   --hints idle,walk-right,walk-left,crouch-hop,look,sit-groom
 
 # Or have the model draw the cycle as one sheet (spec: assetId, animationFamily, frames.count).
-pnpm assetforge generate-sheet --spec stevie-walk.json --bible bible.json --profile profile.json
+pnpm assetgrove generate-sheet --spec stevie-walk.json --bible bible.json --profile profile.json
 
 # After reviewing and confirming grouping.json:
-pnpm assetforge write-families --import .assetforge/imports/<import> --target ../clockgrove
+pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
 ```
 
 ## What each step does
@@ -28,7 +28,7 @@ pnpm assetforge write-families --import .assetforge/imports/<import> --target ..
 3. **Register.** Each frame's feet baseline (the lowest row at alpha 128 or more) and its alpha-weighted centre of mass go to the anchor, which defaults to the bottom centre of the target's frame. Within a family, each frame's scale is normalised to the family's median √(opaque area), clamped to ×0.8–1.25, so a sheet whose figure changes size from cell to cell comes out even. One common scale fits every written family into the target's frame size; it is fitted on the import's first write, stored in `import.json` as `scale`, and reused by every later write so all families of the asset stay one size. Pixel-art profiles resample nearest-neighbour; every other profile filters with premultiplied alpha.
 4. **Measure jitter.** On each registered frame, jitter is the largest distance, in px, of the baseline or the centre of mass from the anchor. A family over the bound (default 1 px, `--jitter-bound`) is refused, and nothing is written.
 5. **Propose a grouping.** A vision model sees a numbered contact sheet of the cleaned, registered frames (`contact.png`) and the subject's references. It proposes families, frame order, mirror pairs and a reason for each. The proposal is saved as `grouping.json` with `"status": "proposed"`.
-6. **The author confirms.** Edit `grouping.json`: rename, regroup and reorder families, drop frames or whole families, and decide mirroring. A family is either `frames` (in play order; a frame may repeat for a hold) or `mirrorOf` another family, which is that family's frames flipped horizontally. Set `"status": "confirmed"`. `write-families` refuses any other status. Assetforge never confirms a grouping itself.
+6. **The author confirms.** Edit `grouping.json`: rename, regroup and reorder families, drop frames or whole families, and decide mirroring. A family is either `frames` (in play order; a frame may repeat for a hold) or `mirrorOf` another family, which is that family's frames flipped horizontally. Set `"status": "confirmed"`. `write-families` refuses any other status. Assetgrove never confirms a grouping itself.
 7. **Write.** One strip, manifest and provenance file per family, in the target's layout, with the review field at the profile's pending value. The target's validator runs on each one. `preview.html` in the import directory loops every written strip at the profile's frame duration and shows its jitter. Each family is also checked against its motion template and by loop and continuity QA, and gets an onion-skin sheet (`preview/<family>.onion.png`) and a looping animated WebP (`preview/<family>.webp`); see [animation.md](animation.md).
 
 ```json
@@ -70,7 +70,7 @@ Only the import path follows the style profile so far. `stage` and `pick` keep t
 A family's provenance record (`generator: "sheet-import"`) holds:
 
 - the source sheet: path, SHA-256, media type, and the model or tool that made it;
-- the model calls Assetforge made: the sheet generation, if any, and the grouping proposal, with their prompts, request IDs, times and costs;
+- the model calls Assetgrove made: the sheet generation, if any, and the grouping proposal, with their prompts, request IDs, times and costs;
 - the identity score of the contact sheet against the character's identity lock, when `--lock-bible` was given and the character has a lock (`identity`; see [generation-knobs.md](generation-knobs.md#identity-lock-scoring)). In enforce mode a sheet below the threshold is still imported, so the person sees it and why, but `write-families` refuses it;
 - the parameters: style, frames, mirroring, the family's reason, the common scale and the measured jitter;
 - `steps`: the transformation steps from the sheet to the strip, each with its parameters, engine and version, and input and output pixel hashes;
@@ -78,9 +78,9 @@ A family's provenance record (`generator: "sheet-import"`) holds:
 
 For an imported sheet, the prompt field says that the tool's own prompt is not recorded. Manifest templates can read `{{output.jitterPx}}`, and `{{profile.style}}` for the style. `{{output.palette}}` is set only under a palette rule, so a full-colour template reads it as `{{output.palette?}}`.
 
-Written sheet images and strips carry the [Digital Source Type disclosure](transform.md#digital-source-type-disclosure) in provenance and, when known, PNG XMP, with a metadata-writing step. For an external sheet, an embedded disclosure is preserved. Untagged sheets remain `undeclared` in provenance and receive no IPTC Digital Source Type value in XMP; Assetforge never guesses that they are human-made. Local import, staging and previews still work, but publication or export into a target, handoff or package refuses undeclared assets with a message naming `--digital-source-type`.
+Written sheet images and strips carry the [Digital Source Type disclosure](transform.md#digital-source-type-disclosure) in provenance and, when known, PNG XMP, with a metadata-writing step. For an external sheet, an embedded disclosure is preserved. Untagged sheets remain `undeclared` in provenance and receive no IPTC Digital Source Type value in XMP; Assetgrove never guesses that they are human-made. Local import, staging and previews still work, but publication or export into a target, handoff or package refuses undeclared assets with a message naming `--digital-source-type`.
 
-Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model-generated sheet such as a ChatGPT export, or `--digital-source-type compositeWithTrainedAlgorithmicMedia` for human work edited with a model. The flag accepts IPTC vocabulary codes or their full HTTP URIs, including `digitalCreation` for explicitly declared human digital creation. Assetforge validates the declaration and records who declared it in provenance. A free-text `--tool` label alone does not establish origin. Assetforge's own `generate-sheet` calls establish the generated source type automatically. Slicing, matting, registration and mirroring are deterministic processing and do not erase known lineage. Bounds and pixel hashes use decoded RGBA; file SHA-256 covers the final PNG, including any embedded metadata. The target profile's validator sees those final bytes.
+Use `import --digital-source-type trainedAlgorithmicMedia` for an untagged model-generated sheet such as a ChatGPT export, or `--digital-source-type compositeWithTrainedAlgorithmicMedia` for human work edited with a model. The flag accepts IPTC vocabulary codes or their full HTTP URIs, including `digitalCreation` for explicitly declared human digital creation. Assetgrove validates the declaration and records who declared it in provenance. A free-text `--tool` label alone does not establish origin. Assetgrove's own `generate-sheet` calls establish the generated source type automatically. Slicing, matting, registration and mirroring are deterministic processing and do not erase known lineage. Bounds and pixel hashes use decoded RGBA; file SHA-256 covers the final PNG, including any embedded metadata. The target profile's validator sees those final bytes.
 
 ## Cost
 

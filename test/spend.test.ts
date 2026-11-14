@@ -26,12 +26,12 @@ const passingScript = fileURLToPath(new URL("./fixtures/script.ts", import.meta.
 const spendModule = pathToFileURL(join(root, "src/spend.ts")).href;
 
 async function ledgerPath(): Promise<string> {
-  return join(await mkdtemp(join(tmpdir(), "assetforge-spend-test-")), "spend.jsonl");
+  return join(await mkdtemp(join(tmpdir(), "assetgrove-spend-test-")), "spend.jsonl");
 }
 
 function ledger(path: string, env: NodeJS.ProcessEnv = {}, now?: () => Date): SpendLedger {
   return SpendLedger.fromEnv(
-    { ASSETFORGE_SPEND_LEDGER: path, ...env },
+    { ASSETGROVE_SPEND_LEDGER: path, ...env },
     now !== undefined ? { now } : {},
   );
 }
@@ -53,7 +53,7 @@ test("with nothing set, the daily default applies and no work item means no work
       remainingUsd: DEFAULT_DAILY_LIMIT_USD,
     },
   ]);
-  const named = ledger(await ledgerPath(), { ASSETFORGE_WORK_ITEM: "obj-72" });
+  const named = ledger(await ledgerPath(), { ASSETGROVE_WORK_ITEM: "obj-72" });
   assert.deepEqual(limit(named, "work-item"), {
     limit: "work-item",
     workItem: "obj-72",
@@ -67,11 +67,11 @@ test("with nothing set, the daily default applies and no work item means no work
 test("the default ledger is under XDG_STATE_HOME, else ~/.local/state", () => {
   assert.equal(
     SpendLedger.fromEnv({ XDG_STATE_HOME: "/state" }).path,
-    join("/state", "assetforge", "spend.jsonl"),
+    join("/state", "assetgrove", "spend.jsonl"),
   );
   assert.match(
     SpendLedger.fromEnv({}).path,
-    /[/\\]\.local[/\\]state[/\\]assetforge[/\\]spend\.jsonl$/,
+    /[/\\]\.local[/\\]state[/\\]assetgrove[/\\]spend\.jsonl$/,
   );
 });
 
@@ -79,25 +79,25 @@ test("a Factory worker's default ledger is in its stage's TMPDIR, which persists
   const worker = { FACTORY_ISSUE: "108", XDG_STATE_HOME: "/state" };
   assert.equal(
     SpendLedger.fromEnv({ ...worker, TMPDIR: "/run/stage-tmp" }).path,
-    join("/run/stage-tmp", "assetforge-spend.jsonl"),
+    join("/run/stage-tmp", "assetgrove-spend.jsonl"),
   );
-  assert.equal(SpendLedger.fromEnv(worker).path, join(tmpdir(), "assetforge-spend.jsonl"));
+  assert.equal(SpendLedger.fromEnv(worker).path, join(tmpdir(), "assetgrove-spend.jsonl"));
   // Factory's stage-persistent state directory, when it gives one, is preferred.
   assert.equal(
     SpendLedger.fromEnv({ ...worker, TMPDIR: "/run/stage-tmp", FACTORY_STATE_DIR: "/run/state" })
       .path,
-    join("/run/state", "assetforge-spend.jsonl"),
+    join("/run/state", "assetgrove-spend.jsonl"),
   );
   // An explicit ledger still wins.
   assert.equal(
-    SpendLedger.fromEnv({ ...worker, ASSETFORGE_SPEND_LEDGER: "/shared/ledger.jsonl" }).path,
+    SpendLedger.fromEnv({ ...worker, ASSETGROVE_SPEND_LEDGER: "/shared/ledger.jsonl" }).path,
     resolve("/shared/ledger.jsonl"),
   );
 });
 
 test("environment and profile limits: the stricter applies; bad values are invalid input", async () => {
   const path = await ledgerPath();
-  const env = { ASSETFORGE_WORK_ITEM: "w", ASSETFORGE_DAILY_LIMIT_USD: "3" };
+  const env = { ASSETGROVE_WORK_ITEM: "w", ASSETGROVE_DAILY_LIMIT_USD: "3" };
   const l = ledger(path, env).forProfile({ spend: { dailyLimitUsd: 8, workItemLimitUsd: 2 } });
   assert.deepEqual(
     l.status().limits.map((s) => [s.limit, s.limitUsd, s.source]),
@@ -108,9 +108,9 @@ test("environment and profile limits: the stricter applies; bad values are inval
   );
   const raised = ledger(path).forProfile({ spend: { dailyLimitUsd: 50 } });
   assert.equal(limit(raised, "daily")?.limitUsd, 50);
-  assert.throws(() => ledger(path, { ASSETFORGE_DAILY_LIMIT_USD: "lots" }), InputError);
-  assert.throws(() => ledger(path, { ASSETFORGE_WORK_ITEM_LIMIT_USD: "-1" }), InputError);
-  assert.throws(() => ledger(path, { ASSETFORGE_DAILY_LIMIT_USD: "Infinity" }), InputError);
+  assert.throws(() => ledger(path, { ASSETGROVE_DAILY_LIMIT_USD: "lots" }), InputError);
+  assert.throws(() => ledger(path, { ASSETGROVE_WORK_ITEM_LIMIT_USD: "-1" }), InputError);
+  assert.throws(() => ledger(path, { ASSETGROVE_DAILY_LIMIT_USD: "Infinity" }), InputError);
   assert.throws(
     () => ledger(path).forProfile({ spend: { workItemLimitUsd: "5" as unknown as number } }),
     InputError,
@@ -119,7 +119,7 @@ test("environment and profile limits: the stricter applies; bad values are inval
 
 test("reservations count at their estimate until settled, then at their cost; a refused one is cancelled", async () => {
   const path = await ledgerPath();
-  const l = ledger(path, { ASSETFORGE_WORK_ITEM: "w", ASSETFORGE_WORK_ITEM_LIMIT_USD: "1" });
+  const l = ledger(path, { ASSETGROVE_WORK_ITEM: "w", ASSETGROVE_WORK_ITEM_LIMIT_USD: "1" });
   const a = l.reserve(0.6, "the still call", "scripted:still:m");
   assert.equal(limit(l, "work-item")?.spentUsd, 0.6);
   assert.throws(
@@ -138,11 +138,11 @@ test("reservations count at their estimate until settled, then at their cost; a 
   l.check(0.8, "the run");
   assert.throws(() => l.check(0.81, "the run"), SpendLimitError);
   // Another work item has its own limit but shares the daily one.
-  const other = ledger(path, { ASSETFORGE_WORK_ITEM: "v", ASSETFORGE_DAILY_LIMIT_USD: "0.5" });
+  const other = ledger(path, { ASSETGROVE_WORK_ITEM: "v", ASSETGROVE_DAILY_LIMIT_USD: "0.5" });
   assert.equal(limit(other, "work-item")?.spentUsd, 0);
   assert.throws(() => other.check(0.31, "the run"), /\$0\.50 daily limit/);
   // A run that spends nothing is never refused, even past a limit.
-  ledger(path, { ASSETFORGE_DAILY_LIMIT_USD: "0.1" }).check(0, "a run with no paid calls");
+  ledger(path, { ASSETGROVE_DAILY_LIMIT_USD: "0.1" }).check(0, "a run with no paid calls");
 
   const lines = (await readFile(path, "utf8"))
     .trim()
@@ -163,7 +163,7 @@ test("reservations count at their estimate until settled, then at their cost; a 
 test("the daily limit counts the last 24 hours; the work-item limit counts all time", async () => {
   const path = await ledgerPath();
   const t0 = Date.parse("2026-11-10T08:00:00Z");
-  const env = { ASSETFORGE_WORK_ITEM: "w", ASSETFORGE_WORK_ITEM_LIMIT_USD: "20" };
+  const env = { ASSETGROVE_WORK_ITEM: "w", ASSETGROVE_WORK_ITEM_LIMIT_USD: "20" };
   const then = ledger(path, env, () => new Date(t0));
   then.settle(then.reserve(4, "a call", "r"), 4);
   const later = ledger(path, env, () => new Date(t0 + 25 * 60 * 60 * 1000));
@@ -178,9 +178,9 @@ try { SpendLedger.fromEnv().reserve(1, "a call", "r"); console.log("ok"); }
 catch (e) { if (e.name !== "SpendLimitError") throw e; console.log("refused"); }`;
   const env = {
     ...process.env,
-    ASSETFORGE_SPEND_LEDGER: path,
-    ASSETFORGE_WORK_ITEM: "w",
-    ASSETFORGE_WORK_ITEM_LIMIT_USD: "3",
+    ASSETGROVE_SPEND_LEDGER: path,
+    ASSETGROVE_WORK_ITEM: "w",
+    ASSETGROVE_WORK_ITEM_LIMIT_USD: "3",
   };
   const results = await Promise.all(
     Array.from(
@@ -198,7 +198,7 @@ catch (e) { if (e.name !== "SpendLimitError") throw e; console.log("refused"); }
   );
   assert.equal(results.filter((r) => r === "ok").length, 3);
   assert.equal(results.filter((r) => r === "refused").length, 5);
-  assert.equal(limit(ledger(path, { ASSETFORGE_WORK_ITEM: "w" }), "work-item")?.spentUsd, 3);
+  assert.equal(limit(ledger(path, { ASSETGROVE_WORK_ITEM: "w" }), "work-item")?.spentUsd, 3);
 });
 
 test("paid providers are told apart from the scripted one by name alone", () => {
@@ -221,7 +221,7 @@ function countingProvider(counts: { image: number }) {
 
 test("every paid Caller call reserves in the budget's ledger with its route and settles at its cost", async () => {
   const path = await ledgerPath();
-  const l = ledger(path, { ASSETFORGE_DAILY_LIMIT_USD: "0.3" });
+  const l = ledger(path, { ASSETGROVE_DAILY_LIMIT_USD: "0.3" });
   const counts = { image: 0 };
   const call = new Caller({
     provider: countingProvider(counts),
@@ -252,7 +252,7 @@ test("every paid Caller call reserves in the budget's ledger with its route and 
 
 test("scripted Caller calls never reach the ledger; the run's cap still applies", async () => {
   const path = await ledgerPath();
-  const l = ledger(path, { ASSETFORGE_DAILY_LIMIT_USD: "0" });
+  const l = ledger(path, { ASSETGROVE_DAILY_LIMIT_USD: "0" });
   const counts = { image: 0 };
   const budget = new Budget(0.6, l);
   const call = new Caller({
@@ -331,8 +331,8 @@ test("two paid runs whose combined forecast crosses the work-item limit: the sec
   const path = await ledgerPath();
   const env = {
     ...process.env,
-    ASSETFORGE_SPEND_LEDGER: path,
-    ASSETFORGE_WORK_ITEM_LIMIT_USD: "0.5",
+    ASSETGROVE_SPEND_LEDGER: path,
+    ASSETGROVE_WORK_ITEM_LIMIT_USD: "0.5",
   };
   const first = await cli(args, env);
   assert.equal(first.code, 0, first.stderr);
@@ -385,9 +385,9 @@ test("scripted runs over the limits are not refused and write nothing to the led
   const path = await ledgerPath();
   const env = {
     ...process.env,
-    ASSETFORGE_SPEND_LEDGER: path,
-    ASSETFORGE_DAILY_LIMIT_USD: "0.1",
-    ASSETFORGE_WORK_ITEM_LIMIT_USD: "0.1",
+    ASSETGROVE_SPEND_LEDGER: path,
+    ASSETGROVE_DAILY_LIMIT_USD: "0.1",
+    ASSETGROVE_WORK_ITEM_LIMIT_USD: "0.1",
   };
   // Each run's $0.32 forecast alone is over both limits.
   for (let run = 1; run <= 2; run++) {
@@ -425,12 +425,12 @@ test("a Factory worker's Objective is the work item when none is named", () => {
   const item = (env: NodeJS.ProcessEnv, workItem?: string) =>
     SpendLedger.fromEnv(env, workItem !== undefined ? { workItem } : {}).status().workItem;
   assert.equal(
-    item({ FACTORY_ISSUE: "72", GITHUB_REPOSITORY: "clockgrove/assetforge" }),
-    "clockgrove/assetforge#72",
+    item({ FACTORY_ISSUE: "72", GITHUB_REPOSITORY: "clockgrove/assetgrove" }),
+    "clockgrove/assetgrove#72",
   );
   assert.equal(item({ FACTORY_ISSUE: "72" }), "factory#72");
   // Named explicitly, the name wins.
-  assert.equal(item({ FACTORY_ISSUE: "72", ASSETFORGE_WORK_ITEM: "campaign-a" }), "campaign-a");
+  assert.equal(item({ FACTORY_ISSUE: "72", ASSETGROVE_WORK_ITEM: "campaign-a" }), "campaign-a");
   assert.equal(item({ FACTORY_ISSUE: "72" }, "obj-1"), "obj-1");
   // Only a plain issue number counts; anything else names no work item.
   assert.equal(item({ FACTORY_ISSUE: "72; rm" }), null);

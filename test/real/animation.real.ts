@@ -66,7 +66,7 @@ test(
   "real art: Jimothy's families through animation QA, previews and a fix",
   { skip },
   async () => {
-    const out = process.env["JIMOTHY_OUT"] ?? (await mkdtemp(join(tmpdir(), "assetforge-anim-")));
+    const out = process.env["JIMOTHY_OUT"] ?? (await mkdtemp(join(tmpdir(), "assetgrove-anim-")));
     await mkdir(out, { recursive: true });
     const { importDir } = await importSheet({
       sheet: new Uint8Array(await readFile(sheetPath as string)),

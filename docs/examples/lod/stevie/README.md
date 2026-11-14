@@ -1,12 +1,12 @@
-# Stevie's detail levels and phone tier (assetforge#136)
+# Stevie's detail levels and phone tier (assetgrove#136)
 
-This is one real `assetforge lod` run, made on 2026-11-13, on Stevie's picked model: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `2680c2c4f6d9…0985`, checked before the run), with its look-dev maps beside it. No model was called and nothing was spent.
+This is one real `assetgrove lod` run, made on 2026-11-13, on Stevie's picked model: clockgrove/raccoon-world `assets/models/stevie/stevie.glb` (sha256 `2680c2c4f6d9…0985`, checked before the run), with its look-dev maps beside it. No model was called and nothing was spent.
 
-1. `assetforge rig` re-rigged it with every clip of the spec, using a scratch copy of raccoon-world's `art/target-profile-3d.json` with [raccoon-motions](../../raccoon-motions/)' motions merged in. The clips were `idle`, `walk`, `sniff`, `eat`, `play` and `shelter`. That gave the same result as that example, and it was picked into a scratch target.
-2. `assetforge lod` made the chain from the picked file. The same scratch profile, with its `handoff` replaced by `{ "lods": "files" }` (see below), declares raccoon-world's own `lods` and `tiers`. The spec is raccoon-world's `art/stevie/character-3d/spec.json` with `"tierClass": "character"`.
+1. `assetgrove rig` re-rigged it with every clip of the spec, using a scratch copy of raccoon-world's `art/target-profile-3d.json` with [raccoon-motions](../../raccoon-motions/)' motions merged in. The clips were `idle`, `walk`, `sniff`, `eat`, `play` and `shelter`. That gave the same result as that example, and it was picked into a scratch target.
+2. `assetgrove lod` made the chain from the picked file. The same scratch profile, with its `handoff` replaced by `{ "lods": "files" }` (see below), declares raccoon-world's own `lods` and `tiers`. The spec is raccoon-world's `art/stevie/character-3d/spec.json` with `"tierClass": "character"`.
 
 ```sh
-assetforge lod --model assets/models/stevie/stevie.glb \
+assetgrove lod --model assets/models/stevie/stevie.glb \
   --provenance assets/models/stevie/stevie.glb.provenance.json \
   --spec spec.json --profile art/target-profile-3d.json
 ```

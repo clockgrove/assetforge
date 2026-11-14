@@ -1,6 +1,6 @@
 # Character look-dev
 
-Look-dev (wave 1 of [PLAN.md](PLAN.md); assetforge#82) gives a picked, rigged 3D character three things:
+Look-dev (wave 1 of [PLAN.md](PLAN.md); assetgrove#82) gives a picked, rigged 3D character three things:
 
 - a base colour in the target's character look, on the model's own UVs, in place of the provider's texture;
 - fur groom maps the target's fur material reads, one groom per season the target declares;
@@ -9,11 +9,11 @@ Look-dev (wave 1 of [PLAN.md](PLAN.md); assetforge#82) gives a picked, rigged 3D
 It checks each of these, then writes before-and-after renders beside the approved turnaround for the person who approves. It never regenerates the mesh, the UVs or the rig, and it never approves anything.
 
 ```sh
-assetforge look-dev --model stevie.glb --provenance stevie.glb.provenance.json \
+assetgrove look-dev --model stevie.glb --provenance stevie.glb.provenance.json \
   --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
   --profile art/target-profile-3d.json --dry-run
-assetforge look-dev ... # AI_GATEWAY_API_KEY
-assetforge pick --run .assetforge/runs/<run> --candidate c1 --target ../raccoon-world
+assetgrove look-dev ... # AI_GATEWAY_API_KEY
+assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../raccoon-world
 ```
 
 `look-dev` stages a one-candidate run (`c1`), like `rig`, and `pick` hands it off. It exits 5 when the result fails a check that filters. The renders are still written, so the person can see why. `lookdev-markings` and the identity lock in shadow mode never filter: they are recorded, and the person judges the compare images.
@@ -30,7 +30,7 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
 ## How it works
 
-1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, side, the other side, back, three-quarter, the other three-quarter, and a high view of the back. Each view is framed on the figure's own outline, which fills 86% of its larger side, rather than on the bounding sphere. A view that sees the figure end-on, like the front of a long body, then still spends its pixels on it (assetforge#143: framed on the sphere, the front view filled 43%). Then comes the **detail pass**: one view from the close-up's direction, framed on the head so its outline fills 80% (the rig template's head region, where the eyes and nose are; the close-up at the target's closest zoom when there is none). It sees the face at several times the turntable views' resolution. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The views are restyled in that order, and each view after the first starts from a render of the model carrying what the earlier views painted (projected as below), so it extends their markings instead of placing its own. The square-on views come first, so the diagonal views continue markings a square-on view already placed along the body. The prompt asks the model to:
+1. **Base colour.** The model is rendered flat-lit (base colour only, no shading) from 7 views: front, side, the other side, back, three-quarter, the other three-quarter, and a high view of the back. Each view is framed on the figure's own outline, which fills 86% of its larger side, rather than on the bounding sphere. A view that sees the figure end-on, like the front of a long body, then still spends its pixels on it (assetgrove#143: framed on the sphere, the front view filled 43%). Then comes the **detail pass**: one view from the close-up's direction, framed on the head so its outline fills 80% (the rig template's head region, where the eyes and nose are; the close-up at the target's closest zoom when there is none). It sees the face at several times the turntable views' resolution. Each view is edited by the `lookdev` route (`openai/gpt-image-2`) together with the subject's approved references, matching view first. The views are restyled in that order, and each view after the first starts from a render of the model carrying what the earlier views painted (projected as below), so it extends their markings instead of placing its own. The square-on views come first, so the diagonal views continue markings a square-on view already placed along the body. The prompt asks the model to:
    - keep the silhouette, pose and framing;
    - in the detail view, paint the head's markings and features at full detail, with the references' shape and clean edges, leaving out fine strands drawn standing off the face;
    - repaint only the surface colour, as evenly lit albedo;
@@ -40,9 +40,9 @@ The groom prompt reads the season's `traits` from the profile, as given.
    - paint nothing that stands off the surface, such as whiskers or stray hairs;
    - after the first view, keep a marking already painted where it shows, and continue it in the same colour.
 
-   On Stevie (assetforge#122), each view restyled on its own put the side view's eye mask where the three-quarter view put pale coat, because the image model drew the profile's eye higher than the mesh's. Their average was a grey smudge.
+   On Stevie (assetgrove#122), each view restyled on its own put the side view's eye mask where the three-quarter view put pale coat, because the image model drew the profile's eye higher than the mesh's. Their average was a grey smudge.
 
-   On Stevie (assetforge#129), the three-quarter view, restyled before the side, set the cheek's mask edge and the tail's rings; the side view redrew both elsewhere, and the blend handed the cheek to the three-quarter view's pale coat. Restyled after the square-on views, the diagonal views extend their rings and mask.
+   On Stevie (assetgrove#129), the three-quarter view, restyled before the side, set the cheek's mask edge and the tail's rings; the side view redrew both elsewhere, and the blend handed the cheek to the three-quarter view's pale coat. Restyled after the square-on views, the diagonal views extend their rings and mask.
 
    Each edited view is registered onto its render: the figure's box is scaled and moved onto the render's. It is then projected back onto the model's own UVs:
    - every texel is baked to its rest-pose surface point and normal;
@@ -50,7 +50,7 @@ The groom prompt reads the season's `traits` from the profile, as given.
    - it never takes the edit's background: where the edit drew its figure narrower than the render (a leg drawn thinner), the background colour connected to the image's border, grown by one pixel, is left out. A pixel where the render itself is background-coloured is kept, since there the model's surface cannot be told from background;
    - each view is weighted by how large the texel appears in it: the square root of the pixel area it covers, the view's pixels per unit of depth times √facing, relative to the largest, to the 4th power. A view's pixels fade out over the outer 8% of its frame, so a close-up whose frame cuts across the figure hands over smoothly. Where the views agree, the texel takes their weighted mean. Where they disagree (the facing⁴-weighted spread of their colours, smoothed over 0.8% of the texture's edge, rises from 12 to 36 of 255), the power rises smoothly to 48. The view that sees the texel largest then takes it over, so a marking two views paint in slightly different places stays crisp instead of averaging to grey, and the detail view takes the face.
 
-   On Stevie (assetforge#143), close-ups from the two diagonals were tried as well. Each painted the cheeks its own way and won the face's sides from the front close-up, so the mask came out as a hard bar. The detail pass keeps the close-up's direction alone.
+   On Stevie (assetgrove#143), close-ups from the two diagonals were tried as well. Each painted the cheeks its own way and won the face's sides from the front close-up, so the mask came out as a hard bar. The detail pass keeps the close-up's direction alone.
 
    Texels that no view sees squarely (the underside, a thin part's far edge) keep the source texture's detail, colour-matched to the projected result twice: across the whole texture, then locally. The local match adds the mean difference between the projected and the source colour over the seen texels around the texel in 3D, from the finest neighbourhood that holds enough of them (1.2% of the model's diagonal, doubling up to 6 times). So such a texel takes the colour its seen neighbours were painted, not the source's own marking there: on Stevie, the source's pale tail tip showed through the restyled dark one. The projection is made in 3D, so both sides of a UV seam receive the same colour. The islands are then dilated 8 px, so filtering never reads the background. The texture keeps the source's size, within the profile's `textureMaxPx`.
 
@@ -58,13 +58,13 @@ The groom prompt reads the season's `traits` from the profile, as given.
 3. **Paw pads.** From the target's rig template: the downward-facing surface under each foot's ankle-to-toe span.
 4. **Groom.** One `lookdev-groom` call per season reads the season's `traits` with the approved references. It returns fur length in millimetres and density (0 to 1) per region, and a tip tint where the coat's colour differs from the references. The regions are `face`, `cheek`, `head`, `neck`, `body`, `leg` and `tail`. They come from the rig template's joint roles and feet: the front of the head is face, and its lower sides are cheek. The maps are then written on the same UVs.
 
-   Fur no longer than the marking it grows in. A strand carries its root's colour wherever it lies, in any renderer that reads the maps. So a strand lying across a marking's edge smears the edge. On Stevie (assetforge#131), 80 mm winter tail fur over its bands smeared them into a blurred brush. Each texel's length is therefore cut where a strand lying flat along its comb would reach a marking of another lightness, or run off the end of its part.
+   Fur no longer than the marking it grows in. A strand carries its root's colour wherever it lies, in any renderer that reads the maps. So a strand lying across a marking's edge smears the edge. On Stevie (assetgrove#131), 80 mm winter tail fur over its bands smeared them into a blurred brush. Each texel's length is therefore cut where a strand lying flat along its comb would reach a marking of another lightness, or run off the end of its part.
    - The walk follows the surface in 3D, on the base colour's L\* smoothed at 0.6% of the model's diagonal, so the coat's fine texture is not an edge.
    - Another marking is 18 L\* away.
    - The cut is smoothed over about a centimetre of surface, and a strand keeps at least 30% of its length.
    - Markings broader than the fur keep the full length, so a winter coat still reads longer and fuller than a summer one.
 
-5. **Before and after.** The turntable views (front, three-quarter, side, back) and a close-up at the target's closest zoom are rendered before and after, once per season. After look-dev, the renders draw Assetforge's own shell fur, driven by that season's maps. `compare-<view>.png` puts, left to right:
+5. **Before and after.** The turntable views (front, three-quarter, side, back) and a close-up at the target's closest zoom are rendered before and after, once per season. After look-dev, the renders draw Assetgrove's own shell fur, driven by that season's maps. `compare-<view>.png` puts, left to right:
    - the approved reference of that view (the front view for the close-up). A view the references do not name borrows the front view, and `lookdev-compare` says so;
    - the model before look-dev;
    - one column per season after look-dev.
@@ -73,7 +73,7 @@ The groom prompt reads the season's `traits` from the profile, as given.
 
 6. **Markings.** One `lookdev-markings` call (`google/gemini-3-flash`) per turntable view that has its own turnaround view. It reads that view, then the lit after render of each season. It names each identity marking that the bible's subject description names or the reference shows. For each marking, it gives in every image a box on the marking and a box on the neighbouring coat it contrasts with, as `[ymin, xmin, ymax, xmax]` on a 0 to 1000 scale. A box that mixes fractions with 0 to 1000 values is dropped. The route asks for low thinking (`providerOptions.google.thinkingConfig.thinkingLevel: "low"`): at the default level the call ran long enough to time out behind a metering relay. The measurement is deterministic: the CIELAB median of the figure's pixels in each box (see the `lookdev-markings` check).
 
-**Preview lighting** (assetforge#122). Every before and after render, in every season, and the close-up share one lighting. It is relative to the camera, so each view is lit alike, as a turnaround is drawn. Assetforge's default is neutral: ambient 0.6, plus a key of 0.4 from above and to the left of the camera, with automatic exposure. The exposure is one number for the whole run. It brings the source model's mean lit brightness over the four turntable views to its unlit (albedo) brightness. It depends on the source model alone, so before and after share it. Highlights are not clipped: above 0.8 of full scale, values roll off smoothly toward white, so a pale marking in the key light keeps its tone. A target may declare its own `previewLighting` (see Contract). `parameters.lookdev.lighting` records the lighting, the exposure, and each season's lit-to-unlit figure brightness per view.
+**Preview lighting** (assetgrove#122). Every before and after render, in every season, and the close-up share one lighting. It is relative to the camera, so each view is lit alike, as a turnaround is drawn. Assetgrove's default is neutral: ambient 0.6, plus a key of 0.4 from above and to the left of the camera, with automatic exposure. The exposure is one number for the whole run. It brings the source model's mean lit brightness over the four turntable views to its unlit (albedo) brightness. It depends on the source model alone, so before and after share it. Highlights are not clipped: above 0.8 of full scale, values roll off smoothly toward white, so a pale marking in the key light keeps its tone. A target may declare its own `previewLighting` (see Contract). `parameters.lookdev.lighting` records the lighting, the exposure, and each season's lit-to-unlit figure brightness per view.
 
 **The fur preview** draws `shells` offset copies of the surface (16 by default). Each copy is alpha-blended over what is beneath it, at the strands' expected coverage at that height. Strands thin toward the tips, and smooth clumps vary their length. No pixel makes a hit-or-miss choice per strand, so the coat stays soft and free of speckle at any zoom. It is a preview of what the maps drive, not the target's fur material.
 
@@ -119,7 +119,7 @@ The field names below are shared with clockgrove/raccoon-world#39 and Clockgrove
 - `lookdev` (added) fields:
   - `capUsd` is the look-dev cap for one character, default $3. `--cap` overrides it.
   - `closestZoom` is the target's closest zoom, used for the close-up check render. The default is the character at a third of a 1440 px screen height, desktop (Kirk, 2026-11-10).
-  - `previewLighting` (added by assetforge#122) is the lighting of the before and after renders, with each field optional. The shown values are the defaults. `keyDirection` is in camera space: x right, y up, z toward the camera. `exposure` is a number, or `"auto"`.
+  - `previewLighting` (added by assetgrove#122) is the lighting of the before and after renders, with each field optional. The shown values are the defaults. `keyDirection` is in camera space: x right, y up, z toward the camera. `exposure` is a number, or `"auto"`.
 
 **Template outputs**
 
@@ -157,6 +157,6 @@ The run keeps the source model's provenance and adds the following:
 - a `lookdev` step, whose input is the source model's hash and whose output is the new model's hash;
 - the combined `outputGrant` over every call, the source's included.
 
-Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item; assetforge#74). Each call is reserved before it is made. The default routes forecast $2.14: 8 × $0.25 (7 views and the detail view) + $0.02 + 2 × $0.02 + 4 × $0.02 + $0.001. The four markings calls are an upper bound: only views with their own turnaround view make one. `--dry-run` prints the forecast and what is left under each limit.
+Before the first call, the whole forecast is checked against the cap and against the cross-run limits (daily and work item; assetgrove#74). Each call is reserved before it is made. The default routes forecast $2.14: 8 × $0.25 (7 views and the detail view) + $0.02 + 2 × $0.02 + 4 × $0.02 + $0.001. The four markings calls are an upper bound: only views with their own turnaround view make one. `--dry-run` prints the forecast and what is left under each limit.
 
 Tests use the scripted provider in `test/fixtures/lookdev-script.ts`.

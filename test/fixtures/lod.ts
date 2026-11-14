@@ -1,5 +1,5 @@
 /**
- * A dense, textured, optionally rigged ellipsoid for the detail-level chain (assetforge#136): a UV
+ * A dense, textured, optionally rigged ellipsoid for the detail-level chain (assetgrove#136): a UV
  * sphere with a UV seam and per-pole vertices, one scene root, a 256 px checker base colour
  * embedded in the file and, optionally, a look-dev-style external side image by `uri`.
  */
@@ -108,7 +108,7 @@ export function lodModel(options: LodModelOptions = {}): Uint8Array {
   const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
   const raised = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -0.5, 0, 1];
   const json: GltfDocument = {
-    asset: { version: "2.0", generator: "assetforge-test-fixture" },
+    asset: { version: "2.0", generator: "assetgrove-test-fixture" },
     scene: 0,
     scenes: [{ nodes: [0] }],
     nodes: rigged

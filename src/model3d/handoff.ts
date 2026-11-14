@@ -1,5 +1,5 @@
 /**
- * The target-declared shape of a 3D hand-off (assetforge#137; docs/characters-3d.md, "Hand-off
+ * The target-declared shape of a 3D hand-off (assetgrove#137; docs/characters-3d.md, "Hand-off
  * shape"): how `output.clips` reaches the manifest, and whether look-dev's side images are written
  * beside the `.glb` or embedded in it. Without a declaration both go as produced.
  */
@@ -20,13 +20,13 @@ export type LodPackaging = (typeof LOD_PACKAGINGS)[number];
 /** The profile's `model3d.handoff` section. */
 export interface Model3dHandoffProfile {
   /**
-   * The fields each manifest clip carries: manifest field name → Assetforge's clip field. A clip
+   * The fields each manifest clip carries: manifest field name → Assetgrove's clip field. A clip
    * field not named is left out; a named field a clip lacks is left out of that clip.
    */
   clipFields?: Record<string, string>;
   /** `beside` (default): side images are files next to the `.glb`. `embedded`: inside it. */
   sideImages?: SideImageMode;
-  /** `embedded` (default): the detail levels are in the `.glb`. `files`: one `.glb` per level (assetforge#136). */
+  /** `embedded` (default): the detail levels are in the `.glb`. `files`: one `.glb` per level (assetgrove#136). */
   lods?: LodPackaging;
 }
 
@@ -45,7 +45,7 @@ export function handoffSettings(profile: TargetProfile): ResolvedHandoff {
   if (section === null || typeof section !== "object" || Array.isArray(section)) {
     throw new InputError("model3d.handoff must be an object");
   }
-  // Only Assetforge's own fields are read and checked. Any other field is the target's own note
+  // Only Assetgrove's own fields are read and checked. Any other field is the target's own note
   // (raccoon-world, for example, describes its container and compression here) and is left alone,
   // as the rest of the profile's model3d section is.
   const { clipFields, sideImages = "beside", lods } = section as Record<string, unknown>;
@@ -120,7 +120,7 @@ function embedInto(bytes: Uint8Array, byName: Map<string, ModelHandoff["sidecars
  * Embeds every side image the `.glb` references by `uri` into its binary chunk, and drops every
  * side file: the ones it references are now inside it, and the others (the base colour) already
  * were. `asset.extras.lookdev.images` keeps each field's image index, without the `uri`. The
- * chain's other `.glb` files (detail levels and tiers, assetforge#136) are kept beside it, each
+ * chain's other `.glb` files (detail levels and tiers, assetgrove#136) are kept beside it, each
  * with its own side images embedded the same way.
  */
 function embedSideImages(output: ModelHandoff): ModelHandoff {

@@ -75,7 +75,7 @@ export function metadataStep(value: DigitalSourceType, pixelHashes: string[]): T
   return {
     op: "embed-digital-source-type",
     params: { digitalSourceType: value },
-    engine: { name: "assetforge-xmp", version: "1" },
+    engine: { name: "assetgrove-xmp", version: "1" },
     inputs: [...pixelHashes],
     outputs: [...pixelHashes],
   };

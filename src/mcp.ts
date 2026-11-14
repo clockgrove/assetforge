@@ -175,7 +175,7 @@ const tools = [
 function createServer(context: ToolContext): McpServer {
   // The tool list is fixed, so the server never sends list-changed notifications.
   const server = new McpServer(
-    { name: "assetforge", version: "0.0.0" },
+    { name: "assetgrove", version: "0.0.0" },
     { capabilities: { tools: { listChanged: false } } },
   );
   for (const tool of tools) {

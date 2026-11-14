@@ -85,7 +85,7 @@ function extensionsIn(value: unknown, out: Set<string>): void {
   }
 }
 
-export const RIG_ROOT_NAME = "assetforge-root";
+export const RIG_ROOT_NAME = "assetgrove-root";
 
 /** Node indices in the rigged file: the root, the mesh node, then one per joint in template order. */
 export const jointNode = (joint: number) => 2 + joint;
@@ -107,7 +107,7 @@ export function buildRiggedGlb(
     // rig's alone, so a provider's own extras never ship. The rig's replaces any.
     asset: {
       version: "2.0",
-      generator: "assetforge shared rig",
+      generator: "assetgrove shared rig",
       extras: {
         ...(keepAssetExtras && (source.json.asset.extras as Record<string, unknown> | undefined)),
         rig,

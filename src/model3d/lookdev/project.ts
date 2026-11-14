@@ -36,7 +36,7 @@ const FACING_POWER = 4;
  * 0..255, smoothed over BLEND_RADIUS of the texture's edge), the colour is their mean weighted by
  * apparent size^4 (see `projectViews`). Where they disagree (over DISAGREE_SPREAD), the power rises
  * smoothly to DISAGREE_POWER, so the view that sees the texel largest takes it over: a marking two views paint in
- * slightly different places stays crisp in each instead of averaging to grey (assetforge#122).
+ * slightly different places stays crisp in each instead of averaging to grey (assetgrove#122).
  */
 const AGREE_SPREAD = 12;
 const DISAGREE_SPREAD = 36;
@@ -149,7 +149,7 @@ function silhouetteMask(depth: Float32Array, size: number): Uint8Array {
  * max(0, n·toCamera)), faded at the frame's edge. The colour
  * is the mean over views weighted by that size relative to the largest, to the 4th power, sharpened
  * toward the largest where the views disagree. So a close-up takes over what it sees, and a
- * square-on view takes over from an oblique one (assetforge#143). `weight`, which says how well a
+ * square-on view takes over from an oblique one (assetgrove#143). `weight`, which says how well a
  * texel was seen, stays facing^4. `depths[i]` is `depthMap` of `views[i].camera`.
  */
 export function projectViews(
@@ -588,7 +588,7 @@ const RESIDUAL_LEVELS = 6;
  * seen texels around it in 3D, weighted by how well each was seen: finest where enough seen texels
  * are near, falling back smoothly to coarser cells (each level doubles the cell). A texel no view
  * sees squarely then takes the colour its seen neighbours were painted, not the source's own
- * marking there (assetforge#129).
+ * marking there (assetgrove#129).
  */
 function localResidual(
   texels: TexelMap,

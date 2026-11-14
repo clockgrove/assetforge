@@ -26,7 +26,7 @@ import type { CallRecord } from "../../../src/types.ts";
 
 export interface GeneratedItem {
   id: string;
-  /** `same`: an on-model frame of `subject` cut from an Assetforge `generate-sheet` import. */
+  /** `same`: an on-model frame of `subject` cut from an Assetgrove `generate-sheet` import. */
   kind: "generic" | "drift" | "same";
   route: "still" | "edit" | "sheet";
   /** Generic: what the prompt asks for, put into `genericPrompt`. */
@@ -75,7 +75,7 @@ export interface GeneratedProvenance {
     tool: string;
     sheetSha256: string;
     frame: string;
-    assetforge: string;
+    assetgrove: string;
   };
 }
 

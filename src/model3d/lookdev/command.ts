@@ -1,8 +1,8 @@
 /**
- * `assetforge look-dev`: gives a picked, rigged 3D character a base colour in the target's
+ * `assetgrove look-dev`: gives a picked, rigged 3D character a base colour in the target's
  * character look on its own UVs, fur groom maps per season, and eyes that catch light, checks
- * them, and stages the result as a one-candidate run that `pick` hands off (assetforge#82;
- * docs/look-dev.md). The mesh, UVs and rig are never regenerated. Assetforge never approves it.
+ * them, and stages the result as a one-candidate run that `pick` hands off (assetgrove#82;
+ * docs/look-dev.md). The mesh, UVs and rig are never regenerated. Assetgrove never approves it.
  */
 import { randomBytes } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -97,7 +97,7 @@ export const SINGLE_GROOM = "default";
  * The views look-dev restyles and projects back, in the order it restyles them: the four turntable
  * views, the other side, and a high view of the back. The square-on views come first, so each
  * diagonal view continues markings that a square-on view already placed along the body
- * (assetforge#129: restyled before the side, a diagonal view placed markings the side view then
+ * (assetgrove#129: restyled before the side, a diagonal view placed markings the side view then
  * redrew elsewhere, and the blend mixed the two).
  */
 export const LOOKDEV_VIEWS = [
@@ -114,7 +114,7 @@ export const LOOKDEV_VIEWS = [
  * The detail pass: a view framed on the head (the rig template's head region, where the eyes and
  * nose are), from the close-up's direction, restyled after the views above and projected with
  * them. It sees the face at several times the turntable views' resolution, so the projection
- * hands the face to it (assetforge#143: the front view painted the face about 200 px across, and
+ * hands the face to it (assetgrove#143: the front view painted the face about 200 px across, and
  * the close-up enlarged that). Without a head region it falls back to the close-up at the
  * target's closest zoom. `reference` names the turnaround view it is restyled against. Close-ups
  * from the diagonals were tried: each painted the cheeks its own way and took the face's sides
@@ -869,7 +869,7 @@ export async function lookDev(
   const settings = model3dSettings(profile);
   const look = lookdevSettings(profile);
   if (!provenance || typeof provenance !== "object" || !Array.isArray(provenance.calls)) {
-    throw new InputError("the provenance file is not an Assetforge provenance record");
+    throw new InputError("the provenance file is not an Assetgrove provenance record");
   }
   const plan = planLookdev(profile, options.routes, options.capUsd);
   const log = options.log ?? (() => {});
@@ -972,7 +972,7 @@ export async function lookDev(
 
   // 1. Albedo: restyle flat-lit renders and project them back onto the UVs. The views are
   // restyled in turn: each later view starts from the model carrying what the earlier views
-  // painted, so it extends their markings instead of placing its own (assetforge#122: restyled
+  // painted, so it extends their markings instead of placing its own (assetgrove#122: restyled
   // independently, the side view put the eye mask where the three-quarter view put pale coat,
   // and the blend averaged the two to grey).
   const source =
@@ -1610,7 +1610,7 @@ export async function lookDev(
       seasons: plan.seasons,
       targetProfileSha256: profileSha256(profile),
     },
-    engine: { name: "assetforge-lookdev", version: "1" },
+    engine: { name: "assetgrove-lookdev", version: "1" },
     inputs: [sourceSha256],
     outputs: [sha256(raw)],
   };
