@@ -2,7 +2,7 @@ import "./fixtures/spend-env.ts";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -72,6 +72,10 @@ test("--help lists every command and exits 0; a command's --help prints its usag
   const r = await cli(["stage", "--help"]);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /--dry-run/);
+  // --help wins over an option it would otherwise refuse, as it did before the registry.
+  const bad = await cli(["stage", "--cap", "abc", "--help"]);
+  assert.equal(bad.code, 0);
+  assert.match(bad.stdout, /--dry-run/);
   const v = await cli(["--version"]);
   assert.match(v.stdout, /^\d+\.\d+\.\d+/);
 });
@@ -310,6 +314,15 @@ test("--help with --json is one JSON document carrying the usage", async () => {
     assert.equal(d["command"], args[0] === "stage" ? "stage" : null);
     assert.match(d["usage"], /--json|stage/);
   }
+});
+
+test("--help --json lists exactly the registry's commands, and src/cli.ts is a short entry", async () => {
+  const { commandNames } = await import("../src/commands/registry.ts");
+  const d = doc(await cli(["--help", "--json"]));
+  assert.deepEqual(d["commands"], [...commandNames]);
+  for (const name of commandNames) assert.match(d["usage"], new RegExp(`^  ${name} `, "m"));
+  const entry = await readFile(join(root, "src", "cli.ts"), "utf8");
+  assert.ok(entry.split("\n").length < 40, "src/cli.ts is under 40 lines");
 });
 
 test("a missing or malformed routes file is invalid_input", async () => {
