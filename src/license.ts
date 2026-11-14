@@ -1,6 +1,6 @@
 /**
  * Output grants: what a provider grants for an output, and which licence the output may be declared
- * under in a target (issue #47; the field names are shared with clockgrove/clockgrove#61).
+ * under in a target (issue #47; the field names are shared with the target's asset manifest).
  */
 import { InputError } from "./errors.ts";
 import type { CallRecord, OutputGrant, Provenance, TargetProfile } from "./types.ts";

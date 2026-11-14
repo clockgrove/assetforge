@@ -152,7 +152,7 @@ function renderViews(glb: Glb, sizePx: number, framing: Bounds, forwardYawDeg: n
   );
 }
 
-/** `stevie.groom.summer.length.png` → `stevie.phone.groom.summer.length.png`. */
+/** `fern.groom.summer.length.png` → `fern.phone.groom.summer.length.png`. */
 function tierName(asset: string, tier: string, name: string): string {
   return name.startsWith(`${asset}.`)
     ? `${asset}.${tier}.${name.slice(asset.length + 1)}`

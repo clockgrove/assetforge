@@ -43,7 +43,7 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
         "--profile",
         join(root, "profile.json"),
         "--asset",
-        "stevie",
+        "fern",
         "--tool",
         "hand drawn",
         "--no-propose",
@@ -63,7 +63,7 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
       ...["--sheet", join(root, "sheet.png"), "--profile", join(root, "profile.json")],
       ...[
         "--asset",
-        "stevie",
+        "fern",
         "--tool",
         "hand drawn",
         "--no-propose",
@@ -113,7 +113,7 @@ test("the CLI imports a sheet, refuses an unconfirmed grouping and writes the co
   assert.match(stdout, /target validator accepted it/);
   assert.doesNotMatch(stdout, /REJECTED/);
   const manifest = JSON.parse(
-    await readFile(join(target, "assets/manifests/stevie/walk-left.json"), "utf8"),
+    await readFile(join(target, "assets/manifests/fern/walk-left.json"), "utf8"),
   );
   assert.equal(manifest.review.status, "pending");
   assert.equal(manifest.provenance.generated.digitalSourceType, DIGITAL_SOURCE_TYPES.human);
@@ -128,7 +128,7 @@ test("import --frames refuses a sheet that slices into another count (exit 2)", 
       CLI,
       "import",
       ...["--sheet", join(root, "sheet.png"), "--profile", join(root, "profile.json")],
-      ...["--asset", "stevie", "--tool", "hand drawn", "--no-propose", "--frames", frames],
+      ...["--asset", "fern", "--tool", "hand drawn", "--no-propose", "--frames", frames],
       ...["--imports", join(root, "imports"), "--json"],
     ]);
   const ok = JSON.parse((await run("16")).stdout) as { frames: unknown[] };

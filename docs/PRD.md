@@ -1,20 +1,20 @@
 # Assetgrove PRD
 
-Status: draft 1 (2026-11-07). Owner: Kirk Marple. First adopter: Clockgrove's Raccoon World.
+Status: draft 1 (2026-11-07). Owner: Kirk Marple.
 The implementation plan, split into waves that drive Objectives, follows from this document and is kept separately.
 
 ## 1. Why
 
 A living game world needs a lot of art and sound, and it keeps needing more.
 
-Clockgrove's Raccoon World needs:
-- raccoons in many body, age and size variants, each with portraits and expressions;
+A game world needs:
+- characters in many body, age and size variants, each with portraits and expressions;
 - about fifteen animation families per character;
-- props for the den, porch, trees, fences and garden;
+- props;
 - weather, time-of-day and wetness effects;
 - icon families;
 - ambient audio loops;
-- and later, world packs written by creators (Wave 7), and renderer-neutral 3D (architecture §20).
+- and later, world packs written by creators, and renderer-neutral 3D.
 
 Image, video, audio and 3D models can produce the raw material. Raw model output is not a game asset, though. It has the wrong size and background, drifting identity and style, no provenance and no review. Today a person closes that gap by hand, one asset at a time.
 
@@ -24,7 +24,7 @@ Assetgrove closes it as a tool. A game declares what it needs as data. Assetgrov
 
 ## 2. Principles
 
-1. **Generic core, game as data.** Anything specific to one game reaches Assetgrove as a *target profile* and a *style bible*: data, never code. Reason: Clockgrove is the first adopter, not the only one.
+1. **Generic core, game as data.** Anything specific to one game reaches Assetgrove as a *target profile* and a *style bible*: data, never code. Reason: the first adopter is not the only one.
 2. **Spec first.** A request is built from a typed asset spec, not typed freehand. Reason: output that matches the spec costs less to review than output that only looks right.
 3. **Humans approve.** Assetgrove filters, ranks and explains. It never marks anything approved. Reason: the target's review is the quality and license gate, and it belongs to people.
 4. **Provenance is part of the asset.** Every output records its model, route, prompt, parameters, references, seed where supported, request ID, time, cost and the provider terms. Reason: licensing, reproducibility and trust.
@@ -46,21 +46,21 @@ Assetgrove closes it as a tool. A game declares what it needs as data. Assetgrov
 
 ## 4. Concepts
 
-- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid, and the world's **style profile**: alpha mode (binary or soft), colour rule (a fixed palette or full colour), edge rendering (crisp or antialiased) and size limits per asset role. Clockgrove's world packs each declare one (#61), and flat-cartoon and pixel-art packs are as valid as Raccoon World's. A bible can declare per-domain looks that a spec names (`look`), so characters and environments can differ: Raccoon World's characters are naturalistic, matching Stevie's approved turnaround, and its yard is lightly painterly (Kirk, 2026-11-11). Then naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
+- **Target profile.** The target game's contract, as data: manifest schema and file layout, the frame grid, and the world's **style profile**: alpha mode (binary or soft), colour rule (a fixed palette or full colour), edge rendering (crisp or antialiased) and size limits per asset role. Flat-cartoon and pixel-art profiles are as valid as a painterly one. A bible can declare per-domain looks that a spec names (`look`), so characters and environments can differ: for example, naturalistic characters in a lightly painterly environment. Then naming, license value, the validator command, and the in-context preview command. A test in the target keeps it in step with the target's validator.
 - **Style bible.** The world's visual (and later audio) constitution, as data in the target repository:
   - approved reference images: character sheets, turnarounds, props, a perspective sample;
   - the colour rule the style profile names: a colour script (key colours and value ranges per time of day) for a full-colour world, or the palette for a fixed-palette one;
   - the lighting key;
   - line and texture notes;
   - negative examples;
-  - the mood words and the reference image. For Raccoon World: rendered storybook realism with a lightly painterly yard and naturalistic, high-quality characters (Stevie's approved turnaround), a high three-quarter isometric camera, soft fur, full colour, large environment pieces, warm lantern light against cool dusk rain (Clockgrove `docs/design/reference/raccoon-world-reference.png`).
+  - the mood words and the reference image.
 
   It has a version. Every output records the bible version it was made under.
 - **Asset spec.** One requested asset: kind (sprite strip, still, portrait, icon, tile, effect, loop, model), identity, animation family, frame count and size, anchor and footprint, variants, and any per-asset references.
 - **Request.** A spec, or a set of specs, plus a candidate count and a cost cap.
 - **Candidate.** One generated, post-processed output, with its QA result and provenance.
 - **Pick.** The candidate a person chose. Written into the target as `review.status: "pending"`.
-- **Campaign.** A planned batch of requests (for example "Wave 8's complete reviewed asset set"), with a budget, progress and a resume point.
+- **Campaign.** A planned batch of requests (for example a game's complete reviewed asset set), with a budget, progress and a resume point.
 - **Asset lock.** A committed record of how each asset was produced (inputs, references, model route, seed, bible version), so it can be regenerated, audited or flagged as stale.
 
 ## 5. Capabilities
@@ -87,7 +87,7 @@ Assetgrove closes it as a tool. A game declares what it needs as data. Assetgrov
   - registers every frame on the feet baseline;
   - groups and orders frames into families, with vision-model proposals a person confirms.
 
-  The same import takes sheets made elsewhere. Raccoon World's first one is the 57-frame sheet of Jimothy, the short-spine raccoon: Clockgrove `docs/design/reference/jimothy-sprite-sheet.png`.
+  The same import takes sheets made elsewhere.
 - **Per-frame fixes.** A reference-guided edit of one frame, from an approved neighbour or key pose, repairs a single bad frame without regenerating the sheet.
 - **Video later.** Video-to-frames is a third route, compared against sheets once it arrives.
 - **Motion templates.** Per family (walk, idle, sniff, eat, play, shelter, sleep, groom, climb, converse and so on), a template gives the beats, timing and contact frames. A walk cycle loops and keeps its feet on the ground line.
@@ -110,7 +110,7 @@ A world's look is only as good as its weakest asset, so Assetgrove treats consis
 
 ### 5.4 In-context preview
 
-An asset that looks right on a white background can look wrong in the yard. The target profile can declare a preview command, which renders a candidate in the game's own scene: for Clockgrove, its golden-scene renderer at night in the rain, next to Stevie. The pick screen shows each candidate in place. Assetgrove only calls the command and never knows the game's renderer.
+An asset that looks right on a white background can look wrong in the game. The target profile can declare a preview command, which renders a candidate in the game's own scene, for example a golden scene at night in the rain, next to an approved character. The pick screen shows each candidate in place. Assetgrove only calls the command and never knows the game's renderer.
 
 ### 5.5 Material maps: lit 2.5D, 3D-ready
 
@@ -125,12 +125,12 @@ The target's style profile can turn any channel off, and it declares how each ch
 - **Temporal stability.** Across an animation's frames, the maps must not flicker. A bound on frame-to-frame change per channel is part of QA.
 - **Lit-preview QA.** The pick screen shows each candidate lit by the target's own light rig at several moments (noon, dusk in rain, night under lantern light), using the in-context preview (§5.4).
 - **Renditions.** Every asset is delivered at 1× and 2×, plus GPU-compressed textures (KTX2) when the target profile asks for them, so the game picks per quality tier.
-- **Lights as data.** Assetgrove reads the target's light rig as data, for preview only. The renderer that lights the game is the target's choice (Clockgrove decides by a bake-off, #67).
+- **Lights as data.** Assetgrove reads the target's light rig as data, for preview only. The renderer that lights the game is the target's choice.
 
 ### 5.6 Sets and campaigns
 
 - **Variant matrices.** One request expands into a grid: character × age × animation family, or prop × weather state. Shared references keep the grid consistent.
-- **Campaigns.** A whole set (for example Wave 8 §10.2) is planned as a campaign, with a budget, an order (identities and sheets first, then frame fixes, then variants), progress, resume after interruption, and a final set-level audit.
+- **Campaigns.** A whole set is planned as a campaign, with a budget, an order (identities and sheets first, then frame fixes, then variants), progress, resume after interruption, and a final set-level audit.
 - **Cost forecast.** A campaign shows its forecast cost before it starts, and its actual cost against that forecast as it runs.
 
 ### 5.7 Review where review already happens
@@ -153,7 +153,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
 
   The target profile declares the sensory-safe defaults.
 - **Video:** short loops for UI and effects, and video-to-frames for animation once frame consistency beats key-pose editing.
-- **3D (later):** image-to-3D for props and characters as `.glb`, with turntable renders for QA and the pick, and polygon and texture budgets from the target profile. This follows the architecture's renderer-neutral presentation (§20).
+- **3D (later):** image-to-3D for props and characters as `.glb`, with turntable renders for QA and the pick, and polygon and texture budgets from the target profile.
 
 ### 5.9 Provenance, licensing and reproducibility
 
@@ -165,7 +165,7 @@ Each of these arrives as a generator behind the same loop, with its own post-pro
   - the request ID, time and cost;
   - the version of the provider's terms;
   - the style bible's version.
-- The license value comes from the target profile. Clockgrove: MIT, as its own work; owner decision, 2026-11-07.
+- The license value comes from the target profile.
 - Every call records the provider's `outputGrant` from its route, and the provenance the combination over its calls (most restrictive wins). An output is declared under the target's licence only when the grant lets the target relabel it; an attribution licence the target lists in `acceptedLicenses` is declared as itself; anything else, and every non-commercial grant, is refused at hand-off (assetgrove#47).
 - The asset lock makes every approved asset auditable, and regenerable as far as the provider allows.
 - Candidates are cached by content hash. Asking the same question twice does not pay twice.
@@ -206,31 +206,30 @@ Owner direction (2026-11-07): transformation is a core layer of its own, not a s
 **Rules.**
 - **Deterministic.** The same input bytes and parameters give the same output bytes, so outputs can be cached by content hash and regenerated from the asset lock.
 - **Provenance travels.** Every operation appends its name, parameters, the tool version and the input hash to the output's provenance, so a chain from generated sheet to final strip is replayable.
-- **Composable and non-destructive.** Operations chain into recipes, declared as data, which a target profile or style profile can name (Raccoon World: "import sheet, then soft alpha, then baseline registration"). Sources are never overwritten.
+- **Composable and non-destructive.** Operations chain into recipes, declared as data, which a target profile or style profile can name (for example "import sheet, then soft alpha, then baseline registration"). Sources are never overwritten.
 - **Engines behind adapters.** The image, audio and video engines (for example libvips or FFmpeg) sit behind one adapter each, like the model gateway, so an engine can be replaced without touching recipes.
 - **The same surfaces.** Every operation is available on the CLI with JSON output, in the MCP tools for agents, and inside campaigns.
 
-## 6. Raccoon World requirements (first adopter)
+## 6. Adopter requirements
 
-These requirements come from Clockgrove's pipeline (`packages/assets/docs/pipeline.md`), its Wave 4 and Wave 8 plans, and the architecture.
+These are the requirements an adopting game brings, and the capability that meets each.
 
-| Need | Source | Assetgrove capability |
-| --- | --- | --- |
-| Sprite strips: `frames.count` frames side by side; RGBA; alpha, colour and size rules from the world pack's style profile (#61; Raccoon World: soft alpha, full colour); bounds equal to the visible box | pipeline.md, #61 | 5.1 post-processing, run against the target validator |
-| Size limits per role (#61), large environment pieces included; atlas packing is the game's job | pipeline.md, #61 | Target profile limits |
-| Manifest `generated` provenance; MIT license; `review.status: "pending"` | pipeline.md, #27 | 5.1 hand-off, 5.9 |
-| Stevie and the household in idle, walk, sniff, eat, play and shelter first; later run, climb, forage, drink, groom, lead/follow, sleep, converse/emote | #27, Wave 8 §10.2 | 5.2 animation, 5.6 campaigns |
-| Body, face, age and size variants; lifecycle variants; non-distressing historical treatment | Wave 8 §10.2 | 5.3 identity lock, 5.6 variant matrices |
-| Props: den, porch, tree, fence, mailbox, trash can, feeder, garden, paths, plants, water | Wave 8 §10.2 | 5.1, 5.8 tiles |
-| Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | Wave 8 §10.2, #21, #66 | 5.5 material maps, 5.8 effects |
-| Icons: weather, material events, entity modes, actions, relationships, privacy, status | Wave 8 §10.2 | 5.8 icon families |
-| Modular layers and atlases, never one flattened illustration | Wave 8 §10.2 | Per-asset specs; layering in the target profile |
-| Look: rendered storybook realism (lightly painterly yard, naturalistic characters per Stevie's turnaround), high three-quarter isometric camera, soft fur, full colour; warm light against cool rain and dusk; Pacific Northwest garden | Wave 8 §10.1, the reference mockup | Style bible, 5.3 |
-| Golden scene approval | pipeline.md | 5.4 in-context preview, using the golden renderer |
-| Audio: rain loops, ambience, birds, rustling, water, subtle cues; mute and volume groups; nothing conveyed by sound alone; sensory-safe defaults | Wave 8 §10.3 | 5.8 audio |
-| Creator-authored world packs (Wave 7), community assets (PRD v0.5 §16) | Wave 7, PRD | 5.7 agent use; the style bible as the creator's guardrail |
-| Renderer-neutral future: 2.5D and 3D packs | Architecture §20 | 5.8 3D |
-| Git LFS storage for all media | #27, Factory LFS | Format-agnostic, per principle 6 |
+| Need | Assetgrove capability |
+| --- | --- |
+| Sprite strips: `frames.count` frames side by side; RGBA; alpha, colour and size rules from the target's style profile; bounds equal to the visible box | 5.1 post-processing, run against the target validator |
+| Size limits per role, large environment pieces included; atlas packing is the game's job | Target profile limits |
+| Manifest `generated` provenance; the target's license value; `review.status: "pending"` | 5.1 hand-off, 5.9 |
+| Characters in idle, walk, sniff, eat, play and shelter first; later run, climb, forage, drink, groom, lead/follow, sleep, converse/emote | 5.2 animation, 5.6 campaigns |
+| Body, face, age and size variants; lifecycle variants; non-distressing historical treatment | 5.3 identity lock, 5.6 variant matrices |
+| Props, paths, plants and water | 5.1, 5.8 tiles |
+| Weather and time: dry, rain, wetness, puddles, fog, cloud, day, dusk, night, light | 5.5 material maps, 5.8 effects |
+| Icons: weather, material events, entity modes, actions, relationships, privacy, status | 5.8 icon families |
+| Modular layers and atlases, never one flattened illustration | Per-asset specs; layering in the target profile |
+| Golden scene approval | 5.4 in-context preview, using the target's golden renderer |
+| Audio: rain loops, ambience, birds, rustling, water, subtle cues; mute and volume groups; nothing conveyed by sound alone; sensory-safe defaults | 5.8 audio |
+| Creator-authored world packs, community assets | 5.7 agent use; the style bible as the creator's guardrail |
+| Renderer-neutral future: 2.5D and 3D packs | 5.8 3D |
+| Git LFS storage for all media | Format-agnostic, per principle 6 |
 
 ## 7. Non-goals
 
@@ -251,7 +250,7 @@ These are measured per campaign and recorded in the repository:
 - **First-pass validator acceptance:** the share of picks the target's validator accepts on the first try.
 - **Author minutes per approved asset,** from request to the pick being written.
 - **Consistency:** the spread of identity and style scores across an approved set, and the drift report's size after a change to the bible.
-- **Time to a complete set,** for Raccoon World's first set and later for the Wave 8 set.
+- **Time to a complete set.**
 
 ## 9. Architecture outline (what, not how)
 
@@ -272,13 +271,13 @@ These are measured per campaign and recorded in the repository:
 
 - **Model routes:** which image, edit, video, audio and 3D models the gateway serves today; recorded in the first Objective.
 - **Fingerprints:** how to compute the identity and style fingerprints. Vision-model embeddings are the first candidate; this needs a small evaluation.
-- **Preview command:** its shape. Clockgrove's golden renderer is the first.
+- **Preview command:** its shape. The first target's golden renderer is the first.
 - **Picking:** whether picking happens in PRs from the first campaign, or the CLI picker comes first.
 - **Audio:** whether provider terms allow it, and which loudness standard to use.
 
 ## 11. Relationship to other projects
 
-- **Each world** owns its style bible, target profile and review. Raccoon World's live in clockgrove/raccoon-world (raccoon-world#2).
-- **Clockgrove** owns the platform side: validating external worlds' assets (clockgrove/clockgrove#61), material packing, atlases and KTX2 delivery (clockgrove/clockgrove#66).
+- **Each world** owns its style bible, target profile and review.
+- **The target's platform** owns validating its worlds' assets, material packing, atlases and KTX2 delivery.
 - **Factory** builds Assetgrove (Objectives) and owns Git LFS persistence and infrastructure.
 - **Assetgrove** owns generation, post-processing, QA, picking and hand-off.

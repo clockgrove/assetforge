@@ -1,6 +1,6 @@
 /**
- * The target profile's look-dev fields: `model3d.groom` (the contract shared with
- * clockgrove/raccoon-world#39 and Clockgrove's fur material) and `model3d.lookdev`
+ * The target profile's look-dev fields: `model3d.groom` (a contract shared with the target's
+ * fur material) and `model3d.lookdev`
  * (added by assetgrove#82). See docs/look-dev.md.
  */
 import { InputError } from "../../errors.ts";

@@ -53,14 +53,14 @@ async function exists(path: string): Promise<boolean> {
   );
 }
 
-test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, the pick lands pending with provenance and the target validator accepts it", async () => {
+test("Fern's shelter strip: 4 candidates within $5, only passing ones staged, the pick lands pending with provenance and the target validator accepts it", async () => {
   const world = await syntheticWorld();
 
   // Key pose first (owner decision): the author stages a still of the pose and chooses one.
   const poseProvider = scriptedProvider({ imageCostUsd: 0.04, visionCostUsd: 0.01 });
   const poseSpec: AssetSpec = {
     kind: "still",
-    assetId: "stevie",
+    assetId: "fern",
     animationFamily: "shelter",
     frames: { width: 96, height: 96 },
   };
@@ -69,13 +69,13 @@ test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, 
   // Spec-driven request: the bible's references, perspective sample and palette go as images.
   const keyPoseCall = poseProvider.calls.find((c) => c.kind === "image")!.request as ImageRequest;
   assert.equal(keyPoseCall.model, defaultRoutes.still.model);
-  const sheet = await readFile(join(world.bibleDir, "refs/stevie-sheet.png"));
+  const sheet = await readFile(join(world.bibleDir, "refs/fern-sheet.png"));
   const perspective = await readFile(join(world.bibleDir, "refs/perspective.png"));
   assert.equal(keyPoseCall.references.length, 4);
   assert.deepEqual(Buffer.from(keyPoseCall.references[0]!.bytes), sheet);
   assert.deepEqual(Buffer.from(keyPoseCall.references[2]!.bytes), perspective);
   assert.match(keyPoseCall.prompt, /Key pose/);
-  assert.match(keyPoseCall.prompt, /grey adult raccoon/);
+  assert.match(keyPoseCall.prompt, /grey adult fox/);
   assert.match(keyPoseCall.prompt, /"shelter"/);
   for (const hex of PALETTE) assert.ok(keyPoseCall.prompt.includes(hex));
   const poseCalls = pose.run.candidates[0]!.provenance.calls;
@@ -128,15 +128,15 @@ test("Stevie's shelter strip: 4 candidates within $5, only passing ones staged, 
   const result = await pick({ runDir, candidateId: "c3", targetDir: world.targetDir });
   assert.equal(result.validator?.accepted, true, result.validator?.output);
   const manifest = JSON.parse(
-    await readFile(join(world.targetDir, "assets/manifests/stevie/shelter.json"), "utf8"),
+    await readFile(join(world.targetDir, "assets/manifests/fern/shelter.json"), "utf8"),
   );
-  const strip = await readFile(join(world.targetDir, "assets/source/stevie/shelter.png"));
+  const strip = await readFile(join(world.targetDir, "assets/source/fern/shelter.png"));
   assert.equal(manifest.review.status, "pending");
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.contentHash, sha256(strip));
   assert.deepEqual(manifest.frames, { width: 32, height: 32, count: 6, durationMs: 250 });
   assert.deepEqual(manifest.anchor, { x: 16, y: 30 });
-  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.stevie" });
+  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.fern" });
   assert.equal(manifest.source.mediaType, "image/png");
   const p = manifest.provenance.generated;
   assert.deepEqual(p.models, [defaultRoutes.edit.model, defaultRoutes.vision.model]);
@@ -203,7 +203,7 @@ test("a candidate that failed QA cannot be picked, and the review field is alway
   );
   await pick({ runDir, candidateId: "c2", targetDir: world.targetDir });
   const manifest = JSON.parse(
-    await readFile(join(world.targetDir, "assets/manifests/stevie/shelter.json"), "utf8"),
+    await readFile(join(world.targetDir, "assets/manifests/fern/shelter.json"), "utf8"),
   );
   assert.equal(manifest.review.status, "pending");
 });
@@ -232,7 +232,7 @@ test("without a provenance path or an embedded record, the pick writes provenanc
   const result = await pick({ runDir, candidateId: "c1", targetDir: world.targetDir });
   assert.equal(
     result.provenancePath,
-    join(world.targetDir, "assets/source/stevie/shelter.png.provenance.json"),
+    join(world.targetDir, "assets/source/fern/shelter.png.provenance.json"),
   );
   const record = JSON.parse(await readFile(result.provenancePath!, "utf8"));
   assert.equal(record.requestIds.length, 7);

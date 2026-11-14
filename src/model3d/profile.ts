@@ -1,6 +1,6 @@
 /**
- * The target profile's `model3d` section and the 3D character spec fields (the contract shared
- * with clockgrove/raccoon-world#39; see docs/characters-3d.md).
+ * The target profile's `model3d` section and the 3D character spec fields (a contract shared
+ * with the target game; see docs/characters-3d.md).
  */
 import { InputError } from "../errors.ts";
 import type { AssetSpec, TargetProfile } from "../types.ts";

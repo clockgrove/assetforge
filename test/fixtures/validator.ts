@@ -1,6 +1,6 @@
 /**
- * A synthetic target validator, standing in for a target repository's own: it applies rules like
- * the public ones in Clockgrove's `packages/assets/docs/pipeline.md` to a manifest and its strip.
+ * A synthetic target validator, standing in for a target repository's own: it applies typical
+ * rules to a manifest and its strip.
  * Usage: node validator.ts <manifest path relative to the cwd>. Exit 0 accepts; 1 lists failures.
  */
 import { createHash } from "node:crypto";

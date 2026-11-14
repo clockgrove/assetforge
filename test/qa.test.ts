@@ -70,7 +70,7 @@ test("an off-palette colour fails palette", () => {
 
 test("parses fenced JSON with prose around it", () => {
   const text =
-    'Here you go:\n```json\n{"checks":[{"check":"identity","passed":true,"reason":"same raccoon"},' +
+    'Here you go:\n```json\n{"checks":[{"check":"identity","passed":true,"reason":"same fox"},' +
     '{"check":"perspective","passed":false,"reason":"top-down"},' +
     '{"check":"transparency","passed":true,"reason":"clean"},' +
     '{"check":"frame-count","passed":true,"reason":"six"}]}\n```';
@@ -115,7 +115,7 @@ test("combineQa passes only when every reason passes", () => {
 
 test("the prompt names the frame count, every check and the references", () => {
   const p = buildVisionPrompt({
-    subject: "raccoon",
+    subject: "fox",
     frameCount: 6,
     frame: { width: 48, height: 48 },
     referenceRoles: ["character", "perspective"],
@@ -131,7 +131,7 @@ test("the prompt names the frame count, every check and the references", () => {
 
 test("the expected perspective comes from the style bible, as data", () => {
   const p = buildVisionPrompt({
-    subject: "raccoon",
+    subject: "fox",
     frameCount: 1,
     frame: { width: 48, height: 48 },
     perspectiveDescription: "side-on, flat orthographic",

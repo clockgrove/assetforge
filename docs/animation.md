@@ -6,11 +6,11 @@ PRD §5.2. A strip, whether imported from a sheet ([sheet-import.md](sheet-impor
 
 ```sh
 # Written families: write-families already runs the pixel checks and writes the previews.
-pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
+pnpm assetgrove write-families --import .assetgrove/imports/<import> --target ../my-game
 
 # The full QA on one strip, identity flicker and holes included (vision calls within the cap).
 pnpm assetgrove animation-qa --strip walk-right.png --profile profile.json --family walk-right \
-  --out .assetgrove/animation [--subject jimothy] [--spec spec.json] [--no-vision] [--cap 1] [--dry-run] [--json]
+  --out .assetgrove/animation [--subject bram] [--spec spec.json] [--no-vision] [--cap 1] [--dry-run] [--json]
 
 # Or on every family an import wrote.
 pnpm assetgrove animation-qa --import .assetgrove/imports/<import> --profile profile.json
@@ -126,4 +126,4 @@ The provenance file is checked before the edit call, so a file the fix cannot ex
 
 ## Proof on real art
 
-The owner's Jimothy sheet is never committed. `test/real/animation.real.ts` runs on it when `JIMOTHY_SHEET` points at a local copy and `JIMOTHY_GROUPING` at an author-confirmed grouping: it imports, writes the families into a temporary target, runs the QA and writes the onion sheets and previews to `JIMOTHY_OUT` (default a temporary directory, printed). With `AI_GATEWAY_API_KEY` set it also runs one identity-flicker pass and one per-frame fix within a $2 cap. Run it with `pnpm test:real`; it skips without the sheet.
+A real sprite sheet is never committed. `test/real/animation.real.ts` runs on one when `ANIMATION_SHEET` points at a local copy and `ANIMATION_GROUPING` at an author-confirmed grouping: it imports, writes the families into a temporary target, runs the QA and writes the onion sheets and previews to `ANIMATION_OUT` (default a temporary directory, printed). With `AI_GATEWAY_API_KEY` set it also runs one identity-flicker pass and one per-frame fix within a $2 cap. Run it with `pnpm test:real`; it skips without the sheet.

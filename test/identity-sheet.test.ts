@@ -28,7 +28,7 @@ const reference: LoadedReference = (() => {
 })();
 
 const record: IdentityRecord = {
-  subject: "stevie",
+  subject: "bram",
   version: "v3",
   sha256: "0".repeat(64),
   fingerprint: {
@@ -76,8 +76,8 @@ async function run(
     sheetPath: "sheets/synthetic.png",
     tool: "synthetic",
     digitalSourceType: "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-    assetId: "stevie",
-    subject: "stevie",
+    assetId: "bram",
+    subject: "bram",
     profile: syntheticProfile(),
     importsDir: join(root, "imports"),
     importId: "imp1",

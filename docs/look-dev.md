@@ -9,11 +9,11 @@ Look-dev (wave 1 of [PLAN.md](PLAN.md); assetgrove#82) gives a picked, rigged 3D
 It checks each of these, then writes before-and-after renders beside the approved turnaround for the person who approves. It never regenerates the mesh, the UVs or the rig, and it never approves anything.
 
 ```sh
-assetgrove look-dev --model stevie.glb --provenance stevie.glb.provenance.json \
-  --spec art/stevie/character-3d/spec.json --bible art/style-bible.json \
+assetgrove look-dev --model fern.glb --provenance fern.glb.provenance.json \
+  --spec art/fern/character-3d/spec.json --bible art/style-bible.json \
   --profile art/target-profile-3d.json --dry-run
 assetgrove look-dev ... # AI_GATEWAY_API_KEY
-assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../raccoon-world
+assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../my-game
 ```
 
 `look-dev` stages a one-candidate run (`c1`), like `rig`, and `pick` hands it off. It exits 5 when the result fails a check that filters. The renders are still written, so the person can see why. `lookdev-markings` and the identity lock in shadow mode never filter: they are recorded, and the person judges the compare images.
@@ -23,7 +23,7 @@ assetgrove pick --run .assetgrove/runs/<run> --candidate c1 --target ../raccoon-
 Nothing in the code or the prompts names a style, a look or a species. The restyle prompt is composed from:
 
 - the bible's subject description;
-- the notes of the spec's `look` (for Raccoon World, `character`), with the shared notes;
+- the notes of the spec's `look`, with the shared notes;
 - the subject's approved references for that look.
 
 The groom prompt reads the season's `traits` from the profile, as given.
@@ -40,25 +40,21 @@ The groom prompt reads the season's `traits` from the profile, as given.
    - paint nothing that stands off the surface, such as whiskers or stray hairs;
    - after the first view, keep a marking already painted where it shows, and continue it in the same colour.
 
-   On Stevie (assetgrove#122), each view restyled on its own put the side view's eye mask where the three-quarter view put pale coat, because the image model drew the profile's eye higher than the mesh's. Their average was a grey smudge.
-
-   On Stevie (assetgrove#129), the three-quarter view, restyled before the side, set the cheek's mask edge and the tail's rings; the side view redrew both elsewhere, and the blend handed the cheek to the three-quarter view's pale coat. Restyled after the square-on views, the diagonal views extend their rings and mask.
-
    Each edited view is registered onto its render: the figure's box is scaled and moved onto the render's. It is then projected back onto the model's own UVs:
    - every texel is baked to its rest-pose surface point and normal;
    - a texel takes a view's colour only where it is visible in that view, on the depth map, and faces the camera;
    - it never takes the edit's background: where the edit drew its figure narrower than the render (a leg drawn thinner), the background colour connected to the image's border, grown by one pixel, is left out. A pixel where the render itself is background-coloured is kept, since there the model's surface cannot be told from background;
    - each view is weighted by how large the texel appears in it: the square root of the pixel area it covers, the view's pixels per unit of depth times √facing, relative to the largest, to the 4th power. A view's pixels fade out over the outer 8% of its frame, so a close-up whose frame cuts across the figure hands over smoothly. Where the views agree, the texel takes their weighted mean. Where they disagree (the facing⁴-weighted spread of their colours, smoothed over 0.8% of the texture's edge, rises from 12 to 36 of 255), the power rises smoothly to 48. The view that sees the texel largest then takes it over, so a marking two views paint in slightly different places stays crisp instead of averaging to grey, and the detail view takes the face.
 
-   On Stevie (assetgrove#143), close-ups from the two diagonals were tried as well. Each painted the cheeks its own way and won the face's sides from the front close-up, so the mask came out as a hard bar. The detail pass keeps the close-up's direction alone.
+   The detail pass keeps the close-up's direction alone.
 
-   Texels that no view sees squarely (the underside, a thin part's far edge) keep the source texture's detail, colour-matched to the projected result twice: across the whole texture, then locally. The local match adds the mean difference between the projected and the source colour over the seen texels around the texel in 3D, from the finest neighbourhood that holds enough of them (1.2% of the model's diagonal, doubling up to 6 times). So such a texel takes the colour its seen neighbours were painted, not the source's own marking there: on Stevie, the source's pale tail tip showed through the restyled dark one. The projection is made in 3D, so both sides of a UV seam receive the same colour. The islands are then dilated 8 px, so filtering never reads the background. The texture keeps the source's size, within the profile's `textureMaxPx`.
+   Texels that no view sees squarely (the underside, a thin part's far edge) keep the source texture's detail, colour-matched to the projected result twice: across the whole texture, then locally. The local match adds the mean difference between the projected and the source colour over the seen texels around the texel in 3D, from the finest neighbourhood that holds enough of them (1.2% of the model's diagonal, doubling up to 6 times). So such a texel takes the colour its seen neighbours were painted, not the source's own marking there. The projection is made in 3D, so both sides of a UV seam receive the same colour. The islands are then dilated 8 px, so filtering never reads the background. The texture keeps the source's size, within the profile's `textureMaxPx`.
 
 2. **Eyes and nose.** One `lookdev-locate` call (`google/gemini-3-flash`) reads a close-up front render and returns the pixel centre and radius of each eye and of the nose. Each point is cast onto the surface through the depth map, which gives a 3D sphere. The eye triangles are moved into their own material, `eyes`: the same base colour, roughness 0.05, no metal. Their mask is written too. Each eye gets a soft catch-light, offset toward the key light, painted into the `eyes` material's own emissive texture (emissive factor 1), never into the base colour. The target can keep it, or drop it and shade the eyes itself.
 3. **Paw pads.** From the target's rig template: the downward-facing surface under each foot's ankle-to-toe span.
 4. **Groom.** One `lookdev-groom` call per season reads the season's `traits` with the approved references. It returns fur length in millimetres and density (0 to 1) per region, and a tip tint where the coat's colour differs from the references. The regions are `face`, `cheek`, `head`, `neck`, `body`, `leg` and `tail`. They come from the rig template's joint roles and feet: the front of the head is face, and its lower sides are cheek. The maps are then written on the same UVs.
 
-   Fur no longer than the marking it grows in. A strand carries its root's colour wherever it lies, in any renderer that reads the maps. So a strand lying across a marking's edge smears the edge. On Stevie (assetgrove#131), 80 mm winter tail fur over its bands smeared them into a blurred brush. Each texel's length is therefore cut where a strand lying flat along its comb would reach a marking of another lightness, or run off the end of its part.
+   Fur no longer than the marking it grows in. A strand carries its root's colour wherever it lies, in any renderer that reads the maps. So a strand lying across a marking's edge smears the edge. Each texel's length is therefore cut where a strand lying flat along its comb would reach a marking of another lightness, or run off the end of its part.
    - The walk follows the surface in 3D, on the base colour's L\* smoothed at 0.6% of the model's diagonal, so the coat's fine texture is not an edge.
    - Another marking is 18 L\* away.
    - The cut is smoothed over about a centimetre of surface, and a strand keeps at least 30% of its length.
@@ -95,7 +91,7 @@ All of these are recorded as reasons before the person sees the result. A failin
 
 ## Contract
 
-The field names below are shared with clockgrove/raccoon-world#39 and Clockgrove's fur material. Names may be added, but none may be renamed without recording it on both issues.
+Targets read the field names below. Names may be added, but none may be renamed.
 
 **Profile**
 
@@ -140,7 +136,7 @@ The usual 3D outputs (`output.triangles`, `output.clips`, `output.bounds`, `outp
 
 **In the glTF**, the groom maps, tints and the eye mask are external images (`images[].uri`) next to the `.glb`. A target can then load them only on tiers that draw fur. `asset.extras.lookdev.images` maps each output field to its image index and `uri`.
 
-**Hand-off.** `pick` writes the `.glb`, then each side file next to it as `<assetId>.<field>.png` (for example `stevie.groom.winter.length.png`), through the profile's `layout`. The side files' `{ path, sha256 }` are set in `output.*` before the manifest renders, and then the target's validator runs. Reading the maps in the target's fur material is the target's work. Clockgrove's shell fur is clockgrove/clockgrove#242.
+**Hand-off.** `pick` writes the `.glb`, then each side file next to it as `<assetId>.<field>.png` (for example `fern.groom.winter.length.png`), through the profile's `layout`. The side files' `{ path, sha256 }` are set in `output.*` before the manifest renders, and then the target's validator runs. Reading the maps in the target's fur material is the target's work.
 
 A target whose validator takes only a self-contained `.glb` declares `model3d.handoff.sideImages: "embedded"` ([characters-3d.md](characters-3d.md#hand-off-shape)). `pick` then embeds those images in the `.glb`, drops `uri` from `asset.extras.lookdev.images`, and writes no side files, so `output.groom`, `output.textures` and `output.eyes` are not set.
 

@@ -93,7 +93,7 @@ PNG stores an uncompressed XMP packet in an `iTXt` chunk whose keyword is `XML:c
 
 Bounds, dimensions and transformation content identity come from decoded RGBA pixels. The `pixels` hash described above excludes container metadata, so adding XMP leaves that identity unchanged. File `sha256` values deliberately hash the complete written file, including XMP; manifest file hashes are calculated after embedding, so they still verify the bytes delivered to a target.
 
-The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetgrove. Clockgrove's public `validateSource` implementation can also be run separately against tagged outputs through that profile boundary.
+The target profile's validator command runs on the final tagged media and manifest. Lasting synthetic target-validator tests exercise that integration boundary in this repository. The target repository owns its actual validator, selected through profile data without game-specific checks in Assetgrove.
 
 The metadata adapter also supports JSON glTF through [Khronos `KHR_xmp_json_ld`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_xmp_json_ld), with the Digital Source Type URI in a document-level XMP packet. There is no glTF generator in the current pipeline; a future 3D writer must pass its output through that adapter. KTX2 outputs retain disclosure in their provenance sidecars.
 

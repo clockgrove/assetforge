@@ -3,15 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "node_modules/",
-      "coverage/",
-      "dist/",
-      ".assetgrove/",
-      // Vendored from Clockgrove as they are (test/fixtures/clockgrove/README.md).
-      "test/fixtures/clockgrove/{model-asset,validation,model}.ts",
-      "test/fixtures/clockgrove/inspect-model.mjs",
-    ],
+    ignores: ["node_modules/", "coverage/", "dist/", ".assetgrove/"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -22,8 +22,8 @@ Assetgrove is not on npm yet. Its 1.0 release publishes it as `@clockgrove/asset
 ```sh
 pnpm add -D --save-exact @clockgrove/assetgrove@<version>
 export AI_GATEWAY_API_KEY=...   # the Vercel AI Gateway key, from the environment only
-pnpm exec assetgrove stage --spec stevie-shelter.json --bible bible.json --profile profile.json
-pnpm exec assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../clockgrove
+pnpm exec assetgrove stage --spec fern-shelter.json --bible bible.json --profile profile.json
+pnpm exec assetgrove pick --run .assetgrove/runs/<run> --candidate c2 --target ../my-game
 ```
 
 Keep the run directory out of Git by adding `.assetgrove/` to `.gitignore`.
@@ -41,8 +41,8 @@ Every written strip is checked against its family's motion template (idle, walk,
 Any image, whether generated, imported or hand-made, can be transformed on its own, one operation at a time or with a recipe: `op matte in.png --out out.png`, or `recipe r.json in.png --out out/`. See [docs/transform.md](docs/transform.md).
 
 ```sh
-pnpm exec assetgrove import --sheet sheet.png --profile profile.json --asset stevie --tool "ChatGPT image generation"
-pnpm exec assetgrove write-families --import .assetgrove/imports/<import> --target ../clockgrove
+pnpm exec assetgrove import --sheet sheet.png --profile profile.json --asset fern --tool "ChatGPT image generation"
+pnpm exec assetgrove write-families --import .assetgrove/imports/<import> --target ../my-game
 ```
 
 ## Use from a coding agent (Claude Code, Codex, Copilot)
@@ -109,7 +109,7 @@ Assetgrove runs on Node 24 with pnpm (see [docs/decisions.md](docs/decisions.md)
 
 ## Status
 
-Pre-1.0 and under active design. The first adopter is [Clockgrove](https://github.com/clockgrove/clockgrove)'s Raccoon World.
+Pre-1.0 and under active design.
 
 ## License
 

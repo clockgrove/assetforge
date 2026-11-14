@@ -102,9 +102,9 @@ async function world(
   const bible = {
     version: "2026-11-10",
     palette: PALETTE,
-    references: roles.map((role) => ({ path: `refs/${role}.png`, role, subject: "stevie" })),
+    references: roles.map((role) => ({ path: `refs/${role}.png`, role, subject: "fern" })),
     perspective: "refs/turnaround-front.png",
-    subjects: { stevie: { description: "a lean grey raccoon with a dark mask and a ringed tail" } },
+    subjects: { fern: { description: "a lean grey fox with a dark mask and a ringed tail" } },
   };
   const files = {
     spec: join(dir, "spec.json"),
@@ -115,12 +115,12 @@ async function world(
     files.spec,
     JSON.stringify({
       kind: "character-3d",
-      assetId: "stevie",
-      subject: "stevie",
+      assetId: "fern",
+      subject: "fern",
       gait: "biped",
       clips: ["idle"],
       heightM: 0.5,
-      fields: { semantic: { role: "actor", entity: "grove.stevie" } },
+      fields: { semantic: { role: "actor", entity: "grove.fern" } },
       ...spec,
     }),
   );
@@ -269,17 +269,17 @@ test("stage writes rigged candidates with clips, renders and per-candidate QA; p
   const out = doc(picked);
   assert.equal(out["validator"].accepted, true, out["validator"].output);
   const manifest = JSON.parse(
-    await readFile(join(w.target, "characters/stevie/manifest.json"), "utf8"),
+    await readFile(join(w.target, "characters/fern/manifest.json"), "utf8"),
   );
   assert.equal(manifest.review.status, "pending");
   assert.equal(manifest.source.mediaType, "model/gltf-binary");
   assert.equal(manifest.model.extension, "glb");
   assert.deepEqual(manifest.model.clips, [{ name: "idle", durationMs: 1500, loop: true }]);
-  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.stevie" });
-  const written = new Uint8Array(await readFile(join(w.target, "characters/stevie/stevie.glb")));
+  assert.deepEqual(manifest.semantic, { role: "actor", entity: "grove.fern" });
+  const written = new Uint8Array(await readFile(join(w.target, "characters/fern/fern.glb")));
   assert.equal(readDigitalSourceType(written, "model/gltf-binary") !== undefined, true);
   const provenance = JSON.parse(
-    await readFile(join(w.target, "characters/stevie/stevie.glb.provenance.json"), "utf8"),
+    await readFile(join(w.target, "characters/fern/fern.glb.provenance.json"), "utf8"),
   );
   assert.equal(provenance.license, "MIT");
   assert.match(provenance.outputGrant.license, /LicenseRef-tripo-paid/);
@@ -434,7 +434,7 @@ test("a grant the target cannot accept is refused with exit 7 before anything is
   ]);
   assert.equal(accepted.code, 0, accepted.stdout + accepted.stderr);
   const manifest = JSON.parse(
-    await readFile(join(w.target, "characters/stevie/manifest.json"), "utf8"),
+    await readFile(join(w.target, "characters/fern/manifest.json"), "utf8"),
   );
   assert.equal(manifest.license, "CC-BY-4.0");
   assert.equal(manifest.credit, meshyFree.attribution);

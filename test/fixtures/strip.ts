@@ -174,7 +174,7 @@ export function syntheticStrip(options: StripOptions): {
  * A four-legged walk seen from three-quarters, drawn as blocks: near paws reach the ground line,
  * far paws stop 5 px higher, and each paw is down for three quarters of the cycle (moving back)
  * and lifted 3 px while it swings forward, a quarter cycle after the paw before it. The lowest
- * paw changes from frame to frame and the pattern runs once per cycle, as in a real raccoon walk.
+ * paw changes from frame to frame and the pattern runs once per cycle, as in a real fox walk.
  * `slide[f]` shifts frame f's legs (1-based) by that many px while the body stays put.
  */
 export function quadrupedWalk(

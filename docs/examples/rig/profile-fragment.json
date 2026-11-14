@@ -1,0 +1,26 @@
+{
+  "model3d": {
+    "rig": {
+      "template": "quadruped-template.json",
+      "kind": "quadruped"
+    },
+    "gaits": {
+      "walk": {
+        "footfall": ["hind_l", "fore_l", "hind_r", "fore_r"],
+        "dutyFactor": 0.68,
+        "strideBodyLengths": 0.26,
+        "stepHeightBodyLengths": 0.025,
+        "backArchDeg": 22,
+        "hipHeightRatio": 1.1,
+        "headPitchDeg": 28,
+        "tailPitchDeg": 18,
+        "tailSwayDeg": 8,
+        "speedBodyLengthsPerSecond": 0.35,
+        "swingCurlDeg": {
+          "fore": 45,
+          "hind": 10
+        }
+      }
+    }
+  }
+}

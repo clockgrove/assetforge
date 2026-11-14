@@ -336,7 +336,7 @@ test("import of a sheet that is not an image is invalid_input", async () => {
     "--profile",
     join(world.dir, "profile.json"),
     "--asset",
-    "stevie",
+    "fern",
     "--tool",
     "synthetic",
     "--no-propose",
@@ -369,7 +369,7 @@ const LFS_POINTER =
 
 test("generate-sheet refuses Git LFS pointer references as invalid_input with no provider call", async () => {
   const { world, base } = await files();
-  for (const ref of ["stevie-sheet.png", "stevie-turnaround.png", "den.png", "perspective.png"]) {
+  for (const ref of ["fern-sheet.png", "fern-turnaround.png", "den.png", "perspective.png"]) {
     await writeFile(join(world.bibleDir, "refs", ref), LFS_POINTER);
   }
   await writeFile(join(world.dir, "key-pose.png"), LFS_POINTER);
