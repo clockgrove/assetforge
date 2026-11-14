@@ -3,7 +3,7 @@
  * profile declares, made from a synthetic `.glb`, checked, staged, and handed off by `pick`. No
  * model is called.
  */
-import "./fixtures/spend-env.ts";
+import "./fixtures/env.ts";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
