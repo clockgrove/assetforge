@@ -1,6 +1,6 @@
 # Media transformation (images)
 
-The transformation core (PRD §5.11) runs deterministic image operations on any image: generated, imported or hand-made. Operations chain into recipes, which are declared as data. Engines sit behind one adapter, and every operation records one provenance step. The sheet import ([sheet-import.md](sheet-import.md)) is built on it.
+The transformation core runs deterministic image operations on any image: generated, imported or hand-made. Operations chain into recipes, which are declared as data. Engines sit behind one adapter, and every operation records one provenance step. The sheet import ([sheet-import.md](sheet-import.md)) is built on it.
 
 ## Commands
 

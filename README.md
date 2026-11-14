@@ -53,7 +53,7 @@ The package ships its skills under `skills/`. Install them into your harness wit
 - Run `stage --dry-run` first. It spends nothing and needs no key.
 - Name the work item (`ASSETGROVE_WORK_ITEM` or `--work-item`, for example the Objective; a Factory worker gets its Objective from `FACTORY_ISSUE` by default). Paid calls across runs are capped at $10 a day and $5 per work item by default; see [Spend limits](#spend-limits).
 - Set `AI_GATEWAY_API_KEY` in the environment. In a sandbox, allow the host `ai-gateway.vercel.sh`; it is the only host Assetgrove reaches. Inside a Factory stage, `FACTORY_GATEWAY_URL` points calls at Factory's metering relay instead, which holds the real key and counts each call against the Objective's caps.
-- Agents stage, humans pick (PRD §5.7). Agents never run `pick` or `write-families` and never confirm a grouping.
+- Agents stage, humans pick ([PRD principle 2](docs/PRD.md#principles)). Agents never run `pick` or `write-families` and never confirm a grouping.
 
 ## Commands and exit codes
 
