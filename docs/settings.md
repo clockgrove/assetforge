@@ -1,6 +1,6 @@
 # Developer settings
 
-Developer settings are one per-user file outside every project, and the only input that steers money, code or keys. Shared files (target profile, style bible, presets, recipes) and request inputs travel between developers, so they never name an endpoint, a cap above the settings, a route, a grant or a command. `src/settings.ts` loads the file, `src/formats.ts` checks its format line and `src/env.ts` is the one module that reads the environment.
+Developer settings are one per-user file outside every project, and the only input that steers money, code or keys. Shared files (target profile, style bible, presets, recipes) and request inputs travel between developers, so they never name an endpoint, a cap above the settings, a route, a grant or a command. `src/settings.ts` loads the file, `src/formats.ts` checks its format line and `src/env.ts` supplies every environment value they use.
 
 No command reads settings yet.
 
@@ -69,7 +69,7 @@ The file is JSON, validated with zod. Every object is strict: an unknown field a
 
 ## Refusals
 
-Loading exits 2 with the code `settings_invalid` (`SettingsError`) when:
+Loading throws `SettingsError`, with the code `settings_invalid`, when:
 
 - the file's real path is inside the Git top level of the cwd, of `--target` or of any input file (case-insensitive on Windows and macOS);
 - `$ASSETGROVE_CONFIG` is not absolute or names a missing file;
@@ -78,12 +78,13 @@ Loading exits 2 with the code `settings_invalid` (`SettingsError`) when:
 - any field is unknown;
 - any field anywhere is named `apiKey`, `key`, `token` or `secret` (in any case);
 - `stateDir` is relative or inside a project;
+- a `baseURL` carries a user name or password (the message shows only its origin and path);
 - a `baseURL` is neither https nor http on a loopback host (`localhost`, `127.0.0.0/8`, `[::1]`);
 - `free` is set on a provider without a loopback `baseURL`;
 - a role or route names a provider that is not in `providers`;
 - a limit of kind `unlimited` lacks `acceptUnlimited: true`.
 
-Refusals that depend on the adapter happen when providers are created.
+Refusals that depend on the adapter happen when providers are created. No command surfaces these errors yet: the CLI does not yet map `settings_invalid` or `format_unsupported` to their own exit codes.
 
 ## Format lines
 
@@ -91,7 +92,7 @@ Refusals that depend on the adapter happen when providers are created.
 
 ## Environment
 
-Only `src/env.ts` reads the environment. `checkEnvironment(allow, env)` refuses with `settings_invalid` when `NODE_EXTRA_CA_CERTS`, `NODE_TLS_REJECT_UNAUTHORIZED`, `NODE_USE_ENV_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY` or `ALL_PROXY` is set, in either case, and `environment.allow` does not list it. Each of these can redirect or unwrap the TLS that carries a key.
+Settings and the refusal rule read the environment through `src/env.ts`; older modules (`src/cli.ts`, `src/spend.ts`, `src/gateway/*`) still read `process.env` directly. `checkEnvironment(allow, env)` refuses with `settings_invalid` when `NODE_EXTRA_CA_CERTS`, `NODE_TLS_REJECT_UNAUTHORIZED`, `NODE_USE_ENV_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY` or `ALL_PROXY` is set, in either case, and `environment.allow` does not list it. Each of these can redirect or unwrap the TLS that carries a key.
 
 ## Tests
 

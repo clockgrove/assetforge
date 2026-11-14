@@ -150,7 +150,7 @@ export interface LoadOptions {
 }
 
 /** Where the settings file is: `$ASSETGROVE_CONFIG`, else `<configHome>/assetgrove/settings.json`. */
-export function settingsPath(env: Env = process.env, platform: string = process.platform): string {
+export function settingsPath(env?: Env, platform: string = process.platform): string {
   const override = configOverride(env);
   if (override !== undefined) {
     if (!isAbsolute(override)) {
@@ -163,7 +163,8 @@ export function settingsPath(env: Env = process.env, platform: string = process.
 
 /** Finds, validates and completes the developer settings. Throws `SettingsError` on any refusal. */
 export function loadSettings(options: LoadOptions = {}): Settings {
-  const env = options.env ?? process.env;
+  // Left undefined unless a test passes one, so src/env.ts supplies process.env.
+  const env = options.env;
   const platform = options.platform ?? process.platform;
   const path = settingsPath(env, platform);
   const configDir = dirname(path);
@@ -270,9 +271,16 @@ function checkProviders(file: SettingsFile, path: string): void {
   for (const [id, provider] of Object.entries(providers)) {
     const url = provider.baseURL !== undefined ? new URL(provider.baseURL) : undefined;
     const loopback = url !== undefined && isLoopback(url.hostname);
+    // Never echo the URL whole: its userinfo or query could carry a key.
+    const shown = url === undefined ? "" : `${url.protocol}//${url.host}${url.pathname}`;
+    if (url !== undefined && (url.username !== "" || url.password !== "")) {
+      throw new SettingsError(
+        `${path}: providers.${id}.baseURL ${shown} carries a user name or password; settings never hold a key. Name the environment variable that holds it with keyEnv.`,
+      );
+    }
     if (url !== undefined && url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
       throw new SettingsError(
-        `${path}: providers.${id}.baseURL must be https, or http on a loopback host; got ${provider.baseURL}.`,
+        `${path}: providers.${id}.baseURL must be https, or http on a loopback host; got ${shown}.`,
       );
     }
     if (provider.free === true && !loopback) {

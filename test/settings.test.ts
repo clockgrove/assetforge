@@ -244,6 +244,25 @@ test("an http non-loopback baseURL is refused", () => {
   );
 });
 
+test("a baseURL with a user name or password is refused without printing it", () => {
+  for (const baseURL of [
+    "https://u:sk-synthetic@relay.example/v1",
+    "http://u:sk-synthetic@relay.example/v1",
+    "https://sk-synthetic@relay.example/v1",
+  ]) {
+    assert.throws(
+      () => load({ format: FORMAT, providers: { p: { adapter: "a", baseURL } } }),
+      (error: unknown) => {
+        assert.ok(error instanceof SettingsError);
+        assert.equal(error.code, "settings_invalid");
+        assert.match(error.message, /user name or password/);
+        assert.doesNotMatch(error.message, /sk-synthetic/);
+        return true;
+      },
+    );
+  }
+});
+
 test("a role or route naming a provider not in providers is refused", () => {
   assert.throws(
     () => load({ format: FORMAT, roles: { judge: { provider: "ghost", model: "m" } } }),

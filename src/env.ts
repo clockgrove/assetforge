@@ -1,5 +1,5 @@
 /**
- * The one module that reads the environment: settings location, config and state homes, and the
+ * Where settings and the refusal rule read the environment: settings location, config and state homes, and the
  * variables that can redirect or unwrap the TLS carrying a key.
  */
 import { homedir } from "node:os";
@@ -8,7 +8,7 @@ import { InputError } from "./errors.ts";
 
 export type Env = Record<string, string | undefined>;
 
-/** A refusal of settings or the environment they allow; the CLI exits 2 `settings_invalid`. */
+/** A refusal of settings or the environment they allow, with the code `settings_invalid`. */
 export class SettingsError extends InputError {
   readonly code = "settings_invalid";
 
