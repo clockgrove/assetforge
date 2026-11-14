@@ -1,4 +1,4 @@
-import "./fixtures/spend-env.ts";
+import "./fixtures/env.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

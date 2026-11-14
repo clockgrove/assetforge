@@ -1,4 +1,4 @@
-import "./fixtures/spend-env.ts";
+import "./fixtures/env.ts";
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";

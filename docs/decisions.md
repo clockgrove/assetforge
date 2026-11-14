@@ -143,3 +143,7 @@ Assetgrove writes the licence the target profile declares and records the models
 ## Provider output grants
 
 Provider terms differ on who owns an output, so each route declares its `outputGrant` (`license`, `plan`, `commercial`, `relabel`, `attribution`), every call records it, and the provenance carries the most restrictive combination over its calls. The provenance's `license` is the target's licence only when the grant allows relabelling; otherwise it is the granted licence, when that licence is commercial and the target lists it in `acceptedLicenses`. Anything else is refused at hand-off (`pick`, `write-families`) with exit 7 (`license_refused`) before a file is written. Staging is unaffected, so free-credit trials that never reach a target still run.
+
+## Settings are validated with zod; command inputs stay JSON Schema
+
+The developer settings file is validated with zod, which is a direct dependency pinned to the version `ai` already brings in. Its strict objects refuse unknown fields at every level and report every issue together with its path. Command input schemas stay JSON Schema, because they are the published contract that the skill reference and MCP clients read.
